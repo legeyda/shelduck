@@ -80,8 +80,8 @@ fetch_dependency() {
 }
 
 fetch_url() {
-	: "${BASE_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/master}"
-	fetch_url_result="$(curl --fail --silent --show-error --location "$BASE_URL/$1")"
+	: "${SHELDUCK_BASE_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/master}"
+	fetch_url_result="$(curl --fail --silent --show-error --location "$SHELDUCK_BASE_URL/$1")"
 }
 
 
@@ -91,9 +91,8 @@ run_test() {
 	eval_dependency assert.sh
 
 
-
 	shelduck file://echo.sh test_shelduck_echo=echo
-	assert_equals hello "$(test_shelduck_echo hello)"
+	assert_equals 'ahoi (starts with a)' "$(test_shelduck_echo ahoi)"
 	echo 'all tests passed'
 }
 

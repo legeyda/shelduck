@@ -6,26 +6,15 @@ shelduck() {
 		return 1
 	fi
 	
-	: "${shelduck_recursion_depth:=0}"
-	if [ 0 -eq "$shelduck_recursion_depth" ]; then
-		shelduck_load_alias_strategy=wrap
-		shelduck_load_base_url=
-	else
-		shelduck_load_alias_strategy=rename
-		shelduck_load_base_url="$shelduck_previous_url"
-	fi
 
-	shelduck_recursion_depth=$(( 1 + shelduck_recursion_depth ))
 	shelduck_load "$@"
 	eval "$shelduck_load_result"
 	unset shelduck_load_result
-	shelduck_recursion_depth=$(( -1 + shelduck_recursion_depth ))
 
-	if [ 0 -eq "$shelduck_recursion_depth" ]; then
-		unset shelduck_recursion_depth shelduck_previous_url
-	else
-		shelduck_previous_url="$1"
-	fi
+}
+
+shelduck_eval() {
+	bobshell_die not implemented
 }
 
 
@@ -41,10 +30,26 @@ shelduck_usage() {
 # env: shelduck_load_alias_strategy
 #      shelduck_load_base_url
 shelduck_load() {
+	# mark recursive function enter
+	: "${shelduck_load_depth:=0}"
+	if [ 0 -eq "$shelduck_load_depth" ]; then
+		shelduck_load_alias_strategy=wrap
+		shelduck_load_base_url="${SHELDUCK_BASE_URL:-}"
+	else
+		shelduck_load_alias_strategy=rename
+		shelduck_load_base_url="$shelduck_load_previous_url"
+	fi
+	shelduck_load_depth=$(( 1 + shelduck_load_depth ))
+
+
 
 	# load script body
-	shelduck_load_result=$(shelduck_cached_fetch_url "$1")
+	bobshell_resolve_url_result=
+	bobshell_resolve_url "$1" "$shelduck_load_base_url"
+	shelduck_load_url="$bobshell_resolve_url_result"
+	unset bobshell_resolve_url_result
 	shift
+	shelduck_load_result=$(shelduck_cached_fetch_url "$shelduck_load_url")
 
 	# analyze functions
 	shelduck_load_regex='^ *([A-Za-z0-9_]+) *\( *\) *\{ *$' # match shell function declaration '  function_name  (   )  {  '
@@ -77,7 +82,15 @@ $key() {
 		fi
 		unset shelduck_function_name
 	done
-	unset shelduck_load_function_names
+	unset shelduck_load_url shelduck_load_function_names
+
+	# mark recursive function exit
+	shelduck_load_depth=$(( -1 + shelduck_load_depth ))
+	if [ 0 -eq "$shelduck_load_depth" ]; then
+		unset shelduck_load_depth shelduck_load_previous_url
+	else
+		shelduck_load_previous_url="$shelduck_load_url"
+	fi
 }
 
 

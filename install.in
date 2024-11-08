@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+# todo
+
 # shelduck_src
 install_shelduck() {
 	if command -v shelduck; then

@@ -1,0 +1,119 @@
+#!/bin/sh
+set -eu
+ 
+main() {
+	test -z "${1:-}" || die 'first argument must be set'
+	src=$(cached_fetch_url "$1")
+
+	if [ "${2+set}" != set ]; then # unset
+		default=$(derive_scope "$1")
+		scope="${default}_"
+		envscope=
+	elif [ -z "${2:-}" ]; then # set but null
+		default=$(derive_scope "$1")
+		scope=
+		envscope=
+	else # set and not null
+		default="$2"
+		scope="${default}_"
+		envscope=
+	fi
+
+	replace_substring "$src" __default__ "$default"  src
+	replace_substring "$src"    "$scope"    src
+	replace_substring "$src" __ENV__     "$envscope" src
+	printf %s "$src"
+
+}
+
+
+# use: derive_scope 'https://github.com/legeyda/shelduck/lib/sshauth.sh?query' # gives sshauth
+derive_scope() {
+	set -- "${1%%\?*}"
+	set -- "${1##*/}"
+	set -- "${1%%\.*}"
+	echo "$1"
+}
+
+cached_fetch_url() {
+	# todo implement cache
+	fetch_url "$1"
+}
+
+fetch_url() {
+	if starts_with "$1" 'file://'; then
+		cat "$starts_with_rest"
+	elif is_installed curl; then
+		fetch_url_with_curl "$1"
+	elif is_installed wget; then
+		fetch_url_with_wget "$1"
+	else
+		die 'error: neither curl nor wget installed'
+	fi
+}
+
+is_installed() {
+	command -v "$1" > /dev/null
+}
+
+fetch_url_with_curl() {
+	curl --fail --silent --show-error --location "$1"
+}
+
+fetch_url_with_wget() {
+	# --max-redirects
+	wget --no-verbose --output-document -
+}
+
+
+# txt: заменить в $1 все вхождения строки $2 на строку $3 и записать результат в переменную $4
+# use: replace_substring hello e E RES # sets RES to hEllo
+replace_substring() {
+  # https://freebsdfrau.gitbook.io/serious-shell-programming/string-functions/replace_substringall
+  replace_substring_result=
+  replace_substring_rest="$1"
+  assert_not_empty "$2" 'replace_substring: searched substring must not be empty'
+  while :; do
+      case "$replace_substring_rest" in *$2*)
+          replace_substring_result="$replace_substring_result${replace_substring_rest%%"$2"*}$3"
+          replace_substring_rest="${replace_substring_rest#*"$2"}"
+          continue
+      esac
+      break
+  done
+  replace_substring_result="$replace_substring_result${replace_substring_rest#*"$2"}"
+  putvar "${4:-replace_substring_result}" "$replace_substring_result"
+}
+
+die() {
+  # https://github.com/biox/pa/blob/main/pa
+  printf '%s: %s.\n' "$(basename "$0")" "${*:-error}" >&2
+  exit 1
+}
+
+
+
+
+
+entry_point() {
+  set -eu
+  
+  script_path=$(realpath "$0")
+  main_pid=$$
+  script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+  main "$@"
+}
+
+
+# invoke entry_point if script is actually run, not sourced (see https://stackoverflow.com/a/28776166)
+if [ -n "${ZSH_VERSION:-}" ]; then 
+  case $ZSH_EVAL_CONTEXT in *:file) ;; *) entry_point "$@";; esac
+elif [ -n "${KSH_VERSION:-}" ]; then
+  # shellcheck disable=SC2296 we have explicitly checked for ksh
+  [ "$(cd -- "$(dirname -- "$0")" && pwd -P)/$(basename -- "$0")" != "$(cd -- "$(dirname -- "${.sh.file}")" && pwd -P)/$(basename -- "${.sh.file}")" ] || entry_point "$@"
+elif [ -n "${BASH_VERSION:-}" ]; then
+  (return 0 2>/dev/null) || entry_point "$@"
+else # All other shells: examine $0 for known shell binary filenames.
+     # Detects `sh` and `dash`; add additional shell filenames as needed.
+  case ${0##*/} in sh|-sh|dash|-dash) ;; *) entry_point "$@" ;; esac
+fiTHIS FILE IS GENERATED AUTOMATICALLY, DO NOT EDIT IT MANUALLY, EDIT shelduck.sh.in AND RUN sh ./run build TO REGENERATE ITTHIS FILE IS GENERATED AUTOMATICALLY, DO NOT EDIT IT MANUALLY, EDIT shelduck.sh.in AND RUN sh ./run build TO REGENERATE IT

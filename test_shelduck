@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+# mock for now
+shelduck() {
+	echo 'mock shelduck does nothing'
+}
+
+. ./lib.sh
+
+eval_url assert.sh
+eval_url string.sh
+eval_url url.sh
+
+. ./shelduck.sh.in
+
+
+
+
+success

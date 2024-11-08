@@ -1,0 +1,68 @@
+#!/bin/sh
+set -eu
+
+# shelduck_src
+install_shelduck() {
+	if command -v shelduck; then
+		errcho "shelduck seems to be already installed as $(command -v shelduck)"
+		return
+	fi
+
+	if [ 0 = "${UID:-1}" ]; then
+		install_shelduck_bin_dir="$PREFIX/opt/bin"
+		install_shelduck_profile_script="$PREFIX/etc/profile"
+	else
+		install_shelduck_bin_dir="$PREFIX$HOME/.local/bin"
+		install_shelduck_profile_script="$PREFIX$HOME/.profile"
+	fi
+
+	if [ -f "" ]; then
+		die "something wrong: $install_shelduck_bin_dir/shelduck already exists"
+	fi
+
+
+	mkdir -p "$install_shelduck_bin_dir"
+
+	#
+	install_shelduck_marker='end of'
+	install_shelduck_marker="$install_shelduck_marker installer"
+
+	# 
+	install_shelduck_script="$(cat "$0")"
+	printf %s "${install_shelduck_script#*"$install_shelduck_marker"}" > "$install_shelduck_bin_dir/shelduck"
+	chmod ugo+x "$install_shelduck_bin_dir/shelduck"
+
+	#
+	if command -v shelduck; then
+		errcho 'shelduck was successfully installed to %s, which seems to be already in the PATH' "$install_shelduck_bin_dir"
+		return
+	fi
+
+	# 
+	mkdir -p "$(dirname "$install_shelduck_profile_script")"
+	# shellcheck disable=SC2016
+	line_in_file='PATH=%s:$PATH'
+	grep --quiet -- "$line_in_file" 
+	printf '\n\n#shelduck installer\n%s' "$line_in_file" >> "$install_shelduck_profile_script"
+
+	#
+	if ! command -v shelduck; then
+		die "something wrong: shelduck was installed as $install_shelduck_bin_dir/shelduck, dir added to path in $install_shelduck_profile_script, but not accessible"
+	fi
+
+	printf 'shelduck was successfully installed to %s' "$install_shelduck_bin_dir" >&2
+}
+
+die() {
+  # https://github.com/biox/pa/blob/main/pa
+  errcho '%s: %s.\n' "$(basename "$0")" "${*:-error}" >&2
+  exit 1
+}
+
+errcho() {
+	printf %s "$*" >&2
+}
+
+install_shelduck "$@"
+
+exit # end of installer

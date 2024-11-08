@@ -1,0 +1,132 @@
+
+# https://github.com/ajdiaz/bashdoc
+shelduck() {
+	if [ -z "${1:-}" ]; then
+		shelduck_usage >&2
+		return 1
+	fi
+	
+	: "${shelduck_recursion_depth:=0}"
+	if [ 0 -eq "$shelduck_recursion_depth" ]; then
+		shelduck_load_alias_strategy=wrap
+		shelduck_load_base_url=
+	else
+		shelduck_load_alias_strategy=rename
+		shelduck_load_base_url="$shelduck_previous_url"
+	fi
+
+	shelduck_recursion_depth=$(( 1 + shelduck_recursion_depth ))
+	shelduck_load "$@"
+	eval "$shelduck_load_result"
+	unset shelduck_load_result
+	shelduck_recursion_depth=$(( -1 + shelduck_recursion_depth ))
+
+	if [ 0 -eq "$shelduck_recursion_depth" ]; then
+		unset shelduck_recursion_depth shelduck_previous_url
+	else
+		shelduck_previous_url="$1"
+	fi
+}
+
+
+
+shelduck_usage() {
+	printf %s 'Usage: shelduck URL [ALIAS...]'
+}
+
+
+
+# use: shelduck_load URL [ALIAS...]
+# use: echo "$shelduck_load_result"
+# env: shelduck_load_alias_strategy
+#      shelduck_load_base_url
+shelduck_load() {
+
+	# load script body
+	shelduck_load_result=$(shelduck_cached_fetch_url "$1")
+	shift
+
+	# analyze functions
+	shelduck_load_regex='^ *([A-Za-z0-9_]+) *\( *\) *\{ *$' # match shell function declaration '  function_name  (   )  {  '
+	shelduck_load_function_names="$(printf %s "$shelduck_load_result" | sed --silent --regexp-extended "s/$shelduck_load_regex/\1/p")"
+	unset shelduck_load_regex
+	# todo detect function name collizion and print warning if so
+	
+	# handle aliases
+	for arg in "$@"; do
+		# todo assert $arg not empty
+		if ! bobshell_split_key_value "$arg" = key value; then
+			key="$arg"
+			value="$arg"
+		fi
+		shelduck_require_not_empty "$key"   line "$arg": key   expected not to be empty
+		shelduck_require_not_empty "$value" line "$arg": value expected not to be empty
+		
+		shelduck_function_name="$(printf %s "$shelduck_load_function_names" | grep -E "^.*$value\$")"
+		if [ -n "$shelduck_function_name" ]; then
+			if [ wrap = "$shelduck_load_alias_strategy" ]; then
+			shelduck_load_result="$shelduck_load_result
+
+$key() {
+	$shelduck_function_name \"\$@\";
+}
+"
+			else
+				shelduck_die "shelduck_load_alias_strategy: value $shelduck_load_alias_strategy not supported"
+			fi
+		fi
+		unset shelduck_function_name
+	done
+	unset shelduck_load_function_names
+}
+
+
+
+
+shelduck_cached_fetch_url() {
+	# bypass cache if local file
+	if bobshell_starts_with "$1" 'file://' file_name; then
+		# shellcheck disable=SC2154
+		# starts_with sets variable file_name indirectly
+		cat "$file_name"
+		unset file_name
+		return
+	fi
+	# todo implement cache
+	# todo timeout
+	bobshell_fetch_url "$1"
+}
+
+
+
+
+
+
+# FILE DOWNLOAD
+
+
+
+
+
+# UTILS
+
+shelduck_die() {
+  # https://github.com/biox/pa/blob/main/pa
+  printf '%s: %s.\n' "$(basename "$0")" "${*:-error}" >&2
+  exit 1
+}
+
+
+# REQUIREMENTS
+
+shelduck_require_not_empty() {
+	if [ -z "${1:-}" ]; then
+		shift
+		die "$@"
+	fi
+}
+
+
+
+
+

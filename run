@@ -1,0 +1,106 @@
+#!/bin/sh
+set -eu
+
+main() {
+	test -n "$1" || die 'required argument missing'
+
+	# shellcheck disable=SC2145
+	run_"$@"
+}
+
+run_init() {
+	for file in shelduck.sh shelduck install; do
+		jqscript="${jqscript:-}${jqscript:+ | }.[\"files.readonlyInclude\"][\"$file\"]=true"
+	done
+
+	file=.vscode/settings.json
+	if [ ! -e "$file" ] || [ ! -s "$file" ]; then
+		mkdir -p .vscode
+		printf '{}' > "$file"
+	fi
+
+
+	tempfile=$(mktemp)
+	cp --no-target-directory "$file" "$tempfile"
+	jq "$jqscript" "$tempfile" > "$file"
+	unset jqscript file tempfile
+}
+
+die() {
+  # https://github.com/biox/pa/blob/main/pa
+  printf '%s: %s.\n' "$(basename "$0")" "${*:-error}" >&2
+  exit 1
+}
+
+run_usage() {
+	printf '%s\n' "Usage: $0 build"
+}
+
+run_clean() {
+	rm -rf target
+	rm -f shelduck.sh
+}
+
+run_build() {
+
+	# build shelduck.sh
+	print_generated_file_warning shelduck.sh.in > shelduck.sh
+	cat shelduck.sh.in >> shelduck.sh
+	for dependency in url.sh string.sh base.sh; do
+		fetch_dependency "$dependency"
+		printf '%s' "$fetch_dependency_result" >> shelduck.sh
+	done
+	unset dependency
+	
+	# build installer
+	print_generated_file_warning instal.in > install
+
+	# load to variable to remove any trailing new lines
+	# install
+	# install_script="$(cat install.in)"
+	# printf "#!bin/sh\n#THIS FILE IS GENERATED AUTOMATICALLY, DO NOT EDIT IT MANUALLY, EDIT install.in AND RUN sh ./run build TO REGENERATE IT\n\n$install_script" >> install
+	# printf %s "$install_script" > install
+	# cat shelduck >> install
+
+}
+
+print_generated_file_warning() {
+	printf '# THIS FILE IS GENERATED AUTOMATICALLY, DO NOT EDIT IT MANUALLY.\n'
+	printf "# Instead, edit %s and run %s to regenerate it\n\n" "${1:-file}" "${2:-sh ./run build}"
+}
+
+fetch_dependency() {
+	fetch_url "$1"
+	fetch_dependency_result=$(printf '%s' "$fetch_url_result" | sed -E 's/^(shelduck .*)$/# disable recursive dependency resolution when building shelduck itself\n# \1/g')
+	unset fetch_url_result
+	fetch_dependency_result="$fetch_dependency_result
+
+
+"
+}
+
+fetch_url() {
+	: "${BASE_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/master}"
+	fetch_url_result="$(curl --fail --silent --show-error --location "$BASE_URL/$1")"
+}
+
+
+run_test() {
+	run_build
+	. ./shelduck.sh
+	eval_dependency assert.sh
+
+
+
+	shelduck file://echo.sh test_shelduck_echo=echo
+	assert_equals hello "$(test_shelduck_echo hello)"
+	echo 'all tests passed'
+}
+
+eval_dependency() {
+	fetch_dependency "$1"
+	eval "$fetch_dependency_result"
+	unset fetch_dependency_result
+}
+
+main "$@"

@@ -1,23 +1,13 @@
-shelduck is a tiny tool to fetch dependencies for shell scripts.
-
-Naming:
-	-	nutshell
-	-	shelduck
-	-	bobshell
-	-	penshell
-	-	atomshell
-	-	binshelll
-	-	bigshell
-	-	shelton
-	-	shelter
-	-	shelby
-	-	sheldon
-	-	shelduck
+Shelduck is a tiny tool to fetch dependencies for shell scripts.
 
 
-Example:
+
+Usage:
+
+Use at runtime. Insert into script
 
 	shelduck https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/master/base.sh substr isprefix=starts_with falias=function_alias shelduck_*
+	
 	shelduck https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/master/sshauth.sh '*=shelduck_*'
 	function_alias copy=shelduck_copy_resource
 

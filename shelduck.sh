@@ -47,11 +47,11 @@ shelduck_print_internal() {
 
 	if ! bobshell_contains "$shelduck_url_history" "$1"; then
 		shelduck_print_tree "$@"
+		shelduck_url_history="$shelduck_url_history $1"
 	else
 		shelduck_print_script "$@"
 	fi
 
-	shelduck_url_history="$shelduck_url_history $1"
 }
 
 
@@ -93,12 +93,13 @@ shelduck_print_tree() {
 	set -- "$1" "$shelduck_print_tree_url_base" "$shelduck_print_tree_current_script"
 	
 	# print dependencies
-	shelduck_print_dependencies "$shelduck_print_tree_current_script"
+	shelduck_alias_strategy=wrap
+	shelduck_print_dependencies "$shelduck_print_tree_current_script" "$shelduck_print_tree_url_base"
 	
 
 	# print script to result
 	printf '\n\n\n\n'
-	printf '# shelduck dependency: %s\n\n' "$3"
+	printf '# shelduck dependency: %s\n\n' "$1"
 	printf %s "$3"
 
 
@@ -111,17 +112,17 @@ shelduck_print_tree() {
 }
 
 
-# fun: shelduck_for_each_line SCRIPT
+# fun: shelduck_for_each_line SCRIPT URLBASE
 # txt: supports recursion
 shelduck_print_dependencies() {
 	# grep for shelduck commands and save to $1
 	shelduck_print_tree_dep_lines=$(printf %s "$1" | sed --silent --regexp-extended 's/^ *shelduck (.*)$/\1/pg')
-	set -- "$shelduck_print_tree_dep_lines"
+	set -- "$shelduck_print_tree_dep_lines" "$2"
 	unset shelduck_print_tree_dep_lines
 
 	shelduck_print_dependencies_part=
 	bobshell_for_each_part "$1" '
-' shelduck_print_dependencies_part eval shelduck_print_internal '$shelduck_print_dependencies_part'
+' shelduck_print_dependencies_part eval "shelduck_url_base='$2'" shelduck_print_internal '$shelduck_print_dependencies_part'
 	unset shelduck_print_dependencies_part
 }
 
@@ -132,6 +133,7 @@ shelduck_print_dependencies() {
 shelduck_print_script() {
 
 	# print script
+	shelduck_print_script_url="$1"
 	shelduck_print_script_output=$(shelduck_cached_fetch_url "$1")
 	if ! bobshell_contains "$shelduck_url_history" "$1"; then
 		# todo remove duplicate check
@@ -157,17 +159,22 @@ shelduck_print_script() {
 		bobshell_require_not_empty "$key"   line "$arg": key   expected not to be empty
 		bobshell_require_not_empty "$value" line "$arg": value expected not to be empty
 		
-		shelduck_print_script_function_name="$(printf %s "$shelduck_print_script_function_names" | grep -E "^.*$value\$")"
+		shelduck_print_script_function_name="$(printf %s "$shelduck_print_script_function_names" | grep -E "^.*$value\$" || true)"
 		if [ -n "$shelduck_print_script_function_name" ]; then
 			if [ wrap = "$shelduck_alias_strategy" ]; then
-				printf '\n\n%s(){\n	%s "$@"\n}\n' "$key" "$shelduck_print_script_function_name"
+				printf '\n\n'
+				printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$shelduck_print_script_url" 
+				printf '\n%s() {' "$key"
+				printf '\n	%s "$@"' "$shelduck_print_script_function_name"
+				printf '\n}'
+				printf '\n'
 			else
 				bobshell_die "shelduck_alias_strategy: value $shelduck_alias_strategy not supported"
 			fi
 		fi
 		unset key value shelduck_print_script_function_name
 	done
-	unset shelduck_print_script_function_names	
+	unset shelduck_print_script_function_names
 }
 
 
@@ -326,7 +333,7 @@ bobshell_for_each_part() {
 		bobshell_putvar "$bobshell_for_each_part_varname" "$bobshell_for_each_part_current"
 		$bobshell_for_each_part_command
 	done
-	unset part bobshell_for_each_part_rest bobshell_for_each_part_separator bobshell_for_each_part_varname bobshell_for_each_part_command
+	unset bobshell_for_each_part_rest bobshell_for_each_part_separator bobshell_for_each_part_varname bobshell_for_each_part_command "$3"
 }
 
 

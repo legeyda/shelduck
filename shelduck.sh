@@ -2,98 +2,172 @@
 # Instead, edit shelduck.sh.in and run sh ./run build to regenerate it
 
 
-# https://github.com/ajdiaz/bashdoc
+# see https://github.com/ajdiaz/bashdoc
+
+
+
 shelduck() {
-	if [ -z "${1:-}" ]; then
-		shelduck_usage >&2
-		return 1
-	fi
-	
-
-	shelduck_load "$@"
-	eval "$shelduck_load_result"
-	unset shelduck_load_result
-
+	shelduck_eval "$@"
 }
-
-shelduck_eval() {
-	bobshell_die not implemented
-}
-
 
 
 shelduck_usage() {
 	printf %s 'Usage: shelduck URL [ALIAS...]'
 }
 
+shelduck_eval() {
+	shelduck_eval_script="$(shelduck_print "$@")"
+	eval "$shelduck_eval_script"
+	unset shelduck_eval_script
+}
+
+shelduck_print() {
+	shelduck_url_base=
+	shelduck_url_history=
+	shelduck_alias_strategy=wrap
+
+	shelduck_print_internal "$@"
+}
 
 
-# use: shelduck_load URL [ALIAS...]
-# use: echo "$shelduck_load_result"
-# env: shelduck_load_alias_strategy
-#      shelduck_load_base_url
-shelduck_load() {
-	# mark recursive function enter
-	: "${shelduck_load_depth:=0}"
-	if [ 0 -eq "$shelduck_load_depth" ]; then
-		shelduck_load_alias_strategy=wrap
-		shelduck_load_base_url="${SHELDUCK_BASE_URL:-}"
-	else
-		shelduck_load_alias_strategy=rename
-		shelduck_load_base_url="$shelduck_load_previous_url"
-	fi
-	shelduck_load_depth=$(( 1 + shelduck_load_depth ))
+# shelduck_parse_cli() {
+# 	shelduck_parse_cli_url="$1"
+# 	shift
+# 	shelduck_parse_cli_aliases="$*"
+# }
 
 
-
-	# load script body
-	bobshell_resolve_url_result=
-	bobshell_resolve_url "$1" "$shelduck_load_base_url"
-	shelduck_load_url="$bobshell_resolve_url_result"
-	unset bobshell_resolve_url_result
+# env: shelduck_print_url_history
+shelduck_print_internal() {
+	# todo normal cli
+	abs_url=$(bobshell_resolve_url "$1" "${SHELDUCK_BASE_URL:-}")
 	shift
-	shelduck_load_result=$(shelduck_cached_fetch_url "$shelduck_load_url")
+	set -- "$abs_url" "$@"
+	unset abs_url
 
-	# analyze functions
-	shelduck_load_regex='^ *([A-Za-z0-9_]+) *\( *\) *\{ *$' # match shell function declaration '  function_name  (   )  {  '
-	shelduck_load_function_names="$(printf %s "$shelduck_load_result" | sed --silent --regexp-extended "s/$shelduck_load_regex/\1/p")"
-	unset shelduck_load_regex
+	if ! bobshell_contains "$shelduck_url_history" "$1"; then
+		shelduck_print_tree "$@"
+	else
+		shelduck_print_script "$@"
+	fi
+
+	shelduck_url_history="$shelduck_url_history $1"
+}
+
+
+# fun: shelduck_print_script URL [ALIAS...]
+# txt: print script and all dependencies recursively
+shelduck_print_tree() {
+	#: "${shelduck_url_base:=${SHELDUCK_BASE_URL:-}}"
+
+
+	# # mark recursive function enter
+	# : "${shelduck_print_script_depth:=0}"
+	# if [ 0 -eq "$shelduck_print_script_depth" ]; then
+	# 	shelduck_print_tree_urls=
+	# 	shelduck_alias_strategy=wrap
+	# 	shelduck_url_base="${SHELDUCK_BASE_URL:-}"
+	# else
+	# 	shelduck_alias_strategy=rename
+	# 	shelduck_url_base="$shelduck_print_tree_url"
+	# fi
+	# shelduck_print_script_depth=$(( 1 + shelduck_print_script_depth ))
+
+
+
+
+
+	# resolve abs url
+	shelduck_print_tree_url=$(bobshell_resolve_url "$1" "$shelduck_url_base")
+	shift
+	set -- "$shelduck_print_tree_url" "$@"
+	unset shelduck_print_tree_url
+
+	# url base
+	shelduck_print_tree_url_base=$(bobshell_base_url "$1")
+
+	# load script
+	shelduck_print_tree_current_script=$(shelduck_print_script "$@")
+	
+	# save to local array
+	set -- "$1" "$shelduck_print_tree_url_base" "$shelduck_print_tree_current_script"
+	
+	# print dependencies
+	shelduck_print_dependencies "$shelduck_print_tree_current_script"
+	
+
+	# print script to result
+	printf '\n\n\n\n'
+	printf '# shelduck dependency: %s\n\n' "$3"
+	printf %s "$3"
+
+
+
+	# # mark recursive function exit
+	# shelduck_print_script_depth=$(( -1 + shelduck_print_script_depth ))
+	# if [ 0 -eq "$shelduck_print_script_depth" ]; then
+	# 	unset shelduck_print_script_depth shelduck_print_script_previous_url shelduck_print_tree_urls shelduck_url_base
+	# fi
+}
+
+
+# fun: shelduck_for_each_line SCRIPT
+# txt: supports recursion
+shelduck_print_dependencies() {
+	# grep for shelduck commands and save to $1
+	shelduck_print_tree_dep_lines=$(printf %s "$1" | sed --silent --regexp-extended 's/^ *shelduck (.*)$/\1/pg')
+	set -- "$shelduck_print_tree_dep_lines"
+	unset shelduck_print_tree_dep_lines
+
+	shelduck_print_dependencies_part=
+	bobshell_for_each_part "$1" '
+' shelduck_print_dependencies_part eval shelduck_print_internal '$shelduck_print_dependencies_part'
+	unset shelduck_print_dependencies_part
+}
+
+
+
+# fun: shelduck_print_script ABSURL [ALIAS...]
+# txt: prints script with its aliases
+shelduck_print_script() {
+
+	# print script
+	shelduck_print_script_output=$(shelduck_cached_fetch_url "$1")
+	if ! bobshell_contains "$shelduck_url_history" "$1"; then
+		# todo remove duplicate check
+		printf %s "$shelduck_print_script_output"
+	fi
+
+
+	# analyze functions (for aliases)
+	regex='^ *([A-Za-z0-9_]+) *\( *\) *\{ *$' # match shell function declaration '  function_name  (   )  {  '
+	shelduck_print_script_function_names="$(printf %s "$shelduck_print_script_output" | sed --silent --regexp-extended "s/$regex/\1/p")"
+	unset regex shelduck_print_script_output
 	# todo detect function name collizion and print warning if so
 	
-	# handle aliases
+
+	# analyze aliases
+	shift
 	for arg in "$@"; do
 		# todo assert $arg not empty
 		if ! bobshell_split_key_value "$arg" = key value; then
 			key="$arg"
 			value="$arg"
 		fi
-		shelduck_require_not_empty "$key"   line "$arg": key   expected not to be empty
-		shelduck_require_not_empty "$value" line "$arg": value expected not to be empty
+		bobshell_require_not_empty "$key"   line "$arg": key   expected not to be empty
+		bobshell_require_not_empty "$value" line "$arg": value expected not to be empty
 		
-		shelduck_function_name="$(printf %s "$shelduck_load_function_names" | grep -E "^.*$value\$")"
-		if [ -n "$shelduck_function_name" ]; then
-			if [ wrap = "$shelduck_load_alias_strategy" ]; then
-			shelduck_load_result="$shelduck_load_result
-
-$key() {
-	$shelduck_function_name \"\$@\";
-}
-"
+		shelduck_print_script_function_name="$(printf %s "$shelduck_print_script_function_names" | grep -E "^.*$value\$")"
+		if [ -n "$shelduck_print_script_function_name" ]; then
+			if [ wrap = "$shelduck_alias_strategy" ]; then
+				printf '\n\n%s(){\n	%s "$@"\n}\n' "$key" "$shelduck_print_script_function_name"
 			else
-				shelduck_die "shelduck_load_alias_strategy: value $shelduck_load_alias_strategy not supported"
+				bobshell_die "shelduck_alias_strategy: value $shelduck_alias_strategy not supported"
 			fi
 		fi
-		unset shelduck_function_name
+		unset key value shelduck_print_script_function_name
 	done
-	unset shelduck_load_url shelduck_load_function_names
-
-	# mark recursive function exit
-	shelduck_load_depth=$(( -1 + shelduck_load_depth ))
-	if [ 0 -eq "$shelduck_load_depth" ]; then
-		unset shelduck_load_depth shelduck_load_previous_url
-	else
-		shelduck_load_previous_url="$shelduck_load_url"
-	fi
+	unset shelduck_print_script_function_names	
 }
 
 
@@ -112,39 +186,6 @@ shelduck_cached_fetch_url() {
 	# todo timeout
 	bobshell_fetch_url "$1"
 }
-
-
-
-
-
-
-# FILE DOWNLOAD
-
-
-
-
-
-# UTILS
-
-shelduck_die() {
-  # https://github.com/biox/pa/blob/main/pa
-  printf '%s: %s.\n' "$(basename "$0")" "${*:-error}" >&2
-  exit 1
-}
-
-
-# REQUIREMENTS
-
-shelduck_require_not_empty() {
-	if [ -z "${1:-}" ]; then
-		shift
-		die "$@"
-	fi
-}
-
-
-
-
 
 # shellcheck disable=SC2148
 
@@ -169,6 +210,12 @@ bobshell_fetch_url() {
 	fi
 }
 
+# fun: bobshell_base_url http://domain/dir/file # prints http://domain/dir/
+bobshell_base_url() {
+	printf %s/ "${1%/*}"
+}
+
+
 #fun: bobshell_resolve_url URL [BASEURL]
 bobshell_resolve_url() {
 	if         bobshell_starts_with "$1" file:// \
@@ -177,13 +224,13 @@ bobshell_resolve_url() {
 			|| bobshell_starts_with "$1" ftp:// \
 			|| bobshell_starts_with "$1" ftps:// \
 			; then
-		bobshell_resolve_url_result="$1"
+		printf %s "$1"
 	elif [ -n "${2:-}" ]; then
-		bobshell_resolve_url_result="$2"
-		if ! bobshell_ends_with "$bobshell_resolve_url_result" /; then
-			bobshell_resolve_url_result="${bobshell_resolve_url_result%/*}/"
+		printf %s "$2"
+		if ! bobshell_ends_with "$2" /; then
+			printf %s/ "${2%/*}"
 		fi
-		bobshell_resolve_url_result="$bobshell_resolve_url_result$1"
+		printf %s "$1"
 	else
 		bobshell_die "bobshell_resolve_url: url is relaive, but not base url defined: $1" 
 	fi
@@ -225,8 +272,19 @@ bobshell_ends_with() {
 	fi
 }
 
+# fun: bobshell_substr STR RANGE OUTPUTVAR
+bobshell_substr() {
+	
+	set -- "$1"
+	bobshell_substr_result=$(printf %s "$1" | cut -c "$2-$3")
+	col2="$(printf 'foo    bar  baz\n' | cut -c 8-12)"
+
+	unset bobshell_substr_result
+}
+
 
 bobshell_split_key_value() {
+	bobshell_require_not_empty "${2:-}" separator should not be empty
 	set -- "$1" "$2" "$3" "$4" "${1%%"$2"*}"
 	if [ "$1" = "$5" ]; then
 		return 1
@@ -242,6 +300,44 @@ bobshell_split_key_value() {
 bobshell_is_regex_match() {
 	bobshell_is_regex_match_amount=$(expr "$1" : "$2")
 	test "$bobshell_is_regex_match_amount" = "${#1}"
+}
+
+
+
+# fun: shelduck_for_each_line STR SEPARATOR VAR COMMAND
+# txt: supports recursion
+bobshell_for_each_part() {
+	while [ -n "$1" ]; do
+		if ! bobshell_split_key_value \
+				"$1" \
+				"$2" \
+				bobshell_for_each_part_current \
+				bobshell_for_each_part_rest; then
+			# shellcheck disable=SC2034
+			# part used in eval
+			bobshell_for_each_part_current="$1"
+			bobshell_for_each_part_rest=
+		fi
+		bobshell_for_each_part_separator="$2"
+		bobshell_for_each_part_varname="$3"
+		shift 3
+		bobshell_for_each_part_command="$*"
+		set -- "$bobshell_for_each_part_rest" "$bobshell_for_each_part_separator" "$bobshell_for_each_part_varname" "$@"
+		bobshell_putvar "$bobshell_for_each_part_varname" "$bobshell_for_each_part_current"
+		$bobshell_for_each_part_command
+	done
+	unset part bobshell_for_each_part_rest bobshell_for_each_part_separator bobshell_for_each_part_varname bobshell_for_each_part_command
+}
+
+
+
+bobshell_contains() {
+	printf %s "$1" | grep --silent -- "$2"
+}
+
+bobshell_assing_new_line() {
+	bobshell_putvar "$1" '
+'
 }
 
 
@@ -276,6 +372,14 @@ bobshell_putvar() {
 # txt: считывание значения переменной по динамическому имени
 bobshell_getvar() {
   eval "printf %s \"\$$1\""
+}
+
+
+bobshell_require_not_empty() {
+	if [ -z "${1:-}" ]; then
+		shift
+		bobshell_die "$@"
+	fi
 }
 
 

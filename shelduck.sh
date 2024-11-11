@@ -41,7 +41,8 @@ shelduck_print() {
 
 
 # fun: shelduck_print_internal BASEURL CLIARGS...
-# env: shelduck_print_url_history
+# env: shelduck_url_history
+#      shelduck_alias_strategy
 # txt: parse cli and delegate to shelduck_print_tree
 shelduck_print_internal() {
 	# todo normal cli
@@ -94,7 +95,7 @@ shelduck_print_tree() {
 		shelduck_url_history="$shelduck_url_history $shelduck_print_tree_absurl"
 	fi
 
-	shelduck_print_customize "$shelduck_print_tree_orig_script" "$shelduck_print_tree_absurl" "$@"
+	shelduck_print_addition "$shelduck_print_tree_orig_script" "$shelduck_print_tree_absurl" "$@"
 
 
 	unset shelduck_print_tree_absurl shelduck_print_tree_base_url shelduck_print_tree_orig_script
@@ -131,7 +132,7 @@ shelduck_print_original() {
 
 
 # fun: shelduck_reprint_script ORIGCONTENT ABSURL [ALIAS...]
-# txt: rewrite original script (e.g. comment out shelduck import commands)
+# txt: rewrite original script (e.g. comment out shelduck import commands, or rename function)
 shelduck_print_rewrite() {
 	if [ rewrite = "$shelduck_alias_strategy" ]; then
 		bobshell_die "shelduck_alias_strategy: value $shelduck_alias_strategy not supported"
@@ -143,9 +144,9 @@ shelduck_print_rewrite() {
 
 
 
-# fun: shelduck_print_customize ORIGCONTENT ABSURL [ALIAS...]
-# txt: print script customization (eg aliases) 
-shelduck_print_customize() {
+# fun: shelduck_print_addition ORIGCONTENT ABSURL [ALIAS...]
+# txt: print script additional code (e.g. aliases) 
+shelduck_print_addition() {
 
 	if [ wrap != "$shelduck_alias_strategy" ]; then
 		# nothing to do, wrap was the only supported customization
@@ -154,13 +155,13 @@ shelduck_print_customize() {
 
 	# analyze functions (for aliases)
 	regex='^ *([A-Za-z0-9_]+) *\( *\) *\{ *$' # match shell function declaration '  function_name  (   )  {  '
-	shelduck_print_customize_function_names="$(printf %s "$1" | sed --silent --regexp-extended "s/$regex/\1/p")"
+	shelduck_print_addition_function_names="$(printf %s "$1" | sed --silent --regexp-extended "s/$regex/\1/p")"
 	unset regex
 	# todo detect function name collizion and print warning if so
 	
 
 	# analyze aliases
-	shelduck_print_customize_url="$2"
+	shelduck_print_addition_url="$2"
 	shift 2
 	for arg in "$@"; do
 		# todo assert $arg not empty
@@ -171,11 +172,11 @@ shelduck_print_customize() {
 		bobshell_require_not_empty "$key"   line "$arg": key   expected not to be empty
 		bobshell_require_not_empty "$value" line "$arg": value expected not to be empty
 		
-		shelduck_print_script_function_name="$(printf %s "$shelduck_print_customize_function_names" | grep -E "^.*$value\$" || true)"
+		shelduck_print_script_function_name="$(printf %s "$shelduck_print_addition_function_names" | grep -E "^.*$value\$" || true)"
 		if [ -n "$shelduck_print_script_function_name" ]; then
 			if [ wrap = "$shelduck_alias_strategy" ]; then
 				printf '\n\n'
-				printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$shelduck_print_customize_url" 
+				printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$shelduck_print_addition_url" 
 				printf '\n%s() {' "$key"
 				printf '\n	%s "$@"' "$shelduck_print_script_function_name"
 				printf '\n}'
@@ -186,7 +187,7 @@ shelduck_print_customize() {
 		fi
 		unset key value shelduck_print_script_function_name
 	done
-	unset shelduck_print_customize_function_names shelduck_print_customize_url
+	unset shelduck_print_addition_function_names shelduck_print_addition_url
 }
 
 
@@ -354,9 +355,31 @@ bobshell_for_each_part() {
 }
 
 
+# txt: заменить в $1 все вхождения строки $2 на строку $3 и записать результат в переменную $4
+# use: replace_substring hello e E RES # sets RES to hEllo
+bobshell_substring() {
+  # https://freebsdfrau.gitbook.io/serious-shell-programming/string-functions/replace_substringall
+  replace_substring_result=
+  replace_substring_rest="$1"
+  assert_not_empty "$2" 'replace_substring: searched substring must not be empty'
+  while :; do
+      case "$replace_substring_rest" in *$2*)
+          replace_substring_result="$replace_substring_result${replace_substring_rest%%"$2"*}$3"
+          replace_substring_rest="${replace_substring_rest#*"$2"}"
+          continue
+      esac
+      break
+  done
+  replace_substring_result="$replace_substring_result${replace_substring_rest#*"$2"}"
+  putvar "${4:-replace_substring_result}" "$replace_substring_result"
+}
+
 
 bobshell_contains() {
-	printf %s "$1" | grep --silent -- "$2"
+	case "$1" in
+		*"$2"* ) return 0 ;;
+		*) return 1 ;;
+	esac
 }
 
 bobshell_assing_new_line() {
@@ -391,8 +414,10 @@ bobshell_command_available() {
 # fun: bobshell_putvar VARNAME NEWVARVALUE
 # txt: установка значения переменной по динамическому имени
 bobshell_putvar() {
-  eval "$1='$2'"
+  eval "$1=\"\$2\""
 }
+
+
 
 # fun bobshell_getvar VARNAME
 # use: echo "$(getvar MSG)"
@@ -406,6 +431,26 @@ bobshell_require_not_empty() {
 	if [ -z "${1:-}" ]; then
 		shift
 		bobshell_die "$@"
+	fi
+}
+
+bobshell_is_bash() {
+	test -n "${BASH_VERSION:-}"
+}
+
+bobshell_is_zsh() {
+	test -n "${ZSH_VERSION:-}"
+}
+
+bobshell_is_ksh() {
+	test -n "${KSH_VERSION:-}"
+}
+
+bobshell_list_functions() {
+	if bobshell_is_bash; then
+		compgen -A function
+	elif [ -n "${0:-}" ] && [ -f "${0}" ]; then
+		sed --regexp-extended 's/^( *function)? *([A-Za-z0_9_]+) *\( *\) *\{ *$/\2/g' "$0"
 	fi
 }
 

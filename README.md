@@ -6,6 +6,8 @@ Usage:
 
 Use at runtime. Insert into script
 
+	curl https://raw.githubusercontent.com/legeyda/shelduck/refs/heads/main/shelduck.sh
+
 	shelduck https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/master/base.sh substr isprefix=starts_with falias=function_alias shelduck_*
 	
 	shelduck https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/master/sshauth.sh '*=shelduck_*'

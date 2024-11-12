@@ -6,12 +6,14 @@
 
 
 # fun: shelduck CLIARGS...
+# api: public
 shelduck() {
 	shelduck_eval "$@"
 }
 
 
 
+# api: public
 shelduck_usage() {
 	printf %s 'Usage: shelduck URL [ALIAS...]'
 }
@@ -19,72 +21,46 @@ shelduck_usage() {
 
 
 # fun: shelduck_eval CLIARGS...
+# api: public
 shelduck_eval() {
-	shelduck_eval_script="$(shelduck_print "$@" || bobshell_die 'shelduck_eval: error calling shelduck_print')"
+	shelduck_eval_script=$(shelduck_resolve "$@")
 	eval "$shelduck_eval_script"
 	unset shelduck_eval_script
 }
 
 
 
-# fun: shelduck_print CLIARGS...
-shelduck_print() {
+# fun: shelduck_resolve CLIARGS...
+# api: public
+shelduck_resolve() {
 	# set starting parameters
 	shelduck_url_history=
 	shelduck_alias_strategy="${SHELDUCK_ALIAS_STRATEGY:-wrap}"
 	
 	# delegate
-	shelduck_print_internal "${SHELDUCK_BASE_URL:-}" "$@"
+	shelduck_print "${SHELDUCK_BASE_URL:-}" "$@"
 }
 
 
 
-# fun: shelduck_print_internal BASEURL CLIARGS...
+# fun: shelduck_print BASEURL CLIARGS...
 # env: shelduck_url_history
 #      shelduck_alias_strategy
 # txt: parse cli and delegate to shelduck_print_tree
-shelduck_print_internal() {
-	
-	shelduck_print_internal_base_url="$1"
+# api: private
+shelduck_print() {
+	shelduck_print_base_url="$1"
 	shift
 
-	# parse cli, save to local array: ABSURL [ALIAS...]
-	shelduck_print_internal_url=
-	shelduck_print_internal_aliases=
-	while [ "${1+defined}" = defined ]; do
-		case "$1" in
-			-a|--alias)
-				shift;
-				if [ -z "${1:-}" ]; then
-					bobshell_die "alias argument expected to be not empty"
-				fi
-				shelduck_print_internal_aliases="$shelduck_print_internal_aliases $1"
-				shift
-				;;
-			*)
-				if [ -z "${1:-}" ]; then
-					bobshell_die "url expected to be nonempty"
-				fi
-				if [ -n "$shelduck_print_internal_url" ]; then
-					bobshell_die "duplicate url $1"
-				fi
-				shelduck_print_internal_url=$(bobshell_resolve_url "$1" "$shelduck_print_internal_base_url")
-				shift
-				;;
-		esac
-	done
-	if [ -z "$shelduck_print_internal_url" ]; then
-		bobshell_die "url expected to set"
-	fi
-	set -- "$shelduck_print_internal_url" "$shelduck_print_internal_aliases"
-	unset shelduck_print_internal_url shelduck_print_internal_aliases
+	shelduck_parse_cli "$@"
+	shelduck_parse_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_print_base_url")
+	set -- "$shelduck_parse_cli_url" "$shelduck_parse_cli_aliases"
+	unset shelduck_print_base_url shelduck_parse_cli_url shelduck_parse_cli_aliases
 	
-
-
 	# load script
-	shelduck_print_internal_script=$(shelduck_print_origin "$@" || bobshell_die 'shelduck_print_internal: shelduck_print_origin failed') || bobshell_die debug
-	set -- "$shelduck_print_internal_script" "$@"
-	unset shelduck_print_internal_script
+	shelduck_print_script=$(shelduck_print_origin "$@")
+	set -- "$shelduck_print_script" "$@"
+	unset shelduck_print_script
 
 	# check if dependency was already compiled
 	if ! bobshell_contains "$shelduck_url_history" "$2"; then
@@ -96,10 +72,46 @@ shelduck_print_internal() {
 	shelduck_print_addition "$@"
 }
 
+# fun: shelduck_parse_cli [CLIARGS...]
+# env: shelduck_parse_cli_url
+#      shelduck_parse_cli_aliases
+# api: private
+shelduck_parse_cli() {
+	# parse cli, save to local array: ABSURL [ALIAS...]
+	shelduck_parse_cli_url=
+	shelduck_parse_cli_aliases=
+	while [ "${1+defined}" = defined ]; do
+		case "$1" in
+			-a|--alias)
+				shift;
+				if [ -z "${1:-}" ]; then
+					bobshell_die "alias argument expected to be not empty"
+				fi
+				shelduck_parse_cli_aliases="$shelduck_parse_cli_aliases $1"
+				shift
+				;;
+			*)
+				if [ -z "${1:-}" ]; then
+					bobshell_die "url expected to be nonempty"
+				fi
+				if [ -n "$shelduck_parse_cli_url" ]; then
+					bobshell_die "duplicate url $1"
+				fi
+				shelduck_parse_cli_url="$1"
+				shift
+				;;
+		esac
+	done
+	if [ -z "$shelduck_parse_cli_url" ]; then
+		bobshell_die "url expected to set"
+	fi
+}
+
 
 
 # fun: shelduck_compile SCRIPT ABSURL ALIASES
 # txt: print recusively expanded shelduck commands, and print rewritten rest of script
+# api: private
 shelduck_compile() {
 	shelduck_compile_input="$1"
 	shift
@@ -151,7 +163,7 @@ shelduck_compile() {
 
 		# recursive call, concously not double qouting
 		# shellcheck disable=SC2086
-		shelduck_print_internal "$shelduck_compile_base_url" $shelduck_compile_command
+		shelduck_print "$shelduck_compile_base_url" $shelduck_compile_command
 
 		# after recursive call, restore variables from local array
 		shelduck_compile_input="$1"
@@ -169,6 +181,7 @@ shelduck_compile() {
 
 # fun: shelduck_print_origin ABSURL
 # txt: prints original script without modification
+# api: private
 shelduck_print_origin() {
 	shelduck_cached_fetch_url "$1"
 }
@@ -176,8 +189,9 @@ shelduck_print_origin() {
 
 
 
-# fun: shelduck_reprint_script ORIGCONTENT ABSURL ALIASES
-# txt: rewrite original script (e.g. rename function)
+# fun: shelduck_rewrite ORIGCONTENT URL ALIASES
+# txt: rewrite original script (e.g. rename functions)
+# api: private
 shelduck_rewrite() {
 	if [ rename = "${shelduck_alias_strategy:-}" ]; then
 		bobshell_die "shelduck_alias_strategy: value $shelduck_alias_strategy not supported"
@@ -190,7 +204,8 @@ shelduck_rewrite() {
 
 
 # fun: shelduck_print_addition ORIGCONTENT ABSURL ALIASES
-# txt: print script additional code (e.g. aliases) 
+# txt: print script additional code (e.g. aliases)
+# api: private
 shelduck_print_addition() {
 
 	if [ wrap != "$shelduck_alias_strategy" ]; then
@@ -217,14 +232,12 @@ shelduck_print_addition() {
 		
 		shelduck_print_script_function_name="$(printf %s "$shelduck_print_addition_function_names" | grep -E "^.*$value\$" || true)"
 		if [ -n "$shelduck_print_script_function_name" ]; then
-			if [ wrap = "$shelduck_alias_strategy" ]; then
-				printf '\n\n'
-				printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$2" 
-				printf '\n%s() {' "$key"
-				printf '\n	%s "$@"' "$shelduck_print_script_function_name"
-				printf '\n}'
-				printf '\n'
-			fi
+			printf '\n\n'
+			printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$2" 
+			printf '\n%s() {' "$key"
+			printf '\n	%s "$@"' "$shelduck_print_script_function_name"
+			printf '\n}'
+			printf '\n'
 		fi
 		unset key value shelduck_print_script_function_name
 	done
@@ -236,6 +249,7 @@ shelduck_print_addition() {
 
 # fun: shelduck_cached_fetch_url ABSURL
 # txt: download dependency given url and save to cache
+# api: private
 shelduck_cached_fetch_url() {
 	# bypass cache if local file
 	if bobshell_starts_with "$1" 'file://' file_name; then

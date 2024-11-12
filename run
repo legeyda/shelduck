@@ -89,6 +89,10 @@ run_test() {
 	run_build
 	. ./shelduck.sh
 	eval_dependency assert.sh
+	
+	# fetch_dependency_result="$(cat echo.sh)"
+	# reset
+	# shelduck_compile "$fetch_dependency_result"
 
 
 	shelduck file://echo.sh test_shelduck_echo=echo

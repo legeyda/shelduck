@@ -36,92 +36,114 @@ shelduck_print() {
 
 
 
-
 # fun: shelduck_print_internal BASEURL CLIARGS...
 # env: shelduck_url_history
 #      shelduck_alias_strategy
 # txt: parse cli and delegate to shelduck_print_tree
 shelduck_print_internal() {
+	# parse cli, save to local array: ABSURL [ALIAS...]
 	# todo normal cli
-
-	# 
 	shelduck_print_internal_absurl=$(bobshell_resolve_url "$2" "$1")
 	shift 2
-
-	shelduck_print_tree "$shelduck_print_internal_absurl" "$@"
+	set -- "$shelduck_print_internal_absurl" "$@"
 	unset shelduck_print_internal_absurl
-}
 
+	shelduck_print_internal_script=$(shelduck_print_origin "$@" || bobshell_die 'shelduck_print_internal: shelduck_print_origin failed') || bobshell_die debug
+	set -- "$shelduck_print_internal_script" "$@"
+	unset shelduck_print_internal_script
 
-# fun: shelduck_print_tree URL [ALIAS...]
-# txt: print rewrite, customization for this script and all dependencies recursively
-shelduck_print_tree() {
-
-	# resolve abs url
-	shelduck_print_tree_absurl="$1"
-	shift 
-
-	# base url
-	shelduck_print_tree_base_url=$(bobshell_base_url "$shelduck_print_tree_absurl")
-
-	# load script
-	shelduck_print_tree_orig_script=$(shelduck_print_original "$shelduck_print_tree_absurl" "$@")
-
-	
-	# script was not already been handled, handle it
-	if ! bobshell_contains "$shelduck_url_history" "$shelduck_print_tree_absurl"; then
-
-		# shelduck_print_dependencies is recursive call
-		# save to local array
-		set -- "$shelduck_print_tree_absurl" "$shelduck_print_tree_base_url" "$shelduck_print_tree_orig_script" "$@"
-		
-		# print dependencis (calls shelduck_print_tree recursively through shelduck_print_internal)
-		shelduck_alias_strategy=wrap
-		shelduck_print_dependencies "$shelduck_print_tree_base_url" "$shelduck_print_tree_orig_script"
-	
-		# restore local variables after recursive call
-		shelduck_print_tree_absurl="$1"
-		shelduck_print_tree_base_url="$2"
-		shelduck_print_tree_orig_script="$3"
-		shift 3
-
-		# print (rewritten) script
-		shelduck_print_rewrite "$shelduck_print_tree_orig_script" "$shelduck_print_tree_absurl" "$@"
-
-		# mark url as handled
-		shelduck_url_history="$shelduck_url_history $shelduck_print_tree_absurl"
+	if ! bobshell_contains "$shelduck_url_history" "$2"; then
+		shelduck_compile "$@"
+		shelduck_url_history="$shelduck_url_history $2"
 	fi
 
-	shelduck_print_addition "$shelduck_print_tree_orig_script" "$shelduck_print_tree_absurl" "$@"
-
-
-	unset shelduck_print_tree_absurl shelduck_print_tree_base_url shelduck_print_tree_orig_script
+	
+	shelduck_print_addition "$@"
 }
 
-
-# fun: shelduck_print_dependencies BASEURL ORIGSCRIPT
-# txt: supports recursion
-shelduck_print_dependencies() {
-	# grep for shelduck commands and save to $1
-	shelduck_print_dependencies_lines=$(printf %s "$2" | sed --silent --regexp-extended 's/^ *shelduck (.*)$/\1/pg')
-	set -- "$1" "$shelduck_print_dependencies_lines"
-	unset shelduck_print_dependencies_lines
-
-	shelduck_print_dependencies_part=
-	# shellcheck disable=SC2016
-	# shellcheck disable=SC2154
-	bobshell_for_each_part "$2" "$bobshell_newline" shelduck_print_dependencies_part \
-			eval shelduck_print_internal "'$1'" '$shelduck_print_dependencies_part'
-	unset newline shelduck_print_dependencies_part
+# fun: shelduck_call_shifted SHIFTNUMBER DELEGATE [ARG...]
+shelduck_call_shifted() {
+	shelduck_call_shifted_shiftnumber="$1"
+	shelduck_call_shifted_delegate="$2"
+	shift 2
+	shift "$shelduck_call_shifted_shiftnumber"
+	"$shelduck_call_shifted_delegate" "$@"
 }
 
 
 
+# fun: shelduck_compile SCRIPT ABSURL [ALIAS...]
+# txt: print recusively expanded shelduck commands, and print rewritten rest of script
+shelduck_compile() {
+	shelduck_compile_input="$1"
+	shift
+	
+	printf %s "# shelduck: source for $1"
+
+	shelduck_compile_before=
+	shelduck_compile_after=
+	while bobshell_split2 "$shelduck_compile_input" "${bobshell_newline}shelduck " shelduck_compile_before shelduck_compile_after; do
+		# print everything before the first found shelduck command
+		shelduck_rewrite "$shelduck_compile_before$bobshell_newline" "$@"
+		
+		
+		shelduck_compile_input="$shelduck_compile_after"
+
+		shelduck_compile_command=
+		while true; do
+			if ! bobshell_split2 "$shelduck_compile_input" "${bobshell_newline}" shelduck_compile_before shelduck_compile_after; then
+				shelduck_compile_command="$shelduck_compile_input"
+				shelduck_compile_input=
+				break
+			fi
+
+			if ! bobshell_ends_with "$shelduck_compile_before" '\' shelduck_compile_before; then
+				shelduck_compile_command="$shelduck_compile_command$shelduck_compile_before"
+				shelduck_compile_input="$bobshell_newline$shelduck_compile_after"
+				break;
+			fi
+			
+			# todo strip trailing backslash
+			shelduck_compile_command="$shelduck_compile_command${shelduck_compile_before}"
+			shelduck_compile_input="$shelduck_compile_after"
+
+		done
+		
+		# assert shelduck argument command line not empty
+		if [ -z "$shelduck_compile_command" ]; then
+			bobshell_die 'empty shelduck arguments'
+		fi
+
+		# get base url to pass ot depenencies
+		shelduck_compile_base_url=
+		if [ -n "$1" ]; then
+			shelduck_compile_base_url=$(bobshell_base_url "$1")
+		fi
+
+		# before recursive call, save variables to local array
+		set -- "$shelduck_compile_input" "$@"
+
+		# recursive call, concously not double qouting
+		# shellcheck disable=SC2086
+		shelduck_print_internal "$shelduck_compile_base_url" $shelduck_compile_command
+
+		# after recursive call, restore variables from local array
+		shelduck_compile_input="$1"
+		shift
+	done
+				
+
+	# print everything after last found shelduck command
+	shelduck_rewrite "$shelduck_compile_input" "$@"
+}
 
 
-# fun: shelduck_print_original ABSURL [ALIAS...]
+
+
+
+# fun: shelduck_print_origin ABSURL [ALIAS...]
 # txt: prints original script without modification
-shelduck_print_original() {
+shelduck_print_origin() {
 	shelduck_cached_fetch_url "$1"
 }
 
@@ -129,13 +151,13 @@ shelduck_print_original() {
 
 
 # fun: shelduck_reprint_script ORIGCONTENT ABSURL [ALIAS...]
-# txt: rewrite original script (e.g. comment out shelduck import commands, or rename function)
-shelduck_print_rewrite() {
-	if [ rewrite = "$shelduck_alias_strategy" ]; then
+# txt: rewrite original script (e.g. rename function)
+shelduck_rewrite() {
+	if [ rename = "${shelduck_alias_strategy:-}" ]; then
 		bobshell_die "shelduck_alias_strategy: value $shelduck_alias_strategy not supported"
 	fi
 	# comment out shelduck dependency directive
-	printf %s "$1" | sed --regexp-extended 's/^ *(shelduck .*)$/# shelduck import will be handled\n# \1/g'
+	printf %s "$1"
 }
 
 
@@ -162,7 +184,7 @@ shelduck_print_addition() {
 	shift 2
 	for arg in "$@"; do
 		# todo assert $arg not empty
-		if ! bobshell_split_key_value "$arg" = key value; then
+		if ! bobshell_split2 "$arg" = key value; then
 			key="$arg"
 			value="$arg"
 		fi
@@ -178,8 +200,6 @@ shelduck_print_addition() {
 				printf '\n	%s "$@"' "$shelduck_print_script_function_name"
 				printf '\n}'
 				printf '\n'
-			else
-				bobshell_die "shelduck_alias_strategy: value $shelduck_alias_strategy not supported"
 			fi
 		fi
 		unset key value shelduck_print_script_function_name

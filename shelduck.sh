@@ -44,38 +44,61 @@ shelduck_print() {
 #      shelduck_alias_strategy
 # txt: parse cli and delegate to shelduck_print_tree
 shelduck_print_internal() {
-	# parse cli, save to local array: ABSURL [ALIAS...]
-	# todo normal cli
-	shelduck_print_internal_absurl=$(bobshell_resolve_url "$2" "$1")
-	shift 2
-	set -- "$shelduck_print_internal_absurl" "$@"
-	unset shelduck_print_internal_absurl
+	
+	shelduck_print_internal_base_url="$1"
+	shift
 
+	# parse cli, save to local array: ABSURL [ALIAS...]
+	shelduck_print_internal_url=
+	shelduck_print_internal_aliases=
+	while [ "${1+defined}" = defined ]; do
+		case "$1" in
+			-a|--alias)
+				shift;
+				if [ -z "${1:-}" ]; then
+					bobshell_die "alias argument expected to be not empty"
+				fi
+				shelduck_print_internal_aliases="$shelduck_print_internal_aliases $1"
+				shift
+				;;
+			*)
+				if [ -z "${1:-}" ]; then
+					bobshell_die "url expected to be nonempty"
+				fi
+				if [ -n "$shelduck_print_internal_url" ]; then
+					bobshell_die "duplicate url $1"
+				fi
+				shelduck_print_internal_url=$(bobshell_resolve_url "$1" "$shelduck_print_internal_base_url")
+				shift
+				;;
+		esac
+	done
+	if [ -z "$shelduck_print_internal_url" ]; then
+		bobshell_die "url expected to set"
+	fi
+	set -- "$shelduck_print_internal_url" "$shelduck_print_internal_aliases"
+	unset shelduck_print_internal_url shelduck_print_internal_aliases
+	
+
+
+	# load script
 	shelduck_print_internal_script=$(shelduck_print_origin "$@" || bobshell_die 'shelduck_print_internal: shelduck_print_origin failed') || bobshell_die debug
 	set -- "$shelduck_print_internal_script" "$@"
 	unset shelduck_print_internal_script
 
+	# check if dependency was already compiled
 	if ! bobshell_contains "$shelduck_url_history" "$2"; then
 		shelduck_compile "$@"
 		shelduck_url_history="$shelduck_url_history $2"
 	fi
 
-	
+	# print additions, if needed
 	shelduck_print_addition "$@"
 }
 
-# fun: shelduck_call_shifted SHIFTNUMBER DELEGATE [ARG...]
-shelduck_call_shifted() {
-	shelduck_call_shifted_shiftnumber="$1"
-	shelduck_call_shifted_delegate="$2"
-	shift 2
-	shift "$shelduck_call_shifted_shiftnumber"
-	"$shelduck_call_shifted_delegate" "$@"
-}
 
 
-
-# fun: shelduck_compile SCRIPT ABSURL [ALIAS...]
+# fun: shelduck_compile SCRIPT ABSURL ALIASES
 # txt: print recusively expanded shelduck commands, and print rewritten rest of script
 shelduck_compile() {
 	shelduck_compile_input="$1"
@@ -144,7 +167,7 @@ shelduck_compile() {
 
 
 
-# fun: shelduck_print_origin ABSURL [ALIAS...]
+# fun: shelduck_print_origin ABSURL
 # txt: prints original script without modification
 shelduck_print_origin() {
 	shelduck_cached_fetch_url "$1"
@@ -153,7 +176,7 @@ shelduck_print_origin() {
 
 
 
-# fun: shelduck_reprint_script ORIGCONTENT ABSURL [ALIAS...]
+# fun: shelduck_reprint_script ORIGCONTENT ABSURL ALIASES
 # txt: rewrite original script (e.g. rename function)
 shelduck_rewrite() {
 	if [ rename = "${shelduck_alias_strategy:-}" ]; then
@@ -166,7 +189,7 @@ shelduck_rewrite() {
 
 
 
-# fun: shelduck_print_addition ORIGCONTENT ABSURL [ALIAS...]
+# fun: shelduck_print_addition ORIGCONTENT ABSURL ALIASES
 # txt: print script additional code (e.g. aliases) 
 shelduck_print_addition() {
 
@@ -183,9 +206,7 @@ shelduck_print_addition() {
 	
 
 	# analyze aliases
-	shelduck_print_addition_url="$2"
-	shift 2
-	for arg in "$@"; do
+	for arg in $3; do
 		# todo assert $arg not empty
 		if ! bobshell_split2 "$arg" = key value; then
 			key="$arg"
@@ -198,7 +219,7 @@ shelduck_print_addition() {
 		if [ -n "$shelduck_print_script_function_name" ]; then
 			if [ wrap = "$shelduck_alias_strategy" ]; then
 				printf '\n\n'
-				printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$shelduck_print_addition_url" 
+				printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$2" 
 				printf '\n%s() {' "$key"
 				printf '\n	%s "$@"' "$shelduck_print_script_function_name"
 				printf '\n}'
@@ -207,7 +228,7 @@ shelduck_print_addition() {
 		fi
 		unset key value shelduck_print_script_function_name
 	done
-	unset shelduck_print_addition_function_names shelduck_print_addition_url
+	unset shelduck_print_addition_function_names
 }
 
 

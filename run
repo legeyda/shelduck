@@ -2,7 +2,7 @@
 set -eu
 
 main() {
-	test -n "$1" || die 'required argument missing'
+	test -n "$1" || run_die 'required argument missing'
 
 	# shellcheck disable=SC2145
 	run_"$@"
@@ -26,7 +26,7 @@ run_init() {
 	unset jqscript file tempfile
 }
 
-die() {
+run_die() {
   # https://github.com/biox/pa/blob/main/pa
   printf '%s: %s.\n' "$(basename "$0")" "${*:-error}" >&2
   exit 1
@@ -90,13 +90,8 @@ run_test() {
 	. ./shelduck.sh
 	eval_dependency assert.sh
 	
-	# fetch_dependency_result="$(cat echo.sh)"
-	# reset
-	# shelduck_compile "$fetch_dependency_result"
-
-
-	shelduck file://echo.sh test_shelduck_echo=echo
-	assert_equals 'ahoi (starts with a)' "$(test_shelduck_echo ahoi)"
+	shelduck -a test_echo file://./example/smoketest.sh
+	assert_equals 'ahoi (starts with a)' "$(test_echo ahoi)"
 	echo 'all tests passed'
 }
 

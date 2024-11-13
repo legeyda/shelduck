@@ -95,7 +95,7 @@ shelduck_parse_cli() {
 					bobshell_die "url expected to be nonempty"
 				fi
 				if [ -n "$shelduck_parse_cli_url" ]; then
-					bobshell_die "duplicate url $1"
+					bobshell_die "only one url allowed $1"
 				fi
 				shelduck_parse_cli_url="$1"
 				shift
@@ -115,17 +115,26 @@ shelduck_parse_cli() {
 shelduck_compile() {
 	shelduck_compile_input="$1"
 	shift
-	
-	printf %s "# shelduck: source for $1"
+	if bobshell_starts_with "$shelduck_compile_input" "$bobshell_newline"; then
+		printf '%s\n' "# shelduck: source for $1"	
+	fi
 
 	shelduck_compile_before=
 	shelduck_compile_after=
-	while bobshell_split2 "$shelduck_compile_input" "${bobshell_newline}shelduck " shelduck_compile_before shelduck_compile_after; do
-		# print everything before the first found shelduck command
-		shelduck_rewrite "$shelduck_compile_before$bobshell_newline" "$@"
+	while true; do
+		if bobshell_starts_with "$shelduck_compile_input" 'shelduck ' shelduck_compile_after; then
+			shelduck_compile_input="$shelduck_compile_after"
+		elif ! bobshell_split2 "$shelduck_compile_input" "${bobshell_newline}shelduck " shelduck_compile_before shelduck_compile_after; then
+			break
+		else
+
+			# print everything before the first found shelduck command
+			shelduck_rewrite "$shelduck_compile_before$bobshell_newline" "$@"
+			shelduck_compile_input="$shelduck_compile_after$bobshell_newline"
 		
+		fi
+
 		
-		shelduck_compile_input="$shelduck_compile_after"
 
 		shelduck_compile_command=
 		while true; do
@@ -141,7 +150,6 @@ shelduck_compile() {
 				break;
 			fi
 			
-			# todo strip trailing backslash
 			shelduck_compile_command="$shelduck_compile_command${shelduck_compile_before}"
 			shelduck_compile_input="$shelduck_compile_after"
 
@@ -231,7 +239,7 @@ shelduck_print_addition() {
 		bobshell_require_not_empty "$value" line "$arg": value expected not to be empty
 		
 		shelduck_print_script_function_name="$(printf %s "$shelduck_print_addition_function_names" | grep -E "^.*$value\$" || true)"
-		if [ -n "$shelduck_print_script_function_name" ]; then
+		if [ -n "$shelduck_print_script_function_name" ] && [ "$key" != "$shelduck_print_script_function_name" ]; then
 			printf '\n\n'
 			printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$2" 
 			printf '\n%s() {' "$key"
@@ -308,9 +316,14 @@ bobshell_resolve_url() {
 	elif [ -n "${2:-}" ]; then
 		printf %s "$2"
 		if ! bobshell_ends_with "$2" /; then
-			printf %s/ "${2%/*}"
+			printf '/'
 		fi
-		printf %s "$1"
+		bobshell_resolve_url_value="$1"
+		while bobshell_starts_with "$bobshell_resolve_url_value" './' bobshell_resolve_url_value; do
+			true
+		done
+		printf %s "$bobshell_resolve_url_value"
+		unset bobshell_resolve_url_value
 	else
 		bobshell_die "bobshell_resolve_url: url is relaive, but not base url defined: $1" 
 	fi
@@ -433,12 +446,26 @@ bobshell_substring() {
   putvar "${4:-replace_substring_result}" "$replace_substring_result"
 }
 
-
+# fun: bobshell_contains STR PATTERN [LEFTPART [RIGHTPART]]
 bobshell_contains() {
-	case "$1" in
-		*"$2"* ) return 0 ;;
-		*) return 1 ;;
-	esac
+	bobshell_require_not_empty "${2:-}" separator should not be empty
+	if [ -z "${3:-}" ] && [ -z "${4:-}" ]; then
+		case "$1" in
+			*"$2"* ) return 0 ;;
+			*) return 1 ;;
+		esac
+	fi
+	set -- "$1" "$2" "${3:-}" "${4:-}" "${1#*"$2"}"
+	if [ "$1" = "$5" ]; then
+		return 1
+	fi
+	if [ -n "${3:-}" ]; then
+		bobshell_putvar "$3" "${1%%"$2"*}"
+	fi
+	if [ -n "${4:-}" ]; then
+		bobshell_putvar "$4" "$5"
+	fi
+
 }
 
 bobshell_assing_new_line() {

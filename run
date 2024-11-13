@@ -9,7 +9,7 @@ main() {
 }
 
 run_init() {
-	for file in shelduck.sh shelduck install; do
+	for file in shelduck.sh install.sh; do
 		jqscript="${jqscript:-}${jqscript:+ | }.[\"files.readonlyInclude\"][\"$file\"]=true"
 	done
 
@@ -51,17 +51,14 @@ run_build() {
 		printf '%s' "$fetch_dependency_result" >> shelduck.sh
 	done
 	unset dependency
-	
-	# build installer
-	print_generated_file_warning instal.in > install
+	. ./shelduck.sh
 
-	# load to variable to remove any trailing new lines
-	# install
-	# install_script="$(cat install.in)"
-	# printf "#!bin/sh\n#THIS FILE IS GENERATED AUTOMATICALLY, DO NOT EDIT IT MANUALLY, EDIT install.in AND RUN sh ./run build TO REGENERATE IT\n\n$install_script" >> install
-	# printf %s "$install_script" > install
-	# cat shelduck >> install
 
+	# build install.sh
+	shelduck_resolve https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/header.sh > install.sh
+	printf '\n' >> install.sh
+	print_generated_file_warning install.sh.in >> install.sh
+	shelduck_resolve file://install.sh.in >> install.sh
 }
 
 print_generated_file_warning() {

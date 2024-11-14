@@ -119,9 +119,9 @@ shelduck_compile() {
 	shelduck_compile_before=
 	shelduck_compile_after=
 	while true; do
-		if bobshell_starts_with "$shelduck_compile_input" 'shelduck ' shelduck_compile_after; then
+		if bobshell_remove_prefix "$shelduck_compile_input" 'shelduck ' shelduck_compile_after; then
 			shelduck_compile_input="$shelduck_compile_after"
-		elif ! bobshell_split2 "$shelduck_compile_input" "${bobshell_newline}shelduck " shelduck_compile_before shelduck_compile_after; then
+		elif ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}shelduck " shelduck_compile_before shelduck_compile_after; then
 			break
 		else
 
@@ -135,13 +135,13 @@ shelduck_compile() {
 
 		shelduck_compile_command=
 		while true; do
-			if ! bobshell_split2 "$shelduck_compile_input" "${bobshell_newline}" shelduck_compile_before shelduck_compile_after; then
+			if ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}" shelduck_compile_before shelduck_compile_after; then
 				shelduck_compile_command="$shelduck_compile_input"
 				shelduck_compile_input=
 				break
 			fi
 
-			if ! bobshell_ends_with "$shelduck_compile_before" '\' shelduck_compile_before; then
+			if ! bobshell_remove_suffix "$shelduck_compile_before" '\' shelduck_compile_before; then
 				shelduck_compile_command="$shelduck_compile_command$shelduck_compile_before"
 				shelduck_compile_input="$bobshell_newline$shelduck_compile_after"
 				break;
@@ -228,7 +228,7 @@ shelduck_print_addition() {
 	# analyze aliases
 	for arg in $3; do
 		# todo assert $arg not empty
-		if ! bobshell_split2 "$arg" = key value; then
+		if ! bobshell_split_once "$arg" = key value; then
 			key="$arg"
 			value="$arg"
 		fi
@@ -257,7 +257,7 @@ shelduck_print_addition() {
 # api: private
 shelduck_cached_fetch_url() {
 	# bypass cache if local file
-	if bobshell_starts_with "$1" 'file://' file_name; then
+	if bobshell_remove_prefix "$1" 'file://' file_name; then
 		# shellcheck disable=SC2154
 		# starts_with sets variable file_name indirectly
 		if ! [ -f "$file_name" ]; then

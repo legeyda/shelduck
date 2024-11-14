@@ -122,9 +122,9 @@ shelduck_compile() {
 	shelduck_compile_before=
 	shelduck_compile_after=
 	while true; do
-		if bobshell_starts_with "$shelduck_compile_input" 'shelduck ' shelduck_compile_after; then
+		if bobshell_remove_prefix "$shelduck_compile_input" 'shelduck ' shelduck_compile_after; then
 			shelduck_compile_input="$shelduck_compile_after"
-		elif ! bobshell_split2 "$shelduck_compile_input" "${bobshell_newline}shelduck " shelduck_compile_before shelduck_compile_after; then
+		elif ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}shelduck " shelduck_compile_before shelduck_compile_after; then
 			break
 		else
 
@@ -138,13 +138,13 @@ shelduck_compile() {
 
 		shelduck_compile_command=
 		while true; do
-			if ! bobshell_split2 "$shelduck_compile_input" "${bobshell_newline}" shelduck_compile_before shelduck_compile_after; then
+			if ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}" shelduck_compile_before shelduck_compile_after; then
 				shelduck_compile_command="$shelduck_compile_input"
 				shelduck_compile_input=
 				break
 			fi
 
-			if ! bobshell_ends_with "$shelduck_compile_before" '\' shelduck_compile_before; then
+			if ! bobshell_remove_suffix "$shelduck_compile_before" '\' shelduck_compile_before; then
 				shelduck_compile_command="$shelduck_compile_command$shelduck_compile_before"
 				shelduck_compile_input="$bobshell_newline$shelduck_compile_after"
 				break;
@@ -231,7 +231,7 @@ shelduck_print_addition() {
 	# analyze aliases
 	for arg in $3; do
 		# todo assert $arg not empty
-		if ! bobshell_split2 "$arg" = key value; then
+		if ! bobshell_split_once "$arg" = key value; then
 			key="$arg"
 			value="$arg"
 		fi
@@ -260,7 +260,7 @@ shelduck_print_addition() {
 # api: private
 shelduck_cached_fetch_url() {
 	# bypass cache if local file
-	if bobshell_starts_with "$1" 'file://' file_name; then
+	if bobshell_remove_prefix "$1" 'file://' file_name; then
 		# shellcheck disable=SC2154
 		# starts_with sets variable file_name indirectly
 		if ! [ -f "$file_name" ]; then
@@ -284,11 +284,11 @@ shelduck_cached_fetch_url() {
 
 
 bobshell_fetch_url() {
-	if bobshell_starts_with "$1" 'file://' file_name; then
+	if bobshell_remove_prefix "$1" 'file://' bobshell_fetch_url_file_path; then
 		# shellcheck disable=SC2154
-		# starts_with sets variable file_name indirectly
-		cat "$file_name"
-		unset file_name
+		# bobshell_remove_prefix sets variable bobshell_fetch_url_file_path indirectly
+		cat "$bobshell_fetch_url_file_path"
+		unset bobshell_fetch_url_file_path
 	elif bobshell_command_available curl; then
 		bobshell_fetch_url_with_curl "$1"
 	elif bobshell_command_available wget; then
@@ -319,7 +319,7 @@ bobshell_resolve_url() {
 			printf '/'
 		fi
 		bobshell_resolve_url_value="$1"
-		while bobshell_starts_with "$bobshell_resolve_url_value" './' bobshell_resolve_url_value; do
+		while bobshell_remove_prefix "$bobshell_resolve_url_value" './' bobshell_resolve_url_value; do
 			true
 		done
 		printf %s "$bobshell_resolve_url_value"
@@ -344,26 +344,86 @@ bobshell_fetch_url_with_wget() {
 # disable recursive dependency resolution when building shelduck itself
 # shelduck base.sh
 
-# use: bobshell_starts_with hello he rest && echo "$rest" # prints llo
+
+
+# use: bobshell_starts_with hello he && echo "$rest" # prints llo
 bobshell_starts_with() {
-	set -- "$1" "$2" "${3:-}" "${1##"$2"}"
-	if [ -n "$2" ] && [ "$1" = "$4" ]; then
-		return 1
-	fi
-	if [ -n "${3:-}" ]; then
-		bobshell_putvar "$3" "$4"
-	fi
+	case "$1" in
+		("$2"*) return 0
+	esac
+	return 1
 }
 
+# use: bobshell_starts_with hello he rest && echo "$rest" # prints llo
+bobshell_remove_prefix() {
+	if [ -z "$2" ]; then
+		return 0
+	fi
+	set -- "$1" "$2" "$3" "${1#"$2"}"
+	if [ "$1" = "$4" ]; then
+		return 1
+	fi
+	bobshell_putvar "$3" "$4"	
+}
+
+# use: bobshell_starts_with hello he rest && echo "$rest" # prints llo
 bobshell_ends_with() {
-	set -- "$1" "$2" "${3:-}" "${1%%"$2"}"
-	if [ -n "$2" ] && [ "$1" = "$4" ]; then
+	case "$1" in
+		(*"$2") return 0
+	esac
+	return 1
+}
+
+bobshell_remove_suffix() {
+	if [ -z "$2" ]; then
+		return 0
+	fi
+	set -- "$1" "$2" "$3" "${1%"$2"}"
+	if [ "$1" = "$4" ]; then
+		return 1
+	fi
+	bobshell_putvar "$3" "$4"
+}
+
+
+# fun: bobshell_contains STR SUBSTR
+bobshell_contains() {
+	case "$1" in
+		(*"$2"*) return 0 ;;
+	esac
+	return 1
+}
+
+# fun: bobshell_contains STR SUBSTR [PREFIX [SUFFIX]]
+bobshell_split_once() {
+	set -- "$1" "$2" "$3" "$4" "${1#*"$2"}"
+	if [ "$1" = "$5" ]; then
 		return 1
 	fi
 	if [ -n "${3:-}" ]; then
-		bobshell_putvar "$3" "$4"
+		bobshell_putvar "$3" "${1%%"$2"*}"
 	fi
+	if [ -n "${4:-}" ]; then
+		bobshell_putvar "$4" "$5"
+	fi
+
 }
+
+# txt: заменить в $1 все вхождения строки $2 на строку $3 и записать результат в переменную $4
+# use: replace_substring hello e E
+bobshell_replace() {
+  	# https://freebsdfrau.gitbook.io/serious-shell-programming/string-functions/replace_substringall
+	bobshell_replace_str="$1"
+	while bobshell_contains "$bobshell_replace_str" "$2" bobshell_replace_left bobshell_replace_str; do
+		printf %s%s "$bobshell_replace_left" "$3"
+	done
+	printf %s "$bobshell_replace_str"
+}
+
+
+
+
+
 
 # fun: bobshell_substr STR RANGE OUTPUTVAR
 bobshell_substr() {
@@ -376,36 +436,24 @@ bobshell_substr() {
 }
 
 
-bobshell_split2() {
-	bobshell_require_not_empty "${2:-}" separator should not be empty
-	set -- "$1" "$2" "${3:-}" "${4:-}" "${1%%"$2"*}"
-	if [ "$1" = "$5" ]; then
-		return 1
-	fi
-	if [ -n "${3:-}" ]; then
-		bobshell_putvar "$3" "$5"
-	fi
-	if [ -n "${4:-}" ]; then
-		bobshell_putvar "$4" "${1#*"$2"}"
-	fi
-}
-
 
 # txt: regex should be in the basic form (https://www.gnu.org/software/grep/manual/html_node/Basic-vs-Extended.html)
 #      ^ is implicitly prepended to regexp
 #      https://stackoverflow.com/questions/35693980/test-for-regex-in-string-with-a-posix-shell#comment86337738_35694108
-bobshell_is_regex_match() {
+bobshell_basic_regex_match() {
 	bobshell_is_regex_match_amount=$(expr "$1" : "$2")
 	test "$bobshell_is_regex_match_amount" = "${#1}"
 }
 
-
+bobshell_extended_regex_match() {
+	printf %s "$1" | grep --silent --extended-regex "$2"
+}
 
 # fun: shelduck_for_each_line STR SEPARATOR VAR COMMAND
 # txt: supports recursion
 bobshell_for_each_part() {
 	while [ -n "$1" ]; do
-		if ! bobshell_split2 \
+		if ! bobshell_split_once \
 				"$1" \
 				"$2" \
 				bobshell_for_each_part_current \
@@ -427,46 +475,7 @@ bobshell_for_each_part() {
 }
 
 
-# txt: заменить в $1 все вхождения строки $2 на строку $3 и записать результат в переменную $4
-# use: replace_substring hello e E RES # sets RES to hEllo
-bobshell_substring() {
-  # https://freebsdfrau.gitbook.io/serious-shell-programming/string-functions/replace_substringall
-  replace_substring_result=
-  replace_substring_rest="$1"
-  assert_not_empty "$2" 'replace_substring: searched substring must not be empty'
-  while :; do
-      case "$replace_substring_rest" in *$2*)
-          replace_substring_result="$replace_substring_result${replace_substring_rest%%"$2"*}$3"
-          replace_substring_rest="${replace_substring_rest#*"$2"}"
-          continue
-      esac
-      break
-  done
-  replace_substring_result="$replace_substring_result${replace_substring_rest#*"$2"}"
-  putvar "${4:-replace_substring_result}" "$replace_substring_result"
-}
 
-# fun: bobshell_contains STR PATTERN [LEFTPART [RIGHTPART]]
-bobshell_contains() {
-	bobshell_require_not_empty "${2:-}" separator should not be empty
-	if [ -z "${3:-}" ] && [ -z "${4:-}" ]; then
-		case "$1" in
-			*"$2"* ) return 0 ;;
-			*) return 1 ;;
-		esac
-	fi
-	set -- "$1" "$2" "${3:-}" "${4:-}" "${1#*"$2"}"
-	if [ "$1" = "$5" ]; then
-		return 1
-	fi
-	if [ -n "${3:-}" ]; then
-		bobshell_putvar "$3" "${1%%"$2"*}"
-	fi
-	if [ -n "${4:-}" ]; then
-		bobshell_putvar "$4" "$5"
-	fi
-
-}
 
 bobshell_assing_new_line() {
 	bobshell_putvar "$1" '
@@ -475,6 +484,22 @@ bobshell_assing_new_line() {
 
 bobshell_newline='
 '
+
+
+bobshell_quote() {
+	bobshell_quote_separator=''
+	for bobshell_quote_arg in "$@"; do
+		printf %s "$bobshell_quote_separator"
+		if bobshell_basic_regex_match "$bobshell_quote_arg" '[A-Za-z0-9_/\-\=]\+'; then
+			printf %s "$bobshell_quote_arg"
+		else
+			bobshell_quote_arg=$(bobshell_replace "$bobshell_quote_arg" "'" "'"'"'"'"'"'"'")
+			printf "'%s'" "$bobshell_quote_arg"
+		fi
+		bobshell_quote_separator=' '
+	done
+	unset bobshell_quote_arg
+}
 
 
 # todo

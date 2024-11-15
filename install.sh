@@ -43,6 +43,15 @@ install_shelduck() {
 	cat > "$DESTDIR$BINDIR/shelduck" <<eof
 #!/bin/sh
 main() {
+	if [ import = "\${1:-}" ]; then
+		shift
+		printf 'import subcommand not available when run from installed script %s\n' "\$0"
+		printf "Instead source library:\n"
+		printf '. "%s"\n' '$DESTDIR$DATAROOTDIR/shelduck/shelduck.sh'
+		printf 'shelduck import'
+		printf ' %s' "\$@"
+		exit 1
+	fi
 	shelduck "\$@"
 }
 . "$DATAROOTDIR/shelduck/shelduck.sh"
@@ -56,12 +65,12 @@ eof
 	mkdir -p "$DESTDIR$DATAROOTDIR/shelduck"
 	cat > "$DESTDIR$DATAROOTDIR/shelduck/uninstall" << eof
 #!/bin/sh
-rm -f "$DATAROOTDIR/shelduck" "$BINDIR/shelduck_resolve" "$CACHEDIR/shelduck"
+rm -f "$DATAROOTDIR/shelduck" "$BINDIR/shelduck" "$CACHEDIR/shelduck"
 eof
 	chmod +x "$DESTDIR$DATAROOTDIR/shelduck/uninstall"
 
 	#
-	if command_available shelduck_resolve; then
+	if command_available shelduck; then
 		log 'shelduck_resolve was successfully installed to %s, which seems to be already in the PATH' "$BINDIR"
 		return
 	fi

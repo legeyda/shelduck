@@ -7,10 +7,11 @@
 shelduck() {
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
-		usage|import|resolve)
+		(usage|import|resolve)
 				shelduck_subcommand="$1"
 				shift
-				"shelduck_$shelduck_subcommand" "$@"
+				"shelduck_$shelduck_subcommand" "$@" ;;
+		(*) printf 'unknown subcommand %s, see shelduck usage' "$1"
 	esac
 }
 
@@ -26,9 +27,9 @@ shelduck_import() {
 shelduck_usage() {
 	printf 'Usage: shelduck SUBCOMMAND [ARGS...]\n'
 	printf 'Subcommands are:\n'
-	printf '    usage'
-	printf '    import'
-	printf '    resolve'
+	printf '    usage\n'
+	printf '    import\n'
+	printf '    resolve\n'
 }
 
 

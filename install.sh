@@ -227,14 +227,15 @@ bobshell_remove_suffix() {
 # fun: bobshell_contains STR SUBSTR
 bobshell_contains() {
 	case "$1" in
-		(*"$2"*) return 0 ;;
+		(*"$2"*) return 0
 	esac
 	return 1
 }
 
-# fun: bobshell_contains STR SUBSTR [PREFIX [SUFFIX]]
-bobshell_split_once() {
-	set -- "$1" "$2" "$3" "$4" "${1#*"$2"}"
+
+# fun: bobshell_split_first STR SUBSTR [PREFIX [SUFFIX]]
+bobshell_split_first() {
+	set -- "$1" "$2" "${3:-}" "${4:-}" "${1#*"$2"}"
 	if [ "$1" = "$5" ]; then
 		return 1
 	fi
@@ -244,15 +245,29 @@ bobshell_split_once() {
 	if [ -n "${4:-}" ]; then
 		bobshell_putvar "$4" "$5"
 	fi
-
 }
+
+# fun: bobshell_split_first STR SUBSTR [PREFIX [SUFFIX]]
+bobshell_split_last() {
+	set -- "$1" "$2" "${3:-}" "${4:-}" "${1%"$2"*}"
+	if [ "$1" = "$5" ]; then
+		return 1
+	fi
+	if [ -n "${3:-}" ]; then
+		bobshell_putvar "$3" "$5"
+	fi
+	if [ -n "${4:-}" ]; then
+		bobshell_putvar "$4" "${1##*"$2"}"
+	fi
+}
+
 
 # txt: заменить в $1 все вхождения строки $2 на строку $3 и записать результат в переменную $4
 # use: replace_substring hello e E
 bobshell_replace() {
   	# https://freebsdfrau.gitbook.io/serious-shell-programming/string-functions/replace_substringall
 	bobshell_replace_str="$1"
-	while bobshell_contains "$bobshell_replace_str" "$2" bobshell_replace_left bobshell_replace_str; do
+	while bobshell_split_first "$bobshell_replace_str" "$2" bobshell_replace_left bobshell_replace_str; do
 		printf %s%s "$bobshell_replace_left" "$3"
 	done
 	printf %s "$bobshell_replace_str"
@@ -291,7 +306,7 @@ bobshell_extended_regex_match() {
 # txt: supports recursion
 bobshell_for_each_part() {
 	while [ -n "$1" ]; do
-		if ! bobshell_split_once \
+		if ! bobshell_split_first \
 				"$1" \
 				"$2" \
 				bobshell_for_each_part_current \

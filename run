@@ -43,7 +43,7 @@ run_clean() {
 
 run_build() {
 	run_build_shelduck
-	go_bulid_installer
+	go_build_installer
 }
 
 run_build_shelduck() {

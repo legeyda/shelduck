@@ -127,7 +127,7 @@ shelduck_compile() {
 	while true; do
 		if bobshell_remove_prefix "$shelduck_compile_input" 'shelduck import ' shelduck_compile_after; then
 			shelduck_compile_input="$shelduck_compile_after"
-		elif ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}shelduck import " shelduck_compile_before shelduck_compile_after; then
+		elif ! bobshell_split_first "$shelduck_compile_input" "${bobshell_newline}shelduck import " shelduck_compile_before shelduck_compile_after; then
 			break
 		else
 
@@ -141,7 +141,7 @@ shelduck_compile() {
 
 		shelduck_compile_command=
 		while true; do
-			if ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}" shelduck_compile_before shelduck_compile_after; then
+			if ! bobshell_split_first "$shelduck_compile_input" "${bobshell_newline}" shelduck_compile_before shelduck_compile_after; then
 				shelduck_compile_command="$shelduck_compile_input"
 				shelduck_compile_input=
 				break
@@ -234,7 +234,7 @@ shelduck_print_addition() {
 	# analyze aliases
 	for arg in $3; do
 		# todo assert $arg not empty
-		if ! bobshell_split_once "$arg" = key value; then
+		if ! bobshell_split_fist "$arg" = key value; then
 			key="$arg"
 			value="$arg"
 		fi

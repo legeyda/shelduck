@@ -38,12 +38,15 @@ run_usage() {
 
 run_clean() {
 	rm -rf target
-	rm -f shelduck.sh
+	rm -f shelduck.sh install.sh
 }
 
 run_build() {
+	run_build_shelduck
+	go_bulid_installer
+}
 
-	# build shelduck.sh
+run_build_shelduck() {
 	print_generated_file_warning shelduck.sh.in > shelduck.sh
 	cat shelduck.sh.in >> shelduck.sh
 	for dependency in url.sh string.sh base.sh; do
@@ -51,14 +54,19 @@ run_build() {
 		printf '%s' "$fetch_dependency_result" >> shelduck.sh
 	done
 	unset dependency
+}
+
+go_build_installer() {
 	. ./shelduck.sh
-
-
-	# build install.sh
-	shelduck_resolve https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/header.sh > install.sh
+	shelduck resolve https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/header.sh > install.sh
 	printf '\n' >> install.sh
 	print_generated_file_warning install.sh.in >> install.sh
-	shelduck_resolve file://install.sh.in >> install.sh
+	shelduck resolve file://install.sh.in >> install.sh
+}
+
+run_build_installer() {
+	run_build_shelduck
+	go_build_installer
 }
 
 print_generated_file_warning() {
@@ -82,14 +90,38 @@ fetch_url() {
 }
 
 
+
+
+
+
 run_test() {
 	run_build
+	go_test_shelduck
+	go_test_installer
+}
+
+go_test_shelduck() {
 	. ./shelduck.sh
 	eval_dependency assert.sh
 	
-	shelduck -a test_echo file://./example/smoketest.sh
+	shelduck import -a test_echo file://./example/smoketest.sh
 	assert_equals 'ahoi (starts with a)' "$(test_echo ahoi)"
 	echo 'all tests passed'
+}
+
+go_test_installer() {
+	mkdir -p target/test-installer
+	DESTDIR=target/test-installer sh install.sh 
+}
+
+run_test_shelduck() {
+	run_build_shelduck
+	go_test_shelduck
+}
+
+run_test_installer() {
+	run_build_installer
+	go_test_installer
 }
 
 eval_dependency() {

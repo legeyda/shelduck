@@ -4,29 +4,22 @@
 # env: PREFIX?
 #      DESTDIR
 install_shelduck() {
-	if command_available shelduck; then
-		errcho "shelduck seems to be already installed as $(command -v shelduck)"
-		return
-	fi
 
 	: "${DESTDIR:=}"
-	: "${PREFIX:=/opt}"
-	: "${BINDIR:=$PREFIX/bin}"
-	: "${DATAROOTDIR:=$PREFIX/share}"
 
 	if [ 0 = "$(id -u)" ]; then
+		: "${PREFIX:=/opt}"
 		: "${SYSCONFIGDIR:=/etc/opt}"
 		: "${PROFILE_FILE:=$SYSCONFIGDIR/profile}"
 		: "${CACHEDIR:=/var/opt/cache}"
 	else
+		: "${PREFIX:=$HOME/.local}"
 		: "${SYSCONFIGDIR:=$HOME/.config}"
 		: "${PROFILE_FILE:=$HOME/.profile}"
 		: "${CACHEDIR:=$HOME/.cache}"
 	fi
-
-	# if [ -f "" ]; then
-	# 	die "something wrong: $install_shelduck_bin_dir/shelduck already exists"
-	# fi
+	: "${BINDIR:=$PREFIX/bin}"
+	: "${DATAROOTDIR:=$PREFIX/share}"
 
 
 	mkdir -p "$DESTDIR$BINDIR" "$DESTDIR$CACHEDIR/shelduck" "$DESTDIR$DATAROOTDIR/shelduck"
@@ -37,80 +30,46 @@ install_shelduck() {
 	fetch_url "$SHELDUCK_LIBRARY_URL" > "$DESTDIR$DATAROOTDIR/shelduck/shelduck.sh"
 
 
-	# build installer
-	install_executable shelduck_resolve
-
-	# uninsatller
-	install_uninstaller
-
-	#
-	if command_avalable shelduck; then
-		log 'shelduck_resolve was successfully installed to %s, which seems to be already in the PATH' "$BINDIR"
-		return
-	fi
 
 
-
-
-
-
-
-
-
-
-	#
-	install_shelduck_marker='end of'
-	install_shelduck_marker="$install_shelduck_marker installer"
-
-	# 
-	install_shelduck_script="$(cat "$0")"
-	printf %s "${install_shelduck_script#*"$install_shelduck_marker"}" > "$install_shelduck_bin_dir/shelduck"
-	chmod ugo+x "$install_shelduck_bin_dir/shelduck"
-
-
-
-	# 
-	mkdir -p "$(dirname "$install_shelduck_profile_script")"
-
-
-
-	# shellcheck disable=SC2016
-	line_in_file='PATH=%s:$PATH'
-	grep --quiet -- "$line_in_file" 
-	printf '\n\n#shelduck installer\n%s' "$line_in_file" >> "$install_shelduck_profile_script"
-
-	#
-	if ! command -v shelduck; then
-		die "something wrong: shelduck was installed as $install_shelduck_bin_dir/shelduck, dir added to path in $install_shelduck_profile_script, but not accessible"
-	fi
-
-	printf 'shelduck was successfully installed to %s' "$install_shelduck_bin_dir" >&2
-}
-
-install_executable() {
+	# install executable
 	mkdir -p "$DESTDIR$BINDIR"
-	cat > "$DESTDIR$BINDIR/$1" <<eof
+	cat > "$DESTDIR$BINDIR/shelduck" <<eof
 #!/bin/sh
 main() {
-	$1 "\$@"
+	shelduck "\$@"
 }
 . "$DATAROOTDIR/shelduck/shelduck.sh"
 main "\$@"
 eof
-	chmod +x "$DESTDIR$BINDIR/$1"
-}
+	chmod +x "$DESTDIR$BINDIR/shelduck"
 
-install_uninstaller() {
+
+
+	# uninsatller
 	mkdir -p "$DESTDIR$DATAROOTDIR/shelduck"
 	cat > "$DESTDIR$DATAROOTDIR/shelduck/uninstall" << eof
 #!/bin/sh
-rm -f "$DESTDIR$DATAROOTDIR/shelduck" "$DESTDIR$BINDIR/shelduck_resolve" "$DESTDIR$CACHEDIR/shelduck"
+rm -f "$DATAROOTDIR/shelduck" "$BINDIR/shelduck" "$CACHEDIR/shelduck"
 eof
 	chmod +x "$DESTDIR$DATAROOTDIR/shelduck/uninstall"
+
+	#
+	if command_available shelduck; then
+		log 'shelduck_resolve was successfully installed to %s, which seems to be already in the PATH' "$BINDIR"
+		return
+	fi
+
+	log "adding $BINDIR to path"
+
+	printf '\nPATH="%s:$PATH"' "$BINDIR" >> "$DESTDIR$PROFILE_FILE"
+
 }
 
 
-shelduck -a die   -a command_avalable   -a log   \
+shelduck import -a die   -a command_available   -a log   \
 	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh
-shelduck -a fetch_url   \
+shelduck import -a fetch_url   \
 	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/url.sh
+
+install_shelduck "$@"

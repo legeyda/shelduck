@@ -5,30 +5,35 @@
 # fun: shelduck CLIARGS...
 # api: public
 shelduck() {
-	shelduck_eval "$@"
+	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
+	case "$1" in
+		usage|import|resolve)
+				shelduck_subcommand="$1"
+				shift
+				"shelduck_$shelduck_subcommand" "$@"
+	esac
 }
 
-
-
-# api: public
-shelduck_usage() {
-	printf %s 'Usage: shelduck URL [ALIAS...]'
-}
-
-
-
-# fun: shelduck_eval CLIARGS...
-# api: public
-shelduck_eval() {
+# api: private
+shelduck_import() {
 	shelduck_eval_script=$(shelduck_resolve "$@")
 	eval "$shelduck_eval_script"
 	unset shelduck_eval_script
 }
 
 
+# api: private
+shelduck_usage() {
+	printf 'Usage: shelduck SUBCOMMAND [ARGS...]\n'
+	printf 'Subcommands are:\n'
+	printf '    usage'
+	printf '    import'
+	printf '    resolve'
+}
+
 
 # fun: shelduck_resolve CLIARGS...
-# api: public
+# api: private
 shelduck_resolve() {
 	# set starting parameters
 	shelduck_url_history=
@@ -92,7 +97,7 @@ shelduck_parse_cli() {
 					bobshell_die "url expected to be nonempty"
 				fi
 				if [ -n "$shelduck_parse_cli_url" ]; then
-					bobshell_die "only one url allowed $1"
+					bobshell_die "only one url allowed ($1)"
 				fi
 				shelduck_parse_cli_url="$1"
 				shift
@@ -119,9 +124,9 @@ shelduck_compile() {
 	shelduck_compile_before=
 	shelduck_compile_after=
 	while true; do
-		if bobshell_remove_prefix "$shelduck_compile_input" 'shelduck ' shelduck_compile_after; then
+		if bobshell_remove_prefix "$shelduck_compile_input" 'shelduck import ' shelduck_compile_after; then
 			shelduck_compile_input="$shelduck_compile_after"
-		elif ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}shelduck " shelduck_compile_before shelduck_compile_after; then
+		elif ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}shelduck import " shelduck_compile_before shelduck_compile_after; then
 			break
 		else
 

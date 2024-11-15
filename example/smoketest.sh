@@ -2,10 +2,10 @@
 set -eu
 # script used quick testing
 
-shelduck -a die \
+shelduck import -a die \
 	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh
 
-shelduck -a starts_with \
+shelduck import -a starts_with \
 	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/string.sh
 
 

@@ -8,30 +8,35 @@
 # fun: shelduck CLIARGS...
 # api: public
 shelduck() {
-	shelduck_eval "$@"
+	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
+	case "$1" in
+		usage|import|resolve)
+				shelduck_subcommand="$1"
+				shift
+				"shelduck_$shelduck_subcommand" "$@"
+	esac
 }
 
-
-
-# api: public
-shelduck_usage() {
-	printf %s 'Usage: shelduck URL [ALIAS...]'
-}
-
-
-
-# fun: shelduck_eval CLIARGS...
-# api: public
-shelduck_eval() {
+# api: private
+shelduck_import() {
 	shelduck_eval_script=$(shelduck_resolve "$@")
 	eval "$shelduck_eval_script"
 	unset shelduck_eval_script
 }
 
 
+# api: private
+shelduck_usage() {
+	printf 'Usage: shelduck SUBCOMMAND [ARGS...]\n'
+	printf 'Subcommands are:\n'
+	printf '    usage'
+	printf '    import'
+	printf '    resolve'
+}
+
 
 # fun: shelduck_resolve CLIARGS...
-# api: public
+# api: private
 shelduck_resolve() {
 	# set starting parameters
 	shelduck_url_history=
@@ -95,7 +100,7 @@ shelduck_parse_cli() {
 					bobshell_die "url expected to be nonempty"
 				fi
 				if [ -n "$shelduck_parse_cli_url" ]; then
-					bobshell_die "only one url allowed $1"
+					bobshell_die "only one url allowed ($1)"
 				fi
 				shelduck_parse_cli_url="$1"
 				shift
@@ -122,9 +127,9 @@ shelduck_compile() {
 	shelduck_compile_before=
 	shelduck_compile_after=
 	while true; do
-		if bobshell_remove_prefix "$shelduck_compile_input" 'shelduck ' shelduck_compile_after; then
+		if bobshell_remove_prefix "$shelduck_compile_input" 'shelduck import ' shelduck_compile_after; then
 			shelduck_compile_input="$shelduck_compile_after"
-		elif ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}shelduck " shelduck_compile_before shelduck_compile_after; then
+		elif ! bobshell_split_once "$shelduck_compile_input" "${bobshell_newline}shelduck import " shelduck_compile_before shelduck_compile_after; then
 			break
 		else
 
@@ -278,9 +283,9 @@ shelduck_cached_fetch_url() {
 # shellcheck disable=SC2148
 
 # disable recursive dependency resolution when building shelduck itself
-# shelduck ./base.sh
+# shelduck import ./base.sh
 # disable recursive dependency resolution when building shelduck itself
-# shelduck ./string.sh
+# shelduck import ./string.sh
 
 
 bobshell_fetch_url() {
@@ -342,7 +347,7 @@ bobshell_fetch_url_with_wget() {
 # STRING MANUPULATION
 
 # disable recursive dependency resolution when building shelduck itself
-# shelduck base.sh
+# shelduck import base.sh
 
 
 
@@ -566,7 +571,11 @@ bobshell_list_functions() {
 }
 
 bobshell_log() {
-  printf '%s: %s\n' "$0" "$*" >&2
+	# printf format should be in "$@"
+	# shellcheck disable=SC2059
+	bobshell_log_message=$(printf "$@")
+	printf '%s: %s\n' "$0" "$bobshell_log_message" >&2
+	unset bobshell_log_message
 }
 
 

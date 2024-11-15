@@ -7,7 +7,7 @@ shelduck_src="$(curl -fsSL https://raw.githubusercontent.com/legeyda/shelduck/re
 eval "$shelduck_src"
 
 # declare dependencies
-shelduck -a die \
+shelduck import -a die \
 	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh
 
 # use dependencies

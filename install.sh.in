@@ -31,27 +31,28 @@ install_shelduck() {
 
 
 
-
-	# install executable
-	mkdir -p "$DESTDIR$BINDIR"
-	cat > "$DESTDIR$BINDIR/shelduck" <<eof
+	install_executable shelduck <<eof
 #!/bin/sh
-main() {
-	if [ import = "\${1:-}" ]; then
-		shift
-		printf 'import subcommand not available when run from installed script %s\n' "\$0"
-		printf "Instead source library:\n"
-		printf '. "%s"\n' '$DESTDIR$DATAROOTDIR/shelduck/shelduck.sh'
-		printf 'shelduck import'
-		printf ' %s' "\$@"
-		exit 1
-	fi
-	shelduck "\$@"
-}
-. "$DATAROOTDIR/shelduck/shelduck.sh"
-main "\$@"
+set -eux
+if [ import = "\${1:-}" ]; then
+	shift
+	printf 'import subcommand not available when run from installed script %s\n' "\$0"
+	printf "Instead source library:\n"
+	printf '. "%s"\n' '$DESTDIR$DATAROOTDIR/shelduck/shelduck.sh'
+	printf 'shelduck import'
+	printf ' %s' "\$@"
+	exit 1
+fi
+. '$DATAROOTDIR/shelduck/shelduck.sh'
+shelduck "\$@"
 eof
-	chmod +x "$DESTDIR$BINDIR/shelduck"
+
+	install_executable shelduck_run <<eof
+#!/bin/sh
+set -eux
+. '$DATAROOTDIR/shelduck/shelduck.sh'
+shelduck_run "\$@"
+eof
 
 
 
@@ -74,6 +75,13 @@ eof
 	printf '\nPATH="%s:$PATH"' "$BINDIR" >> "$DESTDIR$PROFILE_FILE"
 
 }
+
+install_executable() {
+	mkdir -p "$DESTDIR$BINDIR"
+	cat > "$DESTDIR$BINDIR/$1"
+	chmod +x "$DESTDIR$BINDIR/$1"
+}
+
 
 
 shelduck import -a die   -a command_available   -a log   \

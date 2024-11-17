@@ -6,8 +6,8 @@ Usage:
 
 Use at runtime. Insert into script
 
-	shelduck_src=$(curl https://raw.githubusercontent.com/legeyda/shelduck/refs/heads/main/shelduck.sh)
-	eval "$shelduck_src"
+	eval "$(curl -fsSL https://raw.githubusercontent.com/legeyda/shelduck/refs/heads/main/shelduck.sh || echo 'exit 1')"
+	
 
 	shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/master/base.sh substr isprefix=starts_with falias=function_alias shelduck_*
 	

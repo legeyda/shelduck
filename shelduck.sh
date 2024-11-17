@@ -10,7 +10,7 @@
 shelduck() {
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
-		(usage|import|resolve)
+		(usage|import|resolve|run)
 				shelduck_subcommand="$1"
 				shift
 				"shelduck_$shelduck_subcommand" "$@" ;;
@@ -18,11 +18,47 @@ shelduck() {
 	esac
 }
 
+
+# fun: shelduck_run URL [COMMAND [ARGS...]]
+# api: private
+shelduck_run() {
+	bobshell_require_not_empty "${1:-}" 'usage: shelduck_run'
+
+	shelduck_run_url="${1:-}"
+	if [ -r "$shelduck_run_url" ]; then
+		shelduck_run_script_path="$shelduck_run_url"
+		shelduck_run_url="file://$shelduck_run_url"
+	elif bobshell_starts_with "$shelduck_run_url" file:// shelduck_run_script_path; then
+		true
+	else
+		shelduck_run_script_path="$0"
+	fi
+
+	: "${SHELDUCK_LIB:=$HOME/.local/share/shelduck/shelduck.sh}"
+	if [ ! -r "$SHELDUCK_LIB" ]; then
+		bobshell_die 'shelduck library not found at SHELDUCK_LIB=$SHELDUCK_LIB'
+	fi
+
+	shift
+	shelduck_run_args=$(bobshell_quote "$@")
+
+
+	export shelduck_run_script_path
+	export shelduck_run_args
+
+	sh -euxc ". '$SHELDUCK_LIB'
+#shelduck_run_script_data=\$(cat '$shelduck_run_script_path')
+#eval \"\$shelduck_run_script_data\"
+. '$shelduck_run_script_path'
+";
+}
+
 # api: private
 shelduck_import() {
-	shelduck_eval_script=$(shelduck_resolve "$@")
-	eval "$shelduck_eval_script"
-	unset shelduck_eval_script
+	# todo skip duplicate urls
+	shelduck_import_script=$(shelduck_resolve "$@")
+	eval "$shelduck_import_script"
+	unset shelduck_import_script
 }
 
 
@@ -237,7 +273,7 @@ shelduck_print_addition() {
 	# analyze aliases
 	for arg in $3; do
 		# todo assert $arg not empty
-		if ! bobshell_split_fist "$arg" = key value; then
+		if ! bobshell_split_first "$arg" = key value; then
 			key="$arg"
 			value="$arg"
 		fi
@@ -312,6 +348,7 @@ bobshell_base_url() {
 
 #fun: bobshell_resolve_url URL [BASEURL]
 bobshell_resolve_url() {
+	# todo by default BASEURL is $(realpath "$(pwd)")
 	if         bobshell_starts_with "$1" file:// \
 			|| bobshell_starts_with "$1" http:// \
 			|| bobshell_starts_with "$1" https:// \
@@ -520,6 +557,21 @@ bobshell_quote() {
 		bobshell_quote_separator=' '
 	done
 	unset bobshell_quote_arg
+}
+
+
+# fun: bobshell_join SEPARATOR [ITEM...]
+bobshell_join() {
+	bobshell_join_separator="$1"
+	shift
+	for bobshell_join_item in "$@"; do
+		printf %s "$bobshell_join_item"
+		break
+	done
+	for bobshell_join_item in "$@"; do
+		printf %s "$bobshell_join_separator"
+		printf %s "$bobshell_join_item"
+	done
 }
 
 

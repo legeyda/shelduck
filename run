@@ -130,4 +130,9 @@ eval_dependency() {
 	unset fetch_dependency_result
 }
 
+run_install() {
+	run_build
+	SHELDUCK_LIBRARY_URL="file://shelduck.sh" sh ./install.sh
+}
+
 main "$@"

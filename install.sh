@@ -37,27 +37,28 @@ install_shelduck() {
 
 
 
-
-	# install executable
-	mkdir -p "$DESTDIR$BINDIR"
-	cat > "$DESTDIR$BINDIR/shelduck" <<eof
+	install_executable shelduck <<eof
 #!/bin/sh
-main() {
-	if [ import = "\${1:-}" ]; then
-		shift
-		printf 'import subcommand not available when run from installed script %s\n' "\$0"
-		printf "Instead source library:\n"
-		printf '. "%s"\n' '$DESTDIR$DATAROOTDIR/shelduck/shelduck.sh'
-		printf 'shelduck import'
-		printf ' %s' "\$@"
-		exit 1
-	fi
-	shelduck "\$@"
-}
-. "$DATAROOTDIR/shelduck/shelduck.sh"
-main "\$@"
+set -eux
+if [ import = "\${1:-}" ]; then
+	shift
+	printf 'import subcommand not available when run from installed script %s\n' "\$0"
+	printf "Instead source library:\n"
+	printf '. "%s"\n' '$DESTDIR$DATAROOTDIR/shelduck/shelduck.sh'
+	printf 'shelduck import'
+	printf ' %s' "\$@"
+	exit 1
+fi
+. '$DATAROOTDIR/shelduck/shelduck.sh'
+shelduck "\$@"
 eof
-	chmod +x "$DESTDIR$BINDIR/shelduck"
+
+	install_executable shelduck_run <<eof
+#!/bin/sh
+set -eux
+. '$DATAROOTDIR/shelduck/shelduck.sh'
+shelduck_run "\$@"
+eof
 
 
 
@@ -80,6 +81,13 @@ eof
 	printf '\nPATH="%s:$PATH"' "$BINDIR" >> "$DESTDIR$PROFILE_FILE"
 
 }
+
+install_executable() {
+	mkdir -p "$DESTDIR$BINDIR"
+	cat > "$DESTDIR$BINDIR/$1"
+	chmod +x "$DESTDIR$BINDIR/$1"
+}
+
 
 
 # todo
@@ -355,6 +363,21 @@ bobshell_quote() {
 }
 
 
+# fun: bobshell_join SEPARATOR [ITEM...]
+bobshell_join() {
+	bobshell_join_separator="$1"
+	shift
+	for bobshell_join_item in "$@"; do
+		printf %s "$bobshell_join_item"
+		break
+	done
+	for bobshell_join_item in "$@"; do
+		printf %s "$bobshell_join_separator"
+		printf %s "$bobshell_join_item"
+	done
+}
+
+
 
 bobshell_fetch_url() {
 	if bobshell_remove_prefix "$1" 'file://' bobshell_fetch_url_file_path; then
@@ -379,6 +402,7 @@ bobshell_base_url() {
 
 #fun: bobshell_resolve_url URL [BASEURL]
 bobshell_resolve_url() {
+	# todo by default BASEURL is $(realpath "$(pwd)")
 	if         bobshell_starts_with "$1" file:// \
 			|| bobshell_starts_with "$1" http:// \
 			|| bobshell_starts_with "$1" https:// \

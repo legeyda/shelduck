@@ -39,7 +39,7 @@ install_shelduck() {
 
 	install_executable shelduck <<eof
 #!/bin/sh
-set -eux
+set -eu
 if [ import = "\${1:-}" ]; then
 	shift
 	printf 'import subcommand not available when run from installed script %s\n' "\$0"
@@ -55,7 +55,7 @@ eof
 
 	install_executable shelduck_run <<eof
 #!/bin/sh
-set -eux
+set -eu
 . '$DATAROOTDIR/shelduck/shelduck.sh'
 shelduck_run "\$@"
 eof

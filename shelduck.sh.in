@@ -4,6 +4,9 @@
 
 # fun: shelduck CLIARGS...
 # api: public
+# env: SHELDUCK_BASE_URL
+#      SHELDUCK_LIBRARY_PATH
+#      SHELDUCK_URL_RULES
 shelduck() {
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
@@ -31,9 +34,9 @@ shelduck_run() {
 		shelduck_run_script_path="$0"
 	fi
 
-	: "${SHELDUCK_LIB:=$HOME/.local/share/shelduck/shelduck.sh}"
-	if [ ! -r "$SHELDUCK_LIB" ]; then
-		bobshell_die 'shelduck library not found at SHELDUCK_LIB=$SHELDUCK_LIB'
+	: "${SHELDUCK_LIBRARY_PATH:=$HOME/.local/share/shelduck/shelduck.sh}"
+	if [ ! -r "$SHELDUCK_LIBRARY_PATH" ]; then
+		bobshell_die 'shelduck library not found at SHELDUCK_LIBRARY_PATH=$SHELDUCK_LIBRARY_PATH'
 	fi
 
 	shift
@@ -43,10 +46,9 @@ shelduck_run() {
 	export shelduck_run_script_path
 	export shelduck_run_args
 
-	sh -euxc ". '$SHELDUCK_LIB'
-#shelduck_run_script_data=\$(cat '$shelduck_run_script_path')
-#eval \"\$shelduck_run_script_data\"
-. '$shelduck_run_script_path'
+	sh -euc ". '$SHELDUCK_LIBRARY_PATH'
+shelduck_run_script_data=\$(cat '$shelduck_run_script_path')
+eval \"\$shelduck_run_script_data\"
 ";
 }
 
@@ -93,6 +95,29 @@ shelduck_print() {
 
 	shelduck_parse_cli "$@"
 	shelduck_parse_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_print_base_url")
+
+	# apply url rules
+	if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
+		shelduck_print_rules="$SHELDUCK_URL_RULES"
+		while true; do
+			if ! bobshell_split_first "$shelduck_print_rules" ',' shelduck_print_rule shelduck_print_rules; then
+				shelduck_print_rule="$shelduck_print_rules"
+				shelduck_print_rules=
+			fi
+			
+			shelduck_print_key=
+			shelduck_print_value=
+			bobshell_split_first "$shelduck_print_rule" = shelduck_print_key shelduck_print_value
+			shelduck_parse_cli_url=$(bobshell_replace "$shelduck_parse_cli_url" "$shelduck_print_key" "$shelduck_print_value")
+			
+			if [ -z "$shelduck_print_rules" ]; then
+				break;
+			fi
+		done
+		unset shelduck_print_rules shelduck_print_rule
+		unset shelduck_print_key shelduck_print_value
+	fi
+
 	set -- "$shelduck_parse_cli_url" "$shelduck_parse_cli_aliases"
 	unset shelduck_print_base_url shelduck_parse_cli_url shelduck_parse_cli_aliases
 	

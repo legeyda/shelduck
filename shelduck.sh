@@ -31,7 +31,7 @@ shelduck_run() {
 	if [ -r "$shelduck_run_url" ]; then
 		shelduck_run_script_path="$shelduck_run_url"
 		shelduck_run_url="file://$shelduck_run_url"
-	elif bobshell_starts_with "$shelduck_run_url" file:// shelduck_run_script_path; then
+	elif bobshell_remove_prefix "$shelduck_run_url" file:// shelduck_run_script_path; then
 		true
 	else
 		shelduck_run_script_path="$0"
@@ -44,7 +44,6 @@ shelduck_run() {
 
 	shift
 	shelduck_run_args=$(bobshell_quote "$@")
-
 
 	export shelduck_run_script_path
 	export shelduck_run_args
@@ -271,8 +270,12 @@ shelduck_rewrite() {
 	if [ rename = "${shelduck_alias_strategy:-}" ]; then
 		bobshell_die "shelduck_alias_strategy: value $shelduck_alias_strategy not supported"
 	fi
-	# comment out shelduck dependency directive
-	printf %s "$1"
+	shelduck_rewrite_data="$1"
+	if bobshell_remove_prefix "$shelduck_rewrite_data" "#!/usr/bin/env shelduck_run$bobshell_newline" shelduck_rewrite_suffix; then
+		shelduck_rewrite_data="#!/bin/sh$bobshell_newline$shelduck_rewrite_suffix"
+	fi
+	printf %s "$shelduck_rewrite_data"
+	unset shelduck_rewrite_data shelduck_rewrite_suffix
 }
 
 
@@ -492,7 +495,7 @@ bobshell_split_last() {
 }
 
 
-# txt: заменить в $1 все вхождения строки $2 на строку $3 и записать результат в переменную $4
+# txt: заменить в $1 все вхождения строки $2 на строку $3
 # use: replace_substring hello e E
 bobshell_replace() {
   	# https://freebsdfrau.gitbook.io/serious-shell-programming/string-functions/replace_substringall

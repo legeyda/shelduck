@@ -270,7 +270,7 @@ bobshell_split_last() {
 }
 
 
-# txt: заменить в $1 все вхождения строки $2 на строку $3 и записать результат в переменную $4
+# txt: заменить в $1 все вхождения строки $2 на строку $3
 # use: replace_substring hello e E
 bobshell_replace() {
   	# https://freebsdfrau.gitbook.io/serious-shell-programming/string-functions/replace_substringall

@@ -27,31 +27,46 @@ shelduck() {
 shelduck_run() {
 	bobshell_require_not_empty "${1:-}" 'usage: shelduck_run'
 
-	shelduck_run_url="${1:-}"
-	if [ -r "$shelduck_run_url" ]; then
-		shelduck_run_script_path="$shelduck_run_url"
-		shelduck_run_url="file://$shelduck_run_url"
-	elif bobshell_remove_prefix "$shelduck_run_url" file:// shelduck_run_script_path; then
+	shelduck_parse_cli "$@"
+
+	if [ -r "$shelduck_parse_cli_url" ]; then
+		shelduck_run_script_path="$shelduck_parse_cli_url"
+		shelduck_parse_cli_url="file://$shelduck_parse_cli_url"
+	elif bobshell_remove_prefix "$shelduck_parse_cli_url" file:// shelduck_run_script_path; then
 		true
 	else
 		shelduck_run_script_path="$0"
 	fi
+	unset shelduck_parse_cli_url
+
+	shelduck_run_args="$shelduck_parse_cli_url_args"
+	unset shelduck_parse_cli_url_args
+
+	if [ -n "$shelduck_parse_cli_aliases" ]; then
+		bobshell_log "warn: aliases make no sence and hence ingnored"
+	fi
+
+
 
 	: "${SHELDUCK_LIBRARY_PATH:=$HOME/.local/share/shelduck/shelduck.sh}"
 	if [ ! -r "$SHELDUCK_LIBRARY_PATH" ]; then
-		bobshell_die 'shelduck library not found at SHELDUCK_LIBRARY_PATH=$SHELDUCK_LIBRARY_PATH'
+		bobshell_die "shelduck library not found at SHELDUCK_LIBRARY_PATH=$SHELDUCK_LIBRARY_PATH"
 	fi
 
-	shift
-	shelduck_run_args=$(bobshell_quote "$@")
 
 	export shelduck_run_script_path
 	export shelduck_run_args
 
-	sh -euc ". '$SHELDUCK_LIBRARY_PATH'
+
+	shelduck_run_command=". '$SHELDUCK_LIBRARY_PATH'
 shelduck_run_script_data=\$(cat '$shelduck_run_script_path')
 eval \"\$shelduck_run_script_data\"
 ";
+	if [ -n "$shelduck_parse_cli_command" ]; then
+		shelduck_run_command="${shelduck_run_command}$(bobshell_quote $shelduck_parse_cli_command) $shelduck_run_args"
+	fi
+
+	sh -eucx "$shelduck_run_command"
 }
 
 # api: private
@@ -97,6 +112,10 @@ shelduck_print() {
 
 	shelduck_parse_cli "$@"
 	shelduck_parse_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_print_base_url")
+	
+	if [ -n "$shelduck_parse_cli_command" ]; then
+		bobshell_log "warn: resolve: function makes no sence and hence ignored"
+	fi
 
 	# apply url rules
 	if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
@@ -139,37 +158,55 @@ shelduck_print() {
 }
 
 # fun: shelduck_parse_cli [CLIARGS...]
-# env: shelduck_parse_cli_url
-#      shelduck_parse_cli_aliases
+# env: shelduck_parse_cli_aliases
+#      shelduck_parse_cli_command
+#      shelduck_parse_cli_url
+#      shelduck_parse_cli_url_args
 # api: private
 shelduck_parse_cli() {
 	# parse cli, save to local array: ABSURL [ALIAS...]
-	shelduck_parse_cli_url=
 	shelduck_parse_cli_aliases=
+	shelduck_parse_cli_command=
+	shelduck_parse_cli_url=
+	shelduck_parse_cli_url_args=
 	while [ "${1+defined}" = defined ]; do
+		bobshell_require_not_empty "${1:-}" "arg expected to be nonempty"
 		case "$1" in
 			-a|--alias)
 				shift;
-				if [ -z "${1:-}" ]; then
-					bobshell_die "alias argument expected to be not empty"
+				if [ defined != "${1+defined}" ]; then
+					bobshell_die 'alias argument expected'
 				fi
+				bobshell_require_not_empty "${1:-}" "alias argument expected to be not empty"
 				shelduck_parse_cli_aliases="$shelduck_parse_cli_aliases $1"
 				shift
 				;;
+
+			-c|--command)
+				shift;
+				if [ defined != "${1+defined}" ]; then
+					bobshell_die 'command argument expected'
+				fi
+				bobshell_require_not_empty "${1:-}" "command argument expected to be not empty"
+				shelduck_parse_cli_command="$1"
+				shift
+				;;
+
 			*)
 				if [ -z "${1:-}" ]; then
 					bobshell_die "url expected to be nonempty"
 				fi
-				if [ -n "$shelduck_parse_cli_url" ]; then
-					bobshell_die "only one url allowed ($1)"
+				if [ -z "$shelduck_parse_cli_url" ]; then
+					shelduck_parse_cli_url="$1"
+					shift
+					shelduck_parse_cli_url_args="$(bobshell_quote "$@")"
+					break
 				fi
-				shelduck_parse_cli_url="$1"
-				shift
 				;;
 		esac
 	done
 	if [ -z "$shelduck_parse_cli_url" ]; then
-		bobshell_die "url expected to set"
+		bobshell_die "url expected to be defined"
 	fi
 }
 

@@ -30,8 +30,8 @@ shelduck_run() {
 	shelduck_parse_cli "$@"
 
 	if [ -r "$shelduck_parse_cli_url" ]; then
-		shelduck_run_script_path="$shelduck_parse_cli_url"
-		shelduck_parse_cli_url="file://$shelduck_parse_cli_url"
+		shelduck_run_script_path=$(realpath "$shelduck_parse_cli_url")
+		#shelduck_parse_cli_url="file://$shelduck_run_script_path"
 	elif bobshell_remove_prefix "$shelduck_parse_cli_url" file:// shelduck_run_script_path; then
 		true
 	else
@@ -56,8 +56,10 @@ shelduck_run() {
 
 	export shelduck_run_script_path
 	export shelduck_run_args
-
-
+	SHELDUCK_BASE_URL=$(dirname "$shelduck_run_script_path")
+	SHELDUCK_BASE_URL="file://$SHELDUCK_BASE_URL"
+	export SHELDUCK_BASE_URL
+	#bobshell_log 'i am here: '
 	shelduck_run_command=". '$SHELDUCK_LIBRARY_PATH'
 shelduck_run_script_data=\$(cat '$shelduck_run_script_path')
 eval \"\$shelduck_run_script_data\"
@@ -66,7 +68,7 @@ eval \"\$shelduck_run_script_data\"
 		shelduck_run_command="${shelduck_run_command}$(bobshell_quote $shelduck_parse_cli_command) $shelduck_run_args"
 	fi
 
-	sh -eucx "$shelduck_run_command"
+	sh -euc "$shelduck_run_command"
 }
 
 # api: private
@@ -85,6 +87,7 @@ shelduck_usage() {
 	printf '    usage\n'
 	printf '    import\n'
 	printf '    resolve\n'
+	printf '    run\n'
 }
 
 

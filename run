@@ -49,7 +49,7 @@ run_build() {
 run_build_shelduck() {
 	print_generated_file_warning shelduck.sh.in > shelduck.sh
 	cat shelduck.sh.in >> shelduck.sh
-	for dependency in url.sh string.sh base.sh; do
+	for dependency in base.sh string.sh url.sh; do
 		fetch_dependency "$dependency"
 		printf '%s' "$fetch_dependency_result" >> shelduck.sh
 	done

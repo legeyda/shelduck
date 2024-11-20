@@ -30,7 +30,6 @@ install_shelduck() {
 	fetch_url "$SHELDUCK_LIBRARY_URL" > "$DESTDIR$DATAROOTDIR/shelduck/shelduck.sh"
 
 
-
 	install_executable shelduck <<eof
 #!/bin/sh
 set -eu

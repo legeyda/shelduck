@@ -3,7 +3,7 @@ set -eu
 # THIS FILE IS GENERATED AUTOMATICALLY, DO NOT EDIT IT MANUALLY.
 # Instead, edit install.sh.in and run sh ./run build to regenerate it
 
-# shelduck: source for file://install.sh.in
+# shelduck: source for file:///home/user/box/workspace/shelduck/install.sh.in
 
 
 # shelduck_src
@@ -34,7 +34,6 @@ install_shelduck() {
 	mkdir -p "$DESTDIR$DATAROOTDIR/shelduck"
 	: "${SHELDUCK_LIBRARY_URL:=https://raw.githubusercontent.com/legeyda/shelduck/refs/heads/main/shelduck.sh}"
 	fetch_url "$SHELDUCK_LIBRARY_URL" > "$DESTDIR$DATAROOTDIR/shelduck/shelduck.sh"
-
 
 
 	install_executable shelduck <<eof
@@ -133,6 +132,13 @@ bobshell_require_not_empty() {
 	fi
 }
 
+bobshell_require_empty() {
+	if [ -z "${1:-}" ]; then
+		shift
+		bobshell_die "$@"
+	fi
+}
+
 bobshell_is_bash() {
 	test -n "${BASH_VERSION:-}"
 }
@@ -159,6 +165,14 @@ bobshell_log() {
 	bobshell_log_message=$(printf "$@")
 	printf '%s: %s\n' "$0" "$bobshell_log_message" >&2
 	unset bobshell_log_message
+}
+
+bobshell_rename_var() {
+	if [ "$1" = "$2" ]; then
+		return
+	fi
+	eval "$2=\$$1"
+	unset "$1"
 }
 
 
@@ -194,6 +208,7 @@ log() {
 
 # use: bobshell_starts_with hello he && echo "$rest" # prints llo
 bobshell_starts_with() {
+	bobshell_require_empty "bobshell_starts_with takes 2 arguments, 3 given, did you mean bobshell_remove_prefix?"
 	case "$1" in
 		("$2"*) return 0
 	esac
@@ -214,6 +229,7 @@ bobshell_remove_prefix() {
 
 # use: bobshell_starts_with hello he rest && echo "$rest" # prints llo
 bobshell_ends_with() {
+	bobshell_require_empty "bobshell_ends_with takes 2 arguments, 3 given, did you mean bobshell_remove_suffix?"
 	case "$1" in
 		(*"$2") return 0
 	esac
@@ -380,11 +396,11 @@ bobshell_join() {
 
 
 bobshell_fetch_url() {
-	if bobshell_remove_prefix "$1" 'file://' bobshell_fetch_url_file_path; then
+	if bobshell_remove_prefix "$1" 'file://' bobshell_fetch_url_path; then
 		# shellcheck disable=SC2154
-		# bobshell_remove_prefix sets variable bobshell_fetch_url_file_path indirectly
-		cat "$bobshell_fetch_url_file_path"
-		unset bobshell_fetch_url_file_path
+		# bobshell_remove_prefix sets variable bobshell_fetch_url_path indirectly
+		cat "$bobshell_fetch_url_path"
+		unset bobshell_fetch_url_path
 	elif bobshell_command_available curl; then
 		bobshell_fetch_url_with_curl "$1"
 	elif bobshell_command_available wget; then
@@ -403,11 +419,13 @@ bobshell_base_url() {
 #fun: bobshell_resolve_url URL [BASEURL]
 bobshell_resolve_url() {
 	# todo by default BASEURL is $(realpath "$(pwd)")
-	if         bobshell_starts_with "$1" file:// \
-			|| bobshell_starts_with "$1" http:// \
-			|| bobshell_starts_with "$1" https:// \
-			|| bobshell_starts_with "$1" ftp:// \
-			|| bobshell_starts_with "$1" ftps:// \
+	if   bobshell_remove_prefix "$1" file:// bobshell_resolve_url_path; then
+		bobshell_resolve_url_path=$(realpath "$bobshell_resolve_url_path")
+		printf 'file://%s' "$bobshell_resolve_url_path"
+	elif bobshell_starts_with "$1" http:// \
+	  || bobshell_starts_with "$1" https:// \
+	  || bobshell_starts_with "$1" ftp:// \
+	  || bobshell_starts_with "$1" ftps:// \
 			; then
 		printf %s "$1"
 	elif [ -n "${2:-}" ]; then

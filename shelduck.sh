@@ -21,62 +21,100 @@ shelduck() {
 	esac
 }
 
+# api: private
+shelduck_ensure_base_url() {
+	# guess base url
+	if [ -z "${shelduck_base_url:-}" ]; then
+		shelduck_base_url=$(pwd)
+		shelduck_base_url="file://$shelduck_base_url"
+	fi
+}
 
 # fun: shelduck_run URL [COMMAND [ARGS...]]
 # api: private
 shelduck_run() {
-	bobshell_require_not_empty "${1:-}" 'usage: shelduck_run'
+	shelduck_ensure_base_url
 
+	# parse arguments
 	shelduck_parse_cli "$@"
-
-	if [ -r "$shelduck_parse_cli_url" ]; then
-		shelduck_run_script_path=$(realpath "$shelduck_parse_cli_url")
-		#shelduck_parse_cli_url="file://$shelduck_run_script_path"
-	elif bobshell_remove_prefix "$shelduck_parse_cli_url" file:// shelduck_run_script_path; then
-		true
-	else
-		shelduck_run_script_path="$0"
-	fi
-	unset shelduck_parse_cli_url
-
-	shelduck_run_args="$shelduck_parse_cli_url_args"
-	unset shelduck_parse_cli_url_args
-
 	if [ -n "$shelduck_parse_cli_aliases" ]; then
 		bobshell_log "warn: aliases make no sence and hence ingnored"
 	fi
+	unset shelduck_parse_cli_aliases
+	bobshell_rename_var shelduck_parse_cli_command  shelduck_run_command
+	shelduck_run_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
+	bobshell_rename_var shelduck_parse_cli_args     shelduck_run_args
 
+	shelduck_base_url=$(bobshell_base_url "$shelduck_run_url")
 
-
+	
 	: "${SHELDUCK_LIBRARY_PATH:=$HOME/.local/share/shelduck/shelduck.sh}"
 	if [ ! -r "$SHELDUCK_LIBRARY_PATH" ]; then
 		bobshell_die "shelduck library not found at SHELDUCK_LIBRARY_PATH=$SHELDUCK_LIBRARY_PATH"
 	fi
 
-
-	export shelduck_run_script_path
-	export shelduck_run_args
-	SHELDUCK_BASE_URL=$(dirname "$shelduck_run_script_path")
-	SHELDUCK_BASE_URL="file://$SHELDUCK_BASE_URL"
-	export SHELDUCK_BASE_URL
-	#bobshell_log 'i am here: '
-	shelduck_run_command=". '$SHELDUCK_LIBRARY_PATH'
-shelduck_run_script_data=\$(cat '$shelduck_run_script_path')
+	
+	shelduck_run_script=". '$SHELDUCK_LIBRARY_PATH'
+shelduck_base_url='$shelduck_base_url'
+shelduck_run_script_data=\$(shelduck_cached_fetch_url '$shelduck_run_url')
 eval \"\$shelduck_run_script_data\"
 ";
-	if [ -n "$shelduck_parse_cli_command" ]; then
-		shelduck_run_command="${shelduck_run_command}$(bobshell_quote $shelduck_parse_cli_command) $shelduck_run_args"
+	if [ -n "$shelduck_run_command" ]; then
+		shelduck_run_script="${shelduck_run_script}${shelduck_run_command} ${shelduck_run_args}"
 	fi
 
-	sh -euc "$shelduck_run_command"
+	sh -euc "$shelduck_run_script"
+	unset shelduck_run_script_path
 }
 
+# fun: shelduck_resolve CLIARGS...
 # api: private
+# env: shelduck_base_url
 shelduck_import() {
-	# todo skip duplicate urls
-	shelduck_import_script=$(shelduck_resolve "$@")
-	eval "$shelduck_import_script"
-	unset shelduck_import_script
+	shelduck_ensure_base_url
+	: "${shelduck_import_history:=}"
+	
+	# pase clie
+	shelduck_parse_cli "$@"
+	bobshell_rename_var shelduck_parse_cli_aliases shelduck_import_aliases
+	if [ -n "$shelduck_parse_cli_command" ]; then
+		bobshell_log "warn: function makes no sence and hence ignored"
+	fi
+	unset shelduck_parse_cli_command
+	shelduck_import_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
+	unset shelduck_parse_cli_url
+	if [ -n "$shelduck_parse_cli_args" ]; then
+		bobshell_log "warn: arguments make no sence and hence ignored"
+	fi
+	unset shelduck_parse_cli_args	
+
+
+
+	# check duplicates
+	if bobshell_contains "$shelduck_import_history" "$shelduck_import_url"; then
+		return
+	fi
+	shelduck_import_history="$shelduck_import_history $shelduck_import_url"
+	
+
+	# load print
+	shelduck_alias_strategy=wrap
+	shelduck_import_origin=$(shelduck_print_origin "$shelduck_import_url")
+	shelduck_import_additions=$(shelduck_print_addition "$shelduck_import_origin" "$shelduck_import_url" "$shelduck_import_aliases")
+
+
+	
+
+
+	# save variables to local array before recursive call
+	set -- "$shelduck_base_url" 
+
+	# recursive call
+	eval "$shelduck_import_origin$shelduck_import_additions"
+	unset shelduck_import_origin shelduck_import_additions
+
+	# restove variables from local array
+	shelduck_base_url="$1"
 }
 
 
@@ -94,31 +132,42 @@ shelduck_usage() {
 # fun: shelduck_resolve CLIARGS...
 # api: private
 shelduck_resolve() {
+	shelduck_ensure_base_url
+
 	# set starting parameters
-	shelduck_url_history=
+	shelduck_print_history=
 	shelduck_alias_strategy="${SHELDUCK_ALIAS_STRATEGY:-wrap}"
 	
 	# delegate
-	shelduck_print "${SHELDUCK_BASE_URL:-}" "$@"
+	shelduck_print "$@"
 }
 
 
 
-# fun: shelduck_print BASEURL CLIARGS...
-# env: shelduck_url_history
+# fun: shelduck_print CLIARGS...
+# env: shelduck_print_history
 #      shelduck_alias_strategy
 # txt: parse cli and delegate to shelduck_print_tree
 # api: private
 shelduck_print() {
-	shelduck_print_base_url="$1"
-	shift
 
+	shelduck_print_initial_base_url="$shelduck_base_url"
+
+	# parse cli
 	shelduck_parse_cli "$@"
-	shelduck_parse_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_print_base_url")
-	
+	bobshell_rename_var shelduck_parse_cli_aliases shelduck_print_aliases
 	if [ -n "$shelduck_parse_cli_command" ]; then
-		bobshell_log "warn: resolve: function makes no sence and hence ignored"
+		bobshell_log "warn: function makes no sence and hence ignored"
 	fi
+	unset shelduck_parse_cli_command
+	shelduck_print_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
+	unset shelduck_parse_cli_url
+	if [ -n "$shelduck_parse_cli_args" ]; then
+		bobshell_log "warn: url arguments make no sence and hence ignored"
+	fi
+	unset shelduck_parse_cli_args
+
+	shelduck_base_url=$(bobshell_base_url "$shelduck_print_url")
 
 	# apply url rules
 	if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
@@ -132,7 +181,7 @@ shelduck_print() {
 			shelduck_print_key=
 			shelduck_print_value=
 			bobshell_split_first "$shelduck_print_rule" = shelduck_print_key shelduck_print_value
-			shelduck_parse_cli_url=$(bobshell_replace "$shelduck_parse_cli_url" "$shelduck_print_key" "$shelduck_print_value")
+			shelduck_print_url=$(bobshell_replace "$shelduck_print_url" "$shelduck_print_key" "$shelduck_print_value")
 			
 			if [ -z "$shelduck_print_rules" ]; then
 				break;
@@ -142,36 +191,48 @@ shelduck_print() {
 		unset shelduck_print_key shelduck_print_value
 	fi
 
-	set -- "$shelduck_parse_cli_url" "$shelduck_parse_cli_aliases"
-	unset shelduck_print_base_url shelduck_parse_cli_url shelduck_parse_cli_aliases
-	
+
 	# load script
-	shelduck_print_script=$(shelduck_print_origin "$@")
-	set -- "$shelduck_print_script" "$@"
-	unset shelduck_print_script
+	shelduck_print_script=$(shelduck_print_origin "$shelduck_print_url")
+	
+	# save variables to local array before subsequent (possibly recursive) calls
+	set -- "$shelduck_print_script" "$shelduck_print_url" "$shelduck_print_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
 
 	# check if dependency was already compiled
-	if ! bobshell_contains "$shelduck_url_history" "$2"; then
+	if ! bobshell_contains "$shelduck_print_history" "$2"; then
+
+		# recursive call
+		#shelduck_print_compile_args=$(bobshell_quote "$@")
 		shelduck_compile "$@"
-		shelduck_url_history="$shelduck_url_history $2"
+
+		# restore variables from local array after recursive call
+		shelduck_base_url="$4"
+		shelduck_print_initial_base_url="$5"
+
+		shelduck_print_history="$shelduck_print_history $2"
 	fi
 
 	# print additions, if needed
 	shelduck_print_addition "$@"
+
+	shelduck_base_url="$shelduck_print_initial_base_url"
 }
+
+
+
 
 # fun: shelduck_parse_cli [CLIARGS...]
 # env: shelduck_parse_cli_aliases
 #      shelduck_parse_cli_command
 #      shelduck_parse_cli_url
-#      shelduck_parse_cli_url_args
+#      shelduck_parse_cli_args
 # api: private
 shelduck_parse_cli() {
-	# parse cli, save to local array: ABSURL [ALIAS...]
+	bobshell_require_not_empty "${1:-}" 'at least one argument expected'
 	shelduck_parse_cli_aliases=
 	shelduck_parse_cli_command=
 	shelduck_parse_cli_url=
-	shelduck_parse_cli_url_args=
+	shelduck_parse_cli_args=
 	while [ "${1+defined}" = defined ]; do
 		bobshell_require_not_empty "${1:-}" "arg expected to be nonempty"
 		case "$1" in
@@ -202,7 +263,7 @@ shelduck_parse_cli() {
 				if [ -z "$shelduck_parse_cli_url" ]; then
 					shelduck_parse_cli_url="$1"
 					shift
-					shelduck_parse_cli_url_args="$(bobshell_quote "$@")"
+					shelduck_parse_cli_args="$(bobshell_quote "$@")"
 					break
 				fi
 				;;
@@ -233,11 +294,9 @@ shelduck_compile() {
 		elif ! bobshell_split_first "$shelduck_compile_input" "${bobshell_newline}shelduck import " shelduck_compile_before shelduck_compile_after; then
 			break
 		else
-
 			# print everything before the first found shelduck command
 			shelduck_rewrite "$shelduck_compile_before$bobshell_newline" "$@"
 			shelduck_compile_input="$shelduck_compile_after$bobshell_newline"
-		
 		fi
 
 		
@@ -258,7 +317,6 @@ shelduck_compile() {
 			
 			shelduck_compile_command="$shelduck_compile_command${shelduck_compile_before}"
 			shelduck_compile_input="$shelduck_compile_after"
-
 		done
 		
 		# assert shelduck argument command line not empty
@@ -266,22 +324,17 @@ shelduck_compile() {
 			bobshell_die 'empty shelduck arguments'
 		fi
 
-		# get base url to pass ot depenencies
-		shelduck_compile_base_url=
-		if [ -n "$1" ]; then
-			shelduck_compile_base_url=$(bobshell_base_url "$1")
-		fi
-
 		# before recursive call, save variables to local array
-		set -- "$shelduck_compile_input" "$@"
+		set -- "$shelduck_base_url" "$shelduck_compile_input" "$@"
 
 		# recursive call, concously not double qouting
 		# shellcheck disable=SC2086
-		shelduck_print "$shelduck_compile_base_url" $shelduck_compile_command
+		shelduck_print $shelduck_compile_command
 
 		# after recursive call, restore variables from local array
-		shelduck_compile_input="$1"
-		shift
+		shelduck_base_url="$1"
+		shelduck_compile_input="$2"
+		shift 2
 	done
 				
 
@@ -326,7 +379,7 @@ shelduck_rewrite() {
 # api: private
 shelduck_print_addition() {
 
-	if [ wrap != "$shelduck_alias_strategy" ]; then
+	if [ wrap != "${shelduck_alias_strategy:-}" ]; then
 		# nothing to do, wrap was the only supported customization
 		return
 	fi
@@ -385,67 +438,90 @@ shelduck_cached_fetch_url() {
 	bobshell_fetch_url "$1" || bobshell_die "shelduck: dependency fetch error '$1': error downloading '$1'"
 }
 
-# shellcheck disable=SC2148
-
-# disable recursive dependency resolution when building shelduck itself
-# shelduck import ./base.sh
-# disable recursive dependency resolution when building shelduck itself
-# shelduck import ./string.sh
+# todo
 
 
-bobshell_fetch_url() {
-	if bobshell_remove_prefix "$1" 'file://' bobshell_fetch_url_file_path; then
-		# shellcheck disable=SC2154
-		# bobshell_remove_prefix sets variable bobshell_fetch_url_file_path indirectly
-		cat "$bobshell_fetch_url_file_path"
-		unset bobshell_fetch_url_file_path
-	elif bobshell_command_available curl; then
-		bobshell_fetch_url_with_curl "$1"
-	elif bobshell_command_available wget; then
-		bobshell_fetch_url_with_wget "$1"
-	else
-		bobshell_die 'error: neither curl nor wget installed'
+bobshell_die() {
+  # https://github.com/biox/pa/blob/main/pa
+  printf '%s: %s.\n' "$(basename "$0")" "${*:-error}" >&2
+  exit 1
+}
+
+
+# use isset unreliablevar
+bobshell_isset() {
+	eval "test '\${$1+defined}' = defined"
+}
+
+
+bobshell_command_available() {
+	command -v "$1" > /dev/null
+}
+
+# fun: bobshell_putvar VARNAME NEWVARVALUE
+# txt: установка значения переменной по динамическому имени
+bobshell_putvar() {
+  eval "$1=\"\$2\""
+}
+
+
+
+# fun bobshell_getvar VARNAME
+# use: echo "$(getvar MSG)"
+# txt: считывание значения переменной по динамическому имени
+bobshell_getvar() {
+  eval "printf %s \"\$$1\""
+}
+
+
+bobshell_require_not_empty() {
+	if [ -z "${1:-}" ]; then
+		shift
+		bobshell_die "$@"
 	fi
 }
 
-# fun: bobshell_base_url http://domain/dir/file # prints http://domain/dir/
-bobshell_base_url() {
-	printf %s/ "${1%/*}"
-}
-
-
-#fun: bobshell_resolve_url URL [BASEURL]
-bobshell_resolve_url() {
-	# todo by default BASEURL is $(realpath "$(pwd)")
-	if         bobshell_starts_with "$1" file:// \
-			|| bobshell_starts_with "$1" http:// \
-			|| bobshell_starts_with "$1" https:// \
-			|| bobshell_starts_with "$1" ftp:// \
-			|| bobshell_starts_with "$1" ftps:// \
-			; then
-		printf %s "$1"
-	elif [ -n "${2:-}" ]; then
-		printf %s "$2"
-		if ! bobshell_ends_with "$2" /; then
-			printf '/'
-		fi
-		bobshell_resolve_url_value="$1"
-		while bobshell_remove_prefix "$bobshell_resolve_url_value" './' bobshell_resolve_url_value; do
-			true
-		done
-		printf %s "$bobshell_resolve_url_value"
-		unset bobshell_resolve_url_value
-	else
-		bobshell_die "bobshell_resolve_url: url is relaive, but not base url defined: $1" 
+bobshell_require_empty() {
+	if [ -z "${1:-}" ]; then
+		shift
+		bobshell_die "$@"
 	fi
 }
 
-bobshell_fetch_url_with_curl() {
-	curl --fail --silent --show-error --location "$1"
+bobshell_is_bash() {
+	test -n "${BASH_VERSION:-}"
 }
 
-bobshell_fetch_url_with_wget() {
-	wget --no-verbose --output-document -
+bobshell_is_zsh() {
+	test -n "${ZSH_VERSION:-}"
+}
+
+bobshell_is_ksh() {
+	test -n "${KSH_VERSION:-}"
+}
+
+bobshell_list_functions() {
+	if bobshell_is_bash; then
+		compgen -A function
+	elif [ -n "${0:-}" ] && [ -f "${0}" ]; then
+		sed --regexp-extended 's/^( *function)? *([A-Za-z0_9_]+) *\( *\) *\{ *$/\2/g' "$0"
+	fi
+}
+
+bobshell_log() {
+	# printf format should be in "$@"
+	# shellcheck disable=SC2059
+	bobshell_log_message=$(printf "$@")
+	printf '%s: %s\n' "$0" "$bobshell_log_message" >&2
+	unset bobshell_log_message
+}
+
+bobshell_rename_var() {
+	if [ "$1" = "$2" ]; then
+		return
+	fi
+	eval "$2=\$$1"
+	unset "$1"
 }
 
 
@@ -459,6 +535,7 @@ bobshell_fetch_url_with_wget() {
 
 # use: bobshell_starts_with hello he && echo "$rest" # prints llo
 bobshell_starts_with() {
+	bobshell_require_empty "bobshell_starts_with takes 2 arguments, 3 given, did you mean bobshell_remove_prefix?"
 	case "$1" in
 		("$2"*) return 0
 	esac
@@ -479,6 +556,7 @@ bobshell_remove_prefix() {
 
 # use: bobshell_starts_with hello he rest && echo "$rest" # prints llo
 bobshell_ends_with() {
+	bobshell_require_empty "bobshell_ends_with takes 2 arguments, 3 given, did you mean bobshell_remove_suffix?"
 	case "$1" in
 		(*"$2") return 0
 	esac
@@ -643,75 +721,69 @@ bobshell_join() {
 }
 
 
-# todo
+# shellcheck disable=SC2148
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ./base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ./string.sh
 
 
-bobshell_die() {
-  # https://github.com/biox/pa/blob/main/pa
-  printf '%s: %s.\n' "$(basename "$0")" "${*:-error}" >&2
-  exit 1
-}
-
-
-# use isset unreliablevar
-bobshell_isset() {
-	eval "test '\${$1+defined}' = defined"
-}
-
-
-bobshell_command_available() {
-	command -v "$1" > /dev/null
-}
-
-# fun: bobshell_putvar VARNAME NEWVARVALUE
-# txt: установка значения переменной по динамическому имени
-bobshell_putvar() {
-  eval "$1=\"\$2\""
-}
-
-
-
-# fun bobshell_getvar VARNAME
-# use: echo "$(getvar MSG)"
-# txt: считывание значения переменной по динамическому имени
-bobshell_getvar() {
-  eval "printf %s \"\$$1\""
-}
-
-
-bobshell_require_not_empty() {
-	if [ -z "${1:-}" ]; then
-		shift
-		bobshell_die "$@"
+bobshell_fetch_url() {
+	if bobshell_remove_prefix "$1" 'file://' bobshell_fetch_url_path; then
+		# shellcheck disable=SC2154
+		# bobshell_remove_prefix sets variable bobshell_fetch_url_path indirectly
+		cat "$bobshell_fetch_url_path"
+		unset bobshell_fetch_url_path
+	elif bobshell_command_available curl; then
+		bobshell_fetch_url_with_curl "$1"
+	elif bobshell_command_available wget; then
+		bobshell_fetch_url_with_wget "$1"
+	else
+		bobshell_die 'error: neither curl nor wget installed'
 	fi
 }
 
-bobshell_is_bash() {
-	test -n "${BASH_VERSION:-}"
+# fun: bobshell_base_url http://domain/dir/file # prints http://domain/dir/
+bobshell_base_url() {
+	printf %s/ "${1%/*}"
 }
 
-bobshell_is_zsh() {
-	test -n "${ZSH_VERSION:-}"
-}
 
-bobshell_is_ksh() {
-	test -n "${KSH_VERSION:-}"
-}
-
-bobshell_list_functions() {
-	if bobshell_is_bash; then
-		compgen -A function
-	elif [ -n "${0:-}" ] && [ -f "${0}" ]; then
-		sed --regexp-extended 's/^( *function)? *([A-Za-z0_9_]+) *\( *\) *\{ *$/\2/g' "$0"
+#fun: bobshell_resolve_url URL [BASEURL]
+bobshell_resolve_url() {
+	# todo by default BASEURL is $(realpath "$(pwd)")
+	if   bobshell_remove_prefix "$1" file:// bobshell_resolve_url_path; then
+		bobshell_resolve_url_path=$(realpath "$bobshell_resolve_url_path")
+		printf 'file://%s' "$bobshell_resolve_url_path"
+	elif bobshell_starts_with "$1" http:// \
+	  || bobshell_starts_with "$1" https:// \
+	  || bobshell_starts_with "$1" ftp:// \
+	  || bobshell_starts_with "$1" ftps:// \
+			; then
+		printf %s "$1"
+	elif [ -n "${2:-}" ]; then
+		printf %s "$2"
+		if ! bobshell_ends_with "$2" /; then
+			printf '/'
+		fi
+		bobshell_resolve_url_value="$1"
+		while bobshell_remove_prefix "$bobshell_resolve_url_value" './' bobshell_resolve_url_value; do
+			true
+		done
+		printf %s "$bobshell_resolve_url_value"
+		unset bobshell_resolve_url_value
+	else
+		bobshell_die "bobshell_resolve_url: url is relaive, but not base url defined: $1" 
 	fi
 }
 
-bobshell_log() {
-	# printf format should be in "$@"
-	# shellcheck disable=SC2059
-	bobshell_log_message=$(printf "$@")
-	printf '%s: %s\n' "$0" "$bobshell_log_message" >&2
-	unset bobshell_log_message
+bobshell_fetch_url_with_curl() {
+	curl --fail --silent --show-error --location "$1"
+}
+
+bobshell_fetch_url_with_wget() {
+	wget --no-verbose --output-document -
 }
 
 

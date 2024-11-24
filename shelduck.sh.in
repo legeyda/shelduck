@@ -33,46 +33,29 @@ shelduck_run() {
 	shelduck_ensure_base_url
 
 	# todo save (and restore) old run_args
+	# todo apply url rules
 
 	# parse arguments
 	shelduck_parse_cli "$@"
 
+	# save latest run args, since recursive imports use it
 
-	# save run args, since recursive imports use that args
+
+	# save vars before recursive_call
+	set -- "${shelduck_run_args:-}"
+	
+	# delegate to shelduck_exec	
+	shelduck_run_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
 	shelduck_run_args="$shelduck_parse_cli_args"
-	
-	if [ -n "$shelduck_parse_cli_url" ]; then
-		shelduck_run_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
-		
+	shelduck_exec "$shelduck_parse_cli_aliases" "$shelduck_parse_cli_command" "$shelduck_run_url" "$shelduck_parse_cli_args"
+	unset shelduck_parse_cli_aliases shelduck_parse_cli_command shelduck_parse_cli_url shelduck_parse_cli_args
 
-		shelduck_alias_strategy=wrap
-		shelduck_run_origin=$(shelduck_print_origin "$shelduck_run_url")
-		shelduck_run_additions=$(shelduck_print_addition "$shelduck_run_origin" "$shelduck_run_url" "$shelduck_parse_cli_aliases")
+	# restore state after recursive call
+	shelduck_run_args="$1"
 
-
-		# save state before recursive call
-		set -- "$shelduck_base_url" "$shelduck_parse_cli_command" "$shelduck_run_args" "$shelduck_run_origin$shelduck_run_additions"
-
-		# recursive call
-		shelduck_base_url=$(bobshell_base_url "$shelduck_run_url")
-		eval "set -- \"\$@\" $shelduck_run_args"
-		shelduck_eval_with_args 'shift 3; shelduck_eval_with_args "$@"' "$@"
-
-		# restore state after recursive
-		shelduck_base_url="$1"
-		shelduck_parse_cli_command="$2"
-		shelduck_run_args="$3"
-	fi
-	
-	if [ -n "$shelduck_parse_cli_command" ]; then
-		# no need to save variables before recursive call, since its last call
-		eval "set -- $shelduck_run_args"
-		eval "$shelduck_parse_cli_command"
-	fi
-
-	#shelduck_run_args=
 }
 
+# fun: shelduck_eval_with_args SCRIPT [ARGS...]
 shelduck_eval_with_args() {
 	shelduck_eval_with_args_script="$1"
 	shift
@@ -113,29 +96,64 @@ shelduck_import() {
 	fi
 	shelduck_import_history="$shelduck_import_history $shelduck_import_url"
 	
+	# delegate to shelduck_exec
+	shelduck_exec "$shelduck_parse_cli_aliases" '' "$shelduck_import_url" "${shelduck_run_args:-}"
+	unset shelduck_parse_cli_aliases shelduck_parse_cli_command shelduck_parse_cli_url shelduck_parse_cli_args
 
-	# load script
-	shelduck_alias_strategy=wrap
-	shelduck_import_origin=$(shelduck_print_origin "$shelduck_import_url")
-	shelduck_import_additions=$(shelduck_print_addition "$shelduck_import_origin" "$shelduck_import_url" "$shelduck_parse_cli_aliases")
+}
 
 
-	# save state before recursive call
-	set -- "$shelduck_base_url" "$shelduck_import_origin$shelduck_import_additions"
-	if [ -n "$shelduck_run_args" ]; then
-		eval "set -- \"\$@\" $shelduck_run_args"
+
+# fun: shelduck_exec ALIASES COMMAND ABSURL ARGS
+shelduck_exec() {
+	shelduck_ensure_base_url
+
+
+	# exec absurl ABSURL
+	if [ -n "$3" ]; then
+		shelduck_alias_strategy=wrap
+		shelduck_exec_origin=$(shelduck_print_origin "$3")
+		shelduck_exec_additions=$(shelduck_print_addition "$shelduck_exec_origin" "$3" "$1")
+
+		# save state before recursive call
+		set -- "$shelduck_base_url" "$1" "$2" "$3" "$4" shelduck_eval_with_args "$shelduck_exec_origin$shelduck_exec_additions"
+		if [ -n "$4" ]; then
+			eval "set -- \"\$@\" $4"
+		fi
+		
+		# recursive call
+		shelduck_base_url=$(bobshell_base_url "$4")
+		shelduck_shift_exec 5 "$@"
+
+		# restore state after recursive call
+		shelduck_base_url="$1"
+		shift
 	fi
 	
+	if [ -n "$2" ]; then
+		# save state before recursive call
+		set -- "$shelduck_base_url" "$1" "$2" "$3" "$4" shelduck_eval_with_args "$2"
+		if [ -n "$4" ]; then
+			eval "set -- \"\$@\" $4"
+		fi
 
+		# recursive command
+		shelduck_base_url=$(bobshell_base_url "$4")
+		shelduck_shift_exec 5 "$@"
 
-	# recursive call
-	shelduck_base_url=$(bobshell_base_url "$shelduck_import_url")
-	shelduck_eval_with_args 'shift 1; shelduck_eval_with_args "$@"' "$@"
-	unset shelduck_import_origin shelduck_import_additions
+		# restore state after recursive call
+		shelduck_base_url="$1"
+	fi
 
-	# restove variables from local array
-	shelduck_base_url="$1"
 }
+
+# fun: shelduck_shift_exec SHIFTNUM IGNORED ... COMMAND [ARGS...]
+shelduck_shift_exec() {
+	shift "$1"
+	shift
+	"$@"
+}
+
 
 
 # api: private

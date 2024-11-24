@@ -35,8 +35,14 @@ shelduck_ensure_base_url() {
 shelduck_run() {
 	shelduck_ensure_base_url
 
+	# todo save (and restore) old run_args
+
 	# parse arguments
 	shelduck_parse_cli "$@"
+
+
+	# save run args, since recursive imports use that args
+	shelduck_run_args="$shelduck_parse_cli_args"
 	
 	if [ -n "$shelduck_parse_cli_url" ]; then
 		shelduck_run_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
@@ -48,24 +54,26 @@ shelduck_run() {
 
 
 		# save state before recursive call
-		set -- "$shelduck_base_url" "$shelduck_parse_cli_command" "$shelduck_parse_cli_args" "$shelduck_run_origin$shelduck_run_additions"
+		set -- "$shelduck_base_url" "$shelduck_parse_cli_command" "$shelduck_run_args" "$shelduck_run_origin$shelduck_run_additions"
 
 		# recursive call
 		shelduck_base_url=$(bobshell_base_url "$shelduck_run_url")
-		eval "set -- \"\$@\" $shelduck_parse_cli_args"
+		eval "set -- \"\$@\" $shelduck_run_args"
 		shelduck_eval_with_args 'shift 3; shelduck_eval_with_args "$@"' "$@"
 
 		# restore state after recursive
 		shelduck_base_url="$1"
 		shelduck_parse_cli_command="$2"
-		shelduck_parse_cli_args="$3"
+		shelduck_run_args="$3"
 	fi
 	
 	if [ -n "$shelduck_parse_cli_command" ]; then
 		# no need to save variables before recursive call, since its last call
-		eval "set -- $shelduck_parse_cli_args"
+		eval "set -- $shelduck_run_args"
 		eval "$shelduck_parse_cli_command"
 	fi
+
+	#shelduck_run_args=
 }
 
 shelduck_eval_with_args() {
@@ -73,6 +81,13 @@ shelduck_eval_with_args() {
 	shift
 	eval "$shelduck_eval_with_args_script"
 }
+
+
+# shelduck_run and shelduck_import are very similar, but:
+# - import requires url, since it checks for duplicates, whereas run does not requies url
+# - import checks for duplicate urls, run not
+# - import takes args from run_args
+# - run takes args from command, and restores
 
 
 # fun: shelduck_resolve CLIARGS...
@@ -83,7 +98,15 @@ shelduck_import() {
 	
 	# parse cli
 	shelduck_parse_cli "$@"
-	bobshell_require_not_empty "${shelduck_parse_cli_url:-}" "import: url must be defined"
+	bobshell_require_not_empty "${shelduck_parse_cli_url:-}" "import: url must be defined" # since we checking for duplicates, url is mandatorry
+	if [ -n "$shelduck_parse_cli_command" ]; then
+		bobshell_log "shelduck_import: warn: function makes no sence and hence ignored"
+	fi
+	if [ -n "$shelduck_parse_cli_args" ]; then
+		bobshell_log "shelduck_import: warn: args make no sence and hence ignored"
+	fi
+
+	# todo apply url rules
 
 	# check for duplicates
 	: "${shelduck_import_history:=}"
@@ -100,12 +123,17 @@ shelduck_import() {
 	shelduck_import_additions=$(shelduck_print_addition "$shelduck_import_origin" "$shelduck_import_url" "$shelduck_parse_cli_aliases")
 
 
-	# save variables to local array before recursive call
-	set -- "$shelduck_base_url" 
+	# save state before recursive call
+	set -- "$shelduck_base_url" "$shelduck_import_origin$shelduck_import_additions"
+	if [ -n "$shelduck_run_args" ]; then
+		eval "set -- \"\$@\" $shelduck_run_args"
+	fi
+	
+
 
 	# recursive call
 	shelduck_base_url=$(bobshell_base_url "$shelduck_import_url")
-	eval "$shelduck_import_origin$shelduck_import_additions"
+	shelduck_eval_with_args 'shift 1; shelduck_eval_with_args "$@"' "$@"
 	unset shelduck_import_origin shelduck_import_additions
 
 	# restove variables from local array
@@ -164,6 +192,7 @@ shelduck_print() {
 	shelduck_base_url=$(bobshell_base_url "$shelduck_print_url")
 
 	# apply url rules
+	# todo import and run
 	if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
 		shelduck_print_rules="$SHELDUCK_URL_RULES"
 		while true; do
@@ -194,6 +223,7 @@ shelduck_print() {
 
 	# check if dependency was already compiled
 	if ! bobshell_contains "$shelduck_print_history" "$2"; then
+		shelduck_print_history="$shelduck_print_history $2"
 
 		# recursive call
 		#shelduck_print_compile_args=$(bobshell_quote "$@")
@@ -203,7 +233,6 @@ shelduck_print() {
 		shelduck_base_url="$4"
 		shelduck_print_initial_base_url="$5"
 
-		shelduck_print_history="$shelduck_print_history $2"
 	fi
 
 	# print additions, if needed
@@ -267,7 +296,7 @@ shelduck_parse_cli() {
 
 
 
-# fun: shelduck_compile SCRIPT ABSURL ALIASES
+# fun: shelduck_compile SCRIPT
 # txt: print recusively expanded shelduck commands, and print rewritten rest of script
 # api: private
 shelduck_compile() {
@@ -316,16 +345,15 @@ shelduck_compile() {
 		fi
 
 		# before recursive call, save variables to local array
-		set -- "$shelduck_base_url" "$shelduck_compile_input" "$@"
+		set -- "$shelduck_compile_input" "$@"
 
 		# recursive call, concously not double qouting
 		# shellcheck disable=SC2086
 		shelduck_print $shelduck_compile_command
 
 		# after recursive call, restore variables from local array
-		shelduck_base_url="$1"
-		shelduck_compile_input="$2"
-		shift 2
+		shelduck_compile_input="$1"
+		shift
 	done
 				
 
@@ -347,7 +375,7 @@ shelduck_print_origin() {
 
 
 
-# fun: shelduck_rewrite ORIGCONTENT URL ALIASES
+# fun: shelduck_rewrite ORIGCONTENT
 # txt: rewrite original script (e.g. rename functions)
 # api: private
 shelduck_rewrite() {
@@ -429,8 +457,9 @@ shelduck_cached_fetch_url() {
 	bobshell_fetch_url "$1" || bobshell_die "shelduck: dependency fetch error '$1': error downloading '$1'"
 }
 
-# todo
 
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import string.sh
 
 bobshell_die() {
   # https://github.com/biox/pa/blob/main/pa
@@ -441,9 +470,13 @@ bobshell_die() {
 
 # use isset unreliablevar
 bobshell_isset() {
-	eval "test '\${$1+defined}' = defined"
+	eval "test \"\${$1+defined}\" = defined"
 }
 
+#  
+bobshell_isset_1() {
+	eval "test \"\${1+defined}\" = defined"
+}
 
 bobshell_command_available() {
 	command -v "$1" > /dev/null
@@ -478,6 +511,7 @@ bobshell_require_empty() {
 		bobshell_die "$@"
 	fi
 }
+
 
 bobshell_is_bash() {
 	test -n "${BASH_VERSION:-}"
@@ -514,6 +548,48 @@ bobshell_rename_var() {
 	eval "$2=\$$1"
 	unset "$1"
 }
+
+bobshell_vars() {
+	bobshell_vars_list=$(set | sed -n 's/^\([A-Za-z_][A-Za-z_0-9]*\)=.*$/\1/pg' | sort -u)
+	for bobshell_vars_item in $bobshell_vars_list; do
+		if bobshell_isset "$bobshell_vars_item"; then
+			printf '%s ' "$bobshell_vars_item"
+		fi
+	done
+	unset bobshell_vars_list
+}
+
+# bobshell_not_empty "$@"
+bobshell_not_empty() {
+	test set = "${1+set}" 
+}
+
+#bobshell_map
+
+# fun: bobshell_foreach ITEM... -- COMMAND [ARG...]
+# bobshell_foreach() {
+# 	bobshell_foreach_items=
+# 	bobshell_foreach_command=
+# 	while bobshell_not_empty "$@"; do
+# 		if [ '--' = "$1" ]; then
+# 			shift
+# 			set -- "$@"
+# 			break
+# 		fi
+# 		bobshell_foreach_item=$(bobshell_quote "$1")
+# 		bobshell_foreach_items="$bobshell_foreach_items $1"
+# 		shift
+# 	done
+
+# 	bobshell_require_not_empty "$bobshell_foreach_command" "bobshell_foreach: command not set"
+
+# 	for bobshell_foreach_item in $bobshell_foreach_items; do
+# 		"$@" "$bobshell_foreach_item"
+# 	done
+# 	unset bobshell_foreach_item
+
+# 	unset bobshell_foreach_items bobshell_foreach_command
+# }
 
 
 
@@ -709,6 +785,37 @@ bobshell_join() {
 		printf %s "$bobshell_join_separator"
 		printf %s "$bobshell_join_item"
 	done
+}
+
+
+
+bobshell_strip_left() {
+	bobshell_strip_left_value="$1"
+	while true; do
+		case "$bobshell_strip_left_value" in 
+			([[:space:]]*)
+				bobshell_strip_left_value="${bobshell_strip_left_value#?}" ;;
+			(*) break ;;
+		esac
+	done
+	printf %s "$bobshell_strip_left_value"
+}
+
+bobshell_strip_right() {
+	bobshell_strip_right_value="$1"
+	while true; do
+		case "$bobshell_strip_right_value" in 
+			(*[[:space:]])
+				bobshell_strip_right_value="${bobshell_strip_right_value%?}" ;;
+			(*) break ;;
+		esac
+	done
+	printf %s "$bobshell_strip_right_value"
+}
+
+bobshell_strip() {
+	bobshell_strip_value=$(bobshell_strip_left "$1")
+	bobshell_strip_right "$bobshell_strip_value"
 }
 
 

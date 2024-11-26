@@ -38,15 +38,12 @@ shelduck_run() {
 	# parse arguments
 	shelduck_parse_cli "$@"
 
-	# save latest run args, since recursive imports use it
-
-
 	# save vars before recursive_call
 	set -- "${shelduck_run_args:-}"
 	
 	# delegate to shelduck_exec	
 	shelduck_run_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
-	shelduck_run_args="$shelduck_parse_cli_args"
+	shelduck_run_args="$shelduck_parse_cli_args" # save latest run args, since recursive imports use it
 	shelduck_exec "$shelduck_parse_cli_aliases" "$shelduck_parse_cli_command" "$shelduck_run_url" "$shelduck_parse_cli_args"
 	unset shelduck_parse_cli_aliases shelduck_parse_cli_command shelduck_parse_cli_url shelduck_parse_cli_args
 
@@ -117,8 +114,8 @@ shelduck_exec() {
 
 		# save state before recursive call
 		set -- "$shelduck_base_url" "$1" "$2" "$3" "$4" shelduck_eval_with_args "$shelduck_exec_origin$shelduck_exec_additions"
-		if [ -n "$4" ]; then
-			eval "set -- \"\$@\" $4"
+		if [ -n "$5" ]; then
+			eval "set -- \"\$@\" $5"
 		fi
 		
 		# recursive call
@@ -133,8 +130,8 @@ shelduck_exec() {
 	if [ -n "$2" ]; then
 		# save state before recursive call
 		set -- "$shelduck_base_url" "$1" "$2" "$3" "$4" shelduck_eval_with_args "$2"
-		if [ -n "$4" ]; then
-			eval "set -- \"\$@\" $4"
+		if [ -n "$5" ]; then
+			eval "set -- \"\$@\" $5"
 		fi
 
 		# recursive command

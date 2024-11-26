@@ -89,12 +89,16 @@ shelduck_import() {
 	: "${shelduck_import_history:=}"
 	shelduck_import_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
 	if bobshell_contains "$shelduck_import_history" "$shelduck_import_url"; then
+		shelduck_import_origin=$(shelduck_print_origin "$shelduck_import_url")
+		shelduck_import_addition=$(shelduck_print_addition "$shelduck_exec_origin" "$shelduck_import_url" "$shelduck_parse_cli_aliases")
+		eval "$shelduck_import_addition"
+		unset shelduck_import_origin shelduck_import_addition
 		return
 	fi
 	shelduck_import_history="$shelduck_import_history $shelduck_import_url"
 	
 	# delegate to shelduck_exec
-	shelduck_exec "$shelduck_parse_cli_aliases" '' "$shelduck_import_url" "${shelduck_run_args:-}"
+	shelduck_exec "$shelduck_parse_cli_aliases" '' "$shelduck_import_url" ''
 	unset shelduck_parse_cli_aliases shelduck_parse_cli_command shelduck_parse_cli_url shelduck_parse_cli_args
 
 }
@@ -205,27 +209,7 @@ shelduck_print() {
 
 	# apply url rules
 	# todo import and run
-	if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
-		shelduck_print_rules="$SHELDUCK_URL_RULES"
-		while true; do
-			if ! bobshell_split_first "$shelduck_print_rules" ',' shelduck_print_rule shelduck_print_rules; then
-				shelduck_print_rule="$shelduck_print_rules"
-				shelduck_print_rules=
-			fi
-			
-			shelduck_print_key=
-			shelduck_print_value=
-			bobshell_split_first "$shelduck_print_rule" = shelduck_print_key shelduck_print_value
-			shelduck_print_url=$(bobshell_replace "$shelduck_print_url" "$shelduck_print_key" "$shelduck_print_value")
-			
-			if [ -z "$shelduck_print_rules" ]; then
-				break;
-			fi
-		done
-		unset shelduck_print_rules shelduck_print_rule
-		unset shelduck_print_key shelduck_print_value
-	fi
-
+	shelduck_print_url=$(shelduck_apply_rules "$shelduck_print_url" "${SHELDUCK_URL_RULES:-}")
 
 	# load script
 	shelduck_print_script=$(shelduck_print_origin "$shelduck_print_url")
@@ -251,6 +235,30 @@ shelduck_print() {
 	shelduck_print_addition "$@"
 
 	shelduck_base_url="$shelduck_print_initial_base_url"
+}
+
+
+# fun: shelduck_apply_rules VALUE RULES
+shelduck_apply_rules() {
+	shelduck_apply_rules_result="$1"
+	shelduck_apply_rules_rules="${2:-}"
+
+	while [ -n "$shelduck_apply_rules_rules" ]; do
+		if ! bobshell_split_first "$shelduck_apply_rules_rules" ',' shelduck_apply_rules_rule shelduck_apply_rules_rules; then
+			shelduck_apply_rules_rule="$shelduck_apply_rules_rules"
+			shelduck_apply_rules_rules=
+		fi
+		
+		shelduck_apply_rules_key=
+		shelduck_apply_rules_value=
+		bobshell_split_first "$shelduck_apply_rules_rule" = shelduck_apply_rules_key shelduck_apply_rules_value
+		shelduck_apply_rules_result=$(bobshell_replace "$shelduck_apply_rules_result" "$shelduck_apply_rules_key" "$shelduck_apply_rules_value")
+	done
+	printf %s "$shelduck_apply_rules_result"
+
+	unset shelduck_apply_rules_result
+	unset shelduck_apply_rules_rules shelduck_apply_rules_rule
+	unset shelduck_apply_rules_key shelduck_apply_rules_value
 }
 
 
@@ -304,6 +312,9 @@ shelduck_parse_cli() {
 				;;
 		esac
 	done
+
+
+
 }
 
 

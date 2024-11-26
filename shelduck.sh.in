@@ -27,6 +27,8 @@ shelduck_ensure_base_url() {
 	fi
 }
 
+
+
 # fun: shelduck_run URL CLIARGS...
 # api: private
 shelduck_run() {
@@ -36,21 +38,128 @@ shelduck_run() {
 	# todo apply url rules
 
 	# parse arguments
-	shelduck_parse_cli "$@"
+	shelduck_analyze_cli "$@"
 
 	# save vars before recursive_call
 	set -- "${shelduck_run_args:-}"
 	
-	# delegate to shelduck_exec	
-	shelduck_run_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
-	shelduck_run_args="$shelduck_parse_cli_args" # save latest run args, since recursive imports use it
-	shelduck_exec "$shelduck_parse_cli_aliases" "$shelduck_parse_cli_command" "$shelduck_run_url" "$shelduck_parse_cli_args"
-	unset shelduck_parse_cli_aliases shelduck_parse_cli_command shelduck_parse_cli_url shelduck_parse_cli_args
+	# delegate to shelduck_exec
+	shelduck_run_args="$shelduck_analyze_cli_args" # save latest run args, since recursive imports use it
+	shelduck_exec "$shelduck_analyze_cli_aliases" "$shelduck_analyze_cli_command" "$shelduck_analyze_cli_url" "$shelduck_analyze_cli_args"
+	unset shelduck_analyze_cli_aliases shelduck_analyze_cli_command shelduck_analyze_cli_url shelduck_analyze_cli_args
 
 	# restore state after recursive call
 	shelduck_run_args="$1"
 
 }
+
+
+
+
+# fun: shelduck_analyze_cli [CLIARGS...]
+shelduck_analyze_cli() {
+	shelduck_parse_cli "$@"
+
+	shelduck_analyze_cli_aliases="$shelduck_parse_cli_aliases"
+	unset shelduck_parse_cli_aliases
+
+	shelduck_analyze_cli_command="$shelduck_parse_cli_command"
+	unset shelduck_parse_cli_command
+
+	if [ -n "$shelduck_parse_cli_url" ]; then
+		shelduck_analyze_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "${shelduck_base_url:-}")
+		unset shelduck_parse_cli_url
+		shelduck_analyze_cli_url=$(shelduck_apply_rules "$shelduck_analyze_cli_url" "${SHELDUCK_URL_RULES:-}")
+	else
+		shelduck_analyze_cli_url="$shelduck_parse_cli_url"
+		unset shelduck_parse_cli_url
+	fi
+
+	shelduck_analyze_cli_args="$shelduck_parse_cli_args"
+	unset shelduck_parse_cli_args
+}
+
+
+
+
+# fun: shelduck_parse_cli [CLIARGS...]
+# env: shelduck_parse_cli_aliases
+#      shelduck_parse_cli_command
+#      shelduck_parse_cli_url
+#      shelduck_parse_cli_args
+# api: private
+shelduck_parse_cli() {
+	bobshell_require_not_empty "${1:-}" 'at least one argument expected'
+	shelduck_parse_cli_aliases=
+	shelduck_parse_cli_command=
+	shelduck_parse_cli_url=
+	shelduck_parse_cli_args=
+	while [ "${1+defined}" = defined ]; do
+		bobshell_require_not_empty "${1:-}" "arg expected to be nonempty"
+		case "$1" in
+			-a|--alias)
+				shift;
+				if [ defined != "${1+defined}" ]; then
+					bobshell_die 'alias argument expected'
+				fi
+				bobshell_require_not_empty "${1:-}" "alias argument expected to be not empty"
+				shelduck_parse_cli_aliases="$shelduck_parse_cli_aliases $1"
+				shift
+				;;
+
+			-c|--command)
+				shift;
+				if [ defined != "${1+defined}" ]; then
+					bobshell_die 'command argument expected'
+				fi
+				bobshell_require_not_empty "${1:-}" "command argument expected to be not empty"
+				shelduck_parse_cli_command="$1"
+				shift
+				;;
+
+			*)
+				if [ -z "${1:-}" ]; then
+					bobshell_die "url expected to be nonempty"
+				fi
+				if [ -z "$shelduck_parse_cli_url" ]; then
+					shelduck_parse_cli_url="$1"
+					shift
+					shelduck_parse_cli_args="$(bobshell_quote "$@")"
+					break
+				fi
+				;;
+		esac
+	done
+
+}
+
+
+
+# fun: shelduck_apply_rules VALUE RULES
+shelduck_apply_rules() {
+	shelduck_apply_rules_result="$1"
+	shelduck_apply_rules_rules="${2:-}"
+
+	while [ -n "$shelduck_apply_rules_rules" ]; do
+		if ! bobshell_split_first "$shelduck_apply_rules_rules" ',' shelduck_apply_rules_rule shelduck_apply_rules_rules; then
+			shelduck_apply_rules_rule="$shelduck_apply_rules_rules"
+			shelduck_apply_rules_rules=
+		fi
+		
+		shelduck_apply_rules_key=
+		shelduck_apply_rules_value=
+		bobshell_split_first "$shelduck_apply_rules_rule" = shelduck_apply_rules_key shelduck_apply_rules_value
+		shelduck_apply_rules_result=$(bobshell_replace "$shelduck_apply_rules_result" "$shelduck_apply_rules_key" "$shelduck_apply_rules_value")
+	done
+	printf %s "$shelduck_apply_rules_result"
+
+	unset shelduck_apply_rules_result
+	unset shelduck_apply_rules_rules shelduck_apply_rules_rule
+	unset shelduck_apply_rules_key shelduck_apply_rules_value
+}
+
+
+
 
 # fun: shelduck_eval_with_args SCRIPT [ARGS...]
 shelduck_eval_with_args() {
@@ -74,12 +183,12 @@ shelduck_import() {
 	shelduck_ensure_base_url
 	
 	# parse cli
-	shelduck_parse_cli "$@"
-	bobshell_require_not_empty "${shelduck_parse_cli_url:-}" "import: url must be defined" # since we checking for duplicates, url is mandatorry
-	if [ -n "$shelduck_parse_cli_command" ]; then
+	shelduck_analyze_cli "$@"
+	bobshell_require_not_empty "${shelduck_analyze_cli_url:-}" "import: url must be defined" # since we checking for duplicates, url is mandatorry
+	if [ -n "$shelduck_analyze_cli_command" ]; then
 		bobshell_log "shelduck_import: warn: function makes no sence and hence ignored"
 	fi
-	if [ -n "$shelduck_parse_cli_args" ]; then
+	if [ -n "$shelduck_analyze_cli_args" ]; then
 		bobshell_log "shelduck_import: warn: args make no sence and hence ignored"
 	fi
 
@@ -87,21 +196,22 @@ shelduck_import() {
 
 	# check for duplicates
 	: "${shelduck_import_history:=}"
-	shelduck_import_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
-	if bobshell_contains "$shelduck_import_history" "$shelduck_import_url"; then
-		shelduck_import_origin=$(shelduck_print_origin "$shelduck_import_url")
-		shelduck_import_addition=$(shelduck_print_addition "$shelduck_exec_origin" "$shelduck_import_url" "$shelduck_parse_cli_aliases")
+	if bobshell_contains "$shelduck_import_history" "$shelduck_analyze_cli_url"; then
+		# todo maybe base url is needed
+		shelduck_import_origin=$(shelduck_print_origin "$shelduck_analyze_cli_url")
+		shelduck_import_addition=$(shelduck_print_addition "$shelduck_import_origin" "$shelduck_analyze_cli_url" "$shelduck_analyze_cli_aliases")
 		eval "$shelduck_import_addition"
 		unset shelduck_import_origin shelduck_import_addition
 		return
 	fi
-	shelduck_import_history="$shelduck_import_history $shelduck_import_url"
+	shelduck_import_history="$shelduck_import_history $shelduck_analyze_cli_url"
 	
 	# delegate to shelduck_exec
-	shelduck_exec "$shelduck_parse_cli_aliases" '' "$shelduck_import_url" ''
-	unset shelduck_parse_cli_aliases shelduck_parse_cli_command shelduck_parse_cli_url shelduck_parse_cli_args
+	shelduck_exec "$shelduck_analyze_cli_aliases" '' "$shelduck_analyze_cli_url" ''
+	unset shelduck_analyze_cli_aliases shelduck_analyze_cli_command shelduck_analyze_cli_url shelduck_analyze_cli_args
 
 }
+
 
 
 
@@ -193,33 +303,28 @@ shelduck_print() {
 	shelduck_print_initial_base_url="$shelduck_base_url"
 
 	# parse cli
-	shelduck_parse_cli "$@"
-	if [ -n "$shelduck_parse_cli_command" ]; then
+	shelduck_analyze_cli "$@"
+	if [ -n "$shelduck_analyze_cli_command" ]; then
 		bobshell_log "warn: function makes no sence and hence ignored"
 	fi
-	unset shelduck_parse_cli_command
-	shelduck_print_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
-	unset shelduck_parse_cli_url
-	if [ -n "$shelduck_parse_cli_args" ]; then
+	unset shelduck_analyze_cli_command
+	bobshell_require_not_empty "$shelduck_analyze_cli_url" 'cli url is required'
+	if [ -n "$shelduck_analyze_cli_args" ]; then
 		bobshell_log "warn: url arguments make no sence and hence ignored"
 	fi
-	unset shelduck_parse_cli_args
-
-	shelduck_base_url=$(bobshell_base_url "$shelduck_print_url")
-
-	# apply url rules
-	# todo import and run
-	shelduck_print_url=$(shelduck_apply_rules "$shelduck_print_url" "${SHELDUCK_URL_RULES:-}")
+	unset shelduck_analyze_cli_args
 
 	# load script
-	shelduck_print_script=$(shelduck_print_origin "$shelduck_print_url")
+	shelduck_print_script=$(shelduck_print_origin "$shelduck_analyze_cli_url")
 	
 	# save variables to local array before subsequent (possibly recursive) calls
-	set -- "$shelduck_print_script" "$shelduck_print_url" "$shelduck_parse_cli_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
+	set -- "$shelduck_print_script" "$shelduck_analyze_cli_url" "$shelduck_analyze_cli_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
 
 	# check if dependency was already compiled
 	if ! bobshell_contains "$shelduck_print_history" "$2"; then
 		shelduck_print_history="$shelduck_print_history $2"
+
+		shelduck_base_url=$(bobshell_base_url "$shelduck_analyze_cli_url")
 
 		# recursive call
 		#shelduck_print_compile_args=$(bobshell_quote "$@")
@@ -237,85 +342,6 @@ shelduck_print() {
 	shelduck_base_url="$shelduck_print_initial_base_url"
 }
 
-
-# fun: shelduck_apply_rules VALUE RULES
-shelduck_apply_rules() {
-	shelduck_apply_rules_result="$1"
-	shelduck_apply_rules_rules="${2:-}"
-
-	while [ -n "$shelduck_apply_rules_rules" ]; do
-		if ! bobshell_split_first "$shelduck_apply_rules_rules" ',' shelduck_apply_rules_rule shelduck_apply_rules_rules; then
-			shelduck_apply_rules_rule="$shelduck_apply_rules_rules"
-			shelduck_apply_rules_rules=
-		fi
-		
-		shelduck_apply_rules_key=
-		shelduck_apply_rules_value=
-		bobshell_split_first "$shelduck_apply_rules_rule" = shelduck_apply_rules_key shelduck_apply_rules_value
-		shelduck_apply_rules_result=$(bobshell_replace "$shelduck_apply_rules_result" "$shelduck_apply_rules_key" "$shelduck_apply_rules_value")
-	done
-	printf %s "$shelduck_apply_rules_result"
-
-	unset shelduck_apply_rules_result
-	unset shelduck_apply_rules_rules shelduck_apply_rules_rule
-	unset shelduck_apply_rules_key shelduck_apply_rules_value
-}
-
-
-
-
-# fun: shelduck_parse_cli [CLIARGS...]
-# env: shelduck_parse_cli_aliases
-#      shelduck_parse_cli_command
-#      shelduck_parse_cli_url
-#      shelduck_parse_cli_args
-# api: private
-shelduck_parse_cli() {
-	bobshell_require_not_empty "${1:-}" 'at least one argument expected'
-	shelduck_parse_cli_aliases=
-	shelduck_parse_cli_command=
-	shelduck_parse_cli_url=
-	shelduck_parse_cli_args=
-	while [ "${1+defined}" = defined ]; do
-		bobshell_require_not_empty "${1:-}" "arg expected to be nonempty"
-		case "$1" in
-			-a|--alias)
-				shift;
-				if [ defined != "${1+defined}" ]; then
-					bobshell_die 'alias argument expected'
-				fi
-				bobshell_require_not_empty "${1:-}" "alias argument expected to be not empty"
-				shelduck_parse_cli_aliases="$shelduck_parse_cli_aliases $1"
-				shift
-				;;
-
-			-c|--command)
-				shift;
-				if [ defined != "${1+defined}" ]; then
-					bobshell_die 'command argument expected'
-				fi
-				bobshell_require_not_empty "${1:-}" "command argument expected to be not empty"
-				shelduck_parse_cli_command="$1"
-				shift
-				;;
-
-			*)
-				if [ -z "${1:-}" ]; then
-					bobshell_die "url expected to be nonempty"
-				fi
-				if [ -z "$shelduck_parse_cli_url" ]; then
-					shelduck_parse_cli_url="$1"
-					shift
-					shelduck_parse_cli_args="$(bobshell_quote "$@")"
-					break
-				fi
-				;;
-		esac
-	done
-
-
-
-}
 
 
 

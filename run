@@ -110,7 +110,7 @@ go_test_shelduck() {
 }
 
 go_test_installer() {
-	SHELDUCK_INSTALL_DESTDIR=./target/test-installer sh ./install.sh 
+	SHELDUCK_INSTALL_ROOT=./target/test-installer sh ./install.sh 
 }
 
 run_test_shelduck() {

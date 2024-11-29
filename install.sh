@@ -11,9 +11,9 @@ set -eu
 #      DESTDIR
 install_shelduck() {
 	SHELDUCK_INSTALL_NAME=shelduck
-	bobshell_scope_copy SHELDUCK_INSTALL_ BOBSHELL_INSTALL_
+	bobshell_scope_mirror SHELDUCK_INSTALL_ BOBSHELL_INSTALL_
 	bobshell_install_init
-	bobshell_scope_copy BOBSHELL_INSTALL_ SHELDUCK_INSTALL_
+	bobshell_scope_mirror BOBSHELL_INSTALL_ SHELDUCK_INSTALL_
 
 
 
@@ -1372,7 +1372,7 @@ bobshell_scope_copy() {
 # fun: bobshell_scope_mirror SRCSCOPE DESTSCOPE
 bobshell_scope_mirror() {
 	bobshell_scope_unset "$2"
-	bobshell_scope_write "$@"
+	bobshell_scope_copy "$@"
 }
 
 

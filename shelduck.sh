@@ -69,10 +69,13 @@ shelduck_analyze_cli() {
 	shelduck_analyze_cli_command="$shelduck_parse_cli_command"
 	unset shelduck_parse_cli_command
 
+	: "${shelduck_base_url:=${SHELDUCK_BASE_URL:-}}"
 	if [ -n "$shelduck_parse_cli_url" ]; then
-		shelduck_analyze_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "${shelduck_base_url:-}")
+		shelduck_analyze_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
 		unset shelduck_parse_cli_url
-		shelduck_analyze_cli_url=$(shelduck_apply_rules "$shelduck_analyze_cli_url" "${SHELDUCK_URL_RULES:-}")
+		if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
+			shelduck_analyze_cli_url=$(shelduck_apply_rules "$shelduck_analyze_cli_url" "$SHELDUCK_URL_RULES")
+		fi
 	else
 		shelduck_analyze_cli_url="$shelduck_parse_cli_url"
 		unset shelduck_parse_cli_url
@@ -498,15 +501,15 @@ shelduck_cached_fetch_url() {
 		# shellcheck disable=SC2154
 		# starts_with sets variable file_name indirectly
 		if ! [ -f "$file_name" ]; then
-			bobshell_die "shelduck: dependency fetch error '$1': file '$file_name' not found"
+			bobshell_die "shelduck: fetch error '$1': file '$file_name' not found"
 		fi
-		cat "$file_name" || bobshell_die "shelduck: dependency fetch error '$1': error loading '$file_name'"
+		cat "$file_name" || bobshell_die "shelduck: fetch error '$1': error loading '$file_name'"
 		unset file_name
 		return
 	fi
 	# todo implement cache
 	# todo timeout
-	bobshell_fetch_url "$1" || bobshell_die "shelduck: dependency fetch error '$1': error downloading '$1'"
+	bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'"
 }
 
 
@@ -900,10 +903,13 @@ bobshell_base_url() {
 }
 
 
-#fun: bobshell_resolve_url URL [BASEURL]
+# fun: bobshell_resolve_url URL [BASEURL]
 bobshell_resolve_url() {
 	# todo by default BASEURL is $(realpath "$(pwd)")
-	if   bobshell_remove_prefix "$1" file:// bobshell_resolve_url_path; then
+	if bobshell_starts_with "$1" /; then
+		bobshell_resolve_url_path=$(realpath "$1")
+		printf 'file://%s' "$bobshell_resolve_url_path"
+	elif   bobshell_remove_prefix "$1" file:// bobshell_resolve_url_path; then
 		bobshell_resolve_url_path=$(realpath "$bobshell_resolve_url_path")
 		printf 'file://%s' "$bobshell_resolve_url_path"
 	elif bobshell_starts_with "$1" http:// \
@@ -912,19 +918,22 @@ bobshell_resolve_url() {
 	  || bobshell_starts_with "$1" ftps:// \
 			; then
 		printf %s "$1"
-	elif [ -n "${2:-}" ]; then
-		printf %s "$2"
-		if ! bobshell_ends_with "$2" /; then
+	else
+		bobshell_resolve_url_base="${2:-}"
+		if [ -z "$bobshell_resolve_url_base" ]; then
+			bobshell_resolve_url_base=$(pwd)
+		fi
+		printf %s "$bobshell_resolve_url_base"
+		if ! bobshell_ends_with "$bobshell_resolve_url_base" /; then
 			printf '/'
 		fi
+		# todo handle ..
 		bobshell_resolve_url_value="$1"
 		while bobshell_remove_prefix "$bobshell_resolve_url_value" './' bobshell_resolve_url_value; do
 			true
 		done
 		printf %s "$bobshell_resolve_url_value"
 		unset bobshell_resolve_url_value
-	else
-		bobshell_die "bobshell_resolve_url: url is relaive, but not base url defined: $1" 
 	fi
 }
 

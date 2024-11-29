@@ -66,10 +66,13 @@ shelduck_analyze_cli() {
 	shelduck_analyze_cli_command="$shelduck_parse_cli_command"
 	unset shelduck_parse_cli_command
 
+	: "${shelduck_base_url:=${SHELDUCK_BASE_URL:-}}"
 	if [ -n "$shelduck_parse_cli_url" ]; then
-		shelduck_analyze_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "${shelduck_base_url:-}")
+		shelduck_analyze_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
 		unset shelduck_parse_cli_url
-		shelduck_analyze_cli_url=$(shelduck_apply_rules "$shelduck_analyze_cli_url" "${SHELDUCK_URL_RULES:-}")
+		if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
+			shelduck_analyze_cli_url=$(shelduck_apply_rules "$shelduck_analyze_cli_url" "$SHELDUCK_URL_RULES")
+		fi
 	else
 		shelduck_analyze_cli_url="$shelduck_parse_cli_url"
 		unset shelduck_parse_cli_url
@@ -495,14 +498,14 @@ shelduck_cached_fetch_url() {
 		# shellcheck disable=SC2154
 		# starts_with sets variable file_name indirectly
 		if ! [ -f "$file_name" ]; then
-			bobshell_die "shelduck: dependency fetch error '$1': file '$file_name' not found"
+			bobshell_die "shelduck: fetch error '$1': file '$file_name' not found"
 		fi
-		cat "$file_name" || bobshell_die "shelduck: dependency fetch error '$1': error loading '$file_name'"
+		cat "$file_name" || bobshell_die "shelduck: fetch error '$1': error loading '$file_name'"
 		unset file_name
 		return
 	fi
 	# todo implement cache
 	# todo timeout
-	bobshell_fetch_url "$1" || bobshell_die "shelduck: dependency fetch error '$1': error downloading '$1'"
+	bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'"
 }
 

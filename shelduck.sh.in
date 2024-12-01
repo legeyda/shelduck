@@ -168,7 +168,7 @@ shelduck_apply_rules() {
 shelduck_eval_with_args() {
 	shelduck_eval_with_args_script="$1"
 	shift
-	eval "$shelduck_eval_with_args_script"
+	eval "$shelduck_eval_with_args_script" # todo check if it is message add arguments
 }
 
 

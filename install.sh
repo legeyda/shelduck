@@ -60,9 +60,9 @@ eof
 }
 
 
-# shelduck: source for file:///home/user/box/workspace/bobshell/base.sh
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh
 
-# shelduck: source for file:///home/user/box/workspace/bobshell/string.sh
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/string.sh
 
 # STRING MANUPULATION
 
@@ -421,21 +421,21 @@ bobshell_not_empty() {
 
 
 
- # shelduck: alias for bobshell_die (from file:///home/user/box/workspace/bobshell/base.sh)
+ # shelduck: alias for bobshell_die (from https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh)
 die() {
 	bobshell_die "$@"
 }
 
 
 
- # shelduck: alias for bobshell_command_available (from file:///home/user/box/workspace/bobshell/base.sh)
+ # shelduck: alias for bobshell_command_available (from https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh)
 command_available() {
 	bobshell_command_available "$@"
 }
 
 
 
- # shelduck: alias for bobshell_log (from file:///home/user/box/workspace/bobshell/base.sh)
+ # shelduck: alias for bobshell_log (from https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh)
 log() {
 	bobshell_log "$@"
 }
@@ -512,23 +512,23 @@ bobshell_fetch_url_with_wget() {
 
 
 
- # shelduck: alias for bobshell_fetch_url (from file:///home/user/box/workspace/bobshell/url.sh)
+ # shelduck: alias for bobshell_fetch_url (from https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/url.sh)
 fetch_url() {
 	bobshell_fetch_url "$@"
 }
 
-# shelduck: source for file:///home/user/box/workspace/bobshell/install.sh
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/install.sh
 
 
-# shelduck: source for file:///home/user/box/workspace/bobshell/util.sh
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/util.sh
 
 
 
 
-# shelduck: source for file:///home/user/box/workspace/bobshell/git.sh
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/git.sh
 
 
-# shelduck: source for file:///home/user/box/workspace/bobshell/ssh.sh
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/ssh.sh
 
 # fun: scope bobshell command [arg...]
 # use: bobshell_shauth git clone blabl
@@ -539,7 +539,7 @@ bobshell_notrace() {
 }
 
 
-# shelduck: source for file:///home/user/box/workspace/bobshell/locator.sh
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator.sh
 
 
 
@@ -968,7 +968,7 @@ bobshell_git_ssh_auth() {
 		unset BOBSHELL_SSH_PASSWORD
 		bobshell_git_auth_command=$(bobshell_ssh_auth bobshell_quote)
 		if [ -n "$bobshell_git_auth_command" ]; then
-			GIT_SSH_COMMAND=$bobshell_git_auth_command
+			GIT_SSH_COMMAND="ssh $bobshell_git_auth_command"
 		fi
 		BOBSHELL_SSH_PASSWORD="$bobshell_git_auth_old_password"
 	fi
@@ -1105,56 +1105,57 @@ bobshell_install_init() {
 		BOBSHELL_INSTALL_ROOT=$(realpath "$BOBSHELL_INSTALL_ROOT")
 	fi
 
-	: "${BOBSHELL_INSTALL_SYSTEM_PREFIX:=/opt}"
-	: "${BOBSHELL_INSTALL_SYSTEM_BINDIR:=$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/bin}"
-	: "${BOBSHELL_INSTALL_SYSTEM_CONFDIR:=$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/etc}"
-	: "${BOBSHELL_INSTALL_SYSTEM_DATADIR:=$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/share}"
-	: "${BOBSHELL_INSTALL_SYSTEM_LOCALSTATEDIR:=$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/var}"
-	: "${BOBSHELL_INSTALL_SYSTEM_CACHEDIR:=$BOBSHELL_INSTALL_ROOT/var/cache}"
-	: "${BOBSHELL_INSTALL_SYSTEM_SYSTEMDDIR:=$BOBSHELL_INSTALL_ROOT/etc/systemd/system}"
-	: "${BOBSHELL_INSTALL_SYSTEM_PROFILE:=$BOBSHELL_INSTALL_ROOT/etc/profile}"
+	: "${BOBSHELL_INSTALL_SYSTEM_PREFIX=${BOBSHELL_INSTALL_PREFIX-/opt}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_BINDIR=${BOBSHELL_INSTALL_BINDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/bin}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_CONFDIR=${BOBSHELL_INSTALL_CONFDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/etc}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_DATADIR=${BOBSHELL_INSTALL_DATADIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/share}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_LOCALSTATEDIR=${BOBSHELL_INSTALL_LOCALSTATEDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/var}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_CACHEDIR=${BOBSHELL_INSTALL_CACHEDIR-$BOBSHELL_INSTALL_ROOT/var/cache}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_SYSTEMDDIR=${BOBSHELL_INSTALL_SYSTEMDDIR-$BOBSHELL_INSTALL_ROOT/etc/systemd/system}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_PROFILE=${BOBSHELL_INSTALL_PROFILE-$BOBSHELL_INSTALL_ROOT/etc/profile}}"
 
-	if bobshell_is_root; then
-		: "${BOBSHELL_INSTALL_USER_PREFIX:=}"
-		: "${BOBSHELL_INSTALL_USER_BINDIR:=}"
-		: "${BOBSHELL_INSTALL_USER_CONFDIR:=}"
-		: "${BOBSHELL_INSTALL_USER_DATADIR:=}"
-		: "${BOBSHELL_INSTALL_USER_LOCALSTATEDIR:=}"
-		: "${BOBSHELL_INSTALL_USER_CACHEDIR:=}"
-		: "${BOBSHELL_INSTALL_USER_SYSTEMDDIR:=}"
-		: "${BOBSHELL_INSTALL_USER_PROFILE:=}"
+	: "${BOBSHELL_INSTALL_USER_PREFIX=${BOBSHELL_INSTALL_PREFIX-$HOME/.local}}"
+	: "${BOBSHELL_INSTALL_USER_BINDIR=${BOBSHELL_INSTALL_BINDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/bin}}"
+	: "${BOBSHELL_INSTALL_USER_CONFDIR=${BOBSHELL_INSTALL_CONFDIR-$BOBSHELL_INSTALL_ROOT$HOME/.config}}"
+	: "${BOBSHELL_INSTALL_USER_DATADIR=${BOBSHELL_INSTALL_DATADIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/share}}"
+	: "${BOBSHELL_INSTALL_USER_LOCALSTATEDIR=${BOBSHELL_INSTALL_LOCALSTATEDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/var}}"
+	: "${BOBSHELL_INSTALL_USER_CACHEDIR=${BOBSHELL_INSTALL_CACHEDIR-$BOBSHELL_INSTALL_ROOT$HOME/.cache}}"
+	: "${BOBSHELL_INSTALL_USER_SYSTEMDDIR=${BOBSHELL_INSTALL_SYSTEMDDIR-$BOBSHELL_INSTALL_ROOT$HOME/.config/systemd/user}}"
+	: "${BOBSHELL_INSTALL_USER_PROFILE=${BOBSHELL_INSTALL_PROFILE-$BOBSHELL_INSTALL_ROOT$HOME/.profile}}"
 
-		: "${BOBSHELL_INSTALL_PREFIX:=$BOBSHELL_INSTALL_SYSTEM_PREFIX}"
-		: "${BOBSHELL_INSTALL_BINDIR:=$BOBSHELL_INSTALL_SYSTEM_BINDIR}"
-		: "${BOBSHELL_INSTALL_CONFDIR:=$BOBSHELL_INSTALL_SYSTEM_CONFDIR}"
-		: "${BOBSHELL_INSTALL_DATADIR:=$BOBSHELL_INSTALL_SYSTEM_DATADIR}"
-		: "${BOBSHELL_INSTALL_LOCALSTATEDIR:=$BOBSHELL_INSTALL_SYSTEM_LOCALSTATEDIR}"
-		: "${BOBSHELL_INSTALL_CACHEDIR:=$BOBSHELL_INSTALL_SYSTEM_CACHEDIR}"
-		: "${BOBSHELL_INSTALL_SYSTEMDDIR:=$BOBSHELL_INSTALL_SYSTEM_SYSTEMDDIR}"
-		: "${BOBSHELL_INSTALL_PROFILE:=$BOBSHELL_INSTALL_SYSTEM_PROFILE}"
+	if [ -z "${BOBSHELL_INSTALL_ROLE:-}" ]; then
+		if bobshell_is_root; then
+			BOBSHELL_INSTALL_ROLE=SYSTEM
+		else
+			BOBSHELL_INSTALL_ROLE=USER
+		fi
+	fi
+
+
+	if [ SYSTEM = "$BOBSHELL_INSTALL_ROLE" ]; then
+		BOBSHELL_INSTALL_PREFIX="$BOBSHELL_INSTALL_SYSTEM_PREFIX"
+		BOBSHELL_INSTALL_BINDIR="$BOBSHELL_INSTALL_SYSTEM_BINDIR"
+		BOBSHELL_INSTALL_CONFDIR="$BOBSHELL_INSTALL_SYSTEM_CONFDIR"
+		BOBSHELL_INSTALL_DATADIR="$BOBSHELL_INSTALL_SYSTEM_DATADIR"
+		BOBSHELL_INSTALL_LOCALSTATEDIR="$BOBSHELL_INSTALL_SYSTEM_LOCALSTATEDIR"
+		BOBSHELL_INSTALL_CACHEDIR="$BOBSHELL_INSTALL_SYSTEM_CACHEDIR"
+		BOBSHELL_INSTALL_SYSTEMDDIR="$BOBSHELL_INSTALL_SYSTEM_SYSTEMDDIR"
+		BOBSHELL_INSTALL_PROFILE="$BOBSHELL_INSTALL_SYSTEM_PROFILE"
 	else
-		: "${BOBSHELL_INSTALL_USER_PREFIX:=$HOME/.local}"
-		: "${BOBSHELL_INSTALL_USER_BINDIR:=$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/bin}"
-		: "${BOBSHELL_INSTALL_USER_CONFDIR:=$BOBSHELL_INSTALL_ROOT$HOME/.config}"
-		: "${BOBSHELL_INSTALL_USER_DATADIR:=$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/share}"
-		: "${BOBSHELL_INSTALL_USER_LOCALSTATEDIR:=$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/var}"
-		: "${BOBSHELL_INSTALL_USER_CACHEDIR:=$BOBSHELL_INSTALL_ROOT$HOME/.cache}"
-		: "${BOBSHELL_INSTALL_USER_SYSTEMDDIR:=$BOBSHELL_INSTALL_ROOT$HOME/.config/systemd/user}"
-		: "${BOBSHELL_INSTALL_USER_PROFILE:=$BOBSHELL_INSTALL_ROOT$HOME/.profile}"
-
-		: "${BOBSHELL_INSTALL_PREFIX:=$BOBSHELL_INSTALL_USER_PREFIX}"
-		: "${BOBSHELL_INSTALL_BINDIR:=$BOBSHELL_INSTALL_USER_BINDIR}"
-		: "${BOBSHELL_INSTALL_CONFDIR:=$BOBSHELL_INSTALL_USER_CONFDIR}"
-		: "${BOBSHELL_INSTALL_DATADIR:=$BOBSHELL_INSTALL_USER_DATADIR}"
-		: "${BOBSHELL_INSTALL_LOCALSTATEDIR:=$BOBSHELL_INSTALL_USER_LOCALSTATEDIR}"
-		: "${BOBSHELL_INSTALL_CACHEDIR:=$BOBSHELL_INSTALL_USER_CACHEDIR}"
-		: "${BOBSHELL_INSTALL_SYSTEMDDIR:=$BOBSHELL_INSTALL_USER_SYSTEMDDIR}"
-		: "${BOBSHELL_INSTALL_PROFILE:=$BOBSHELL_INSTALL_USER_PROFILE}"
+		BOBSHELL_INSTALL_PREFIX="$BOBSHELL_INSTALL_USER_PREFIX"
+		BOBSHELL_INSTALL_BINDIR="$BOBSHELL_INSTALL_USER_BINDIR"
+		BOBSHELL_INSTALL_CONFDIR="$BOBSHELL_INSTALL_USER_CONFDIR"
+		BOBSHELL_INSTALL_DATADIR="$BOBSHELL_INSTALL_USER_DATADIR"
+		BOBSHELL_INSTALL_LOCALSTATEDIR="$BOBSHELL_INSTALL_USER_LOCALSTATEDIR"
+		BOBSHELL_INSTALL_CACHEDIR="$BOBSHELL_INSTALL_USER_CACHEDIR"
+		BOBSHELL_INSTALL_SYSTEMDDIR="$BOBSHELL_INSTALL_USER_SYSTEMDDIR"
+		BOBSHELL_INSTALL_PROFILE="$BOBSHELL_INSTALL_USER_PROFILE"
 	fi
 
 		
 	: "${BOBSHELL_INSTALL_SYSTEMCTL:=systemctl}"
 }
+
 
 
 
@@ -1272,41 +1273,43 @@ bobshell_install_find_cache() {
 
 
 
-
+# fun: bobshell_install_get FUN NAME DEST
 bobshell_install_get() {
+	bobshell_install_get_dest="$3"
+	set -- "$1" "$2"
 	if bobshell_install_get_found=$("$@"); then
-		printf %s "$bobshell_install_get_found"
+		bobshell_copy "file:$bobshell_install_get_found" "$bobshell_install_get_dest"
 		return
 	else
 		return 1
 	fi
 }
 
-# fun: bobshell_install_get_executable NAME
+# fun: bobshell_install_get_executable NAME DEST
 bobshell_install_get_executable() {
-	bobshell_install_get bobshell_install_find_executable "$1"
+	bobshell_install_get bobshell_install_find_executable "$1" "$2"
 }
 
-# fun: bobshell_install_get_config app.conf 
+# fun: bobshell_install_get_config NAME DEST
 bobshell_install_get_config() {
-	bobshell_install_get bobshell_install_find_config "$1"
+	bobshell_install_get bobshell_install_find_config "$1" "$2"
 }
 
 bobshell_install_get_data() {
-	bobshell_install_get bobshell_install_find_data "$1"
+	bobshell_install_get bobshell_install_find_data "$1" "$2"
 }
 
 bobshell_install_get_localstate() {
-	bobshell_install_get bobshell_install_find_localstate "$1"
+	bobshell_install_get bobshell_install_find_localstate "$1" "$2"
 }
 
 bobshell_install_get_cache() {
-	bobshell_install_get bobshell_install_find_cache "$1"
+	bobshell_install_get bobshell_install_find_cache "$1" "$2"
 }
 
 
 
-# shelduck: source for file:///home/user/box/workspace/bobshell/scope.sh
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/scope.sh
 
 
 

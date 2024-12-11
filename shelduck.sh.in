@@ -492,20 +492,39 @@ shelduck_print_addition() {
 # fun: shelduck_cached_fetch_url ABSURL
 # txt: download dependency given url and save to cache
 # api: private
-shelduck_cached_fetch_url() {
+shelduck_cached_fetch_url() (
 	# bypass cache if local file
-	if bobshell_remove_prefix "$1" 'file://' file_name; then
+	if bobshell_remove_prefix "$1" 'file://' shelduck_cached_fetch_url_path; then
 		# shellcheck disable=SC2154
 		# starts_with sets variable file_name indirectly
-		if ! [ -f "$file_name" ]; then
-			bobshell_die "shelduck: fetch error '$1': file '$file_name' not found"
+		if ! [ -f "$shelduck_cached_fetch_url_path" ]; then
+			bobshell_die "shelduck: fetch error '$1': file '$shelduck_cached_fetch_url_path' not found"
 		fi
-		cat "$file_name" || bobshell_die "shelduck: fetch error '$1': error loading '$file_name'"
-		unset file_name
+		cat "$shelduck_cached_fetch_url_path" || bobshell_die "shelduck: fetch error '$1': error loading '$shelduck_cached_fetch_url_path'"
+		unset shelduck_cached_fetch_url_path
 		return
 	fi
-	# todo implement cache
-	# todo timeout
-	bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'"
-}
 
+	# init bobshell_install_* library
+	: "${SHELDUCK_INSTALL_NAME:=shelduck}"
+	bobshell_scope_mirror SHELDUCK_INSTALL_ BOBSHELL_INSTALL_
+	bobshell_install_init
+
+	# key
+	shelduck_cached_fetch_url_key=$(printf %s "$1" | sed 's/[\/<>:\\|?*]/-/g')
+
+
+	shelduck_cached_fetch_url_path=
+	if shelduck_cached_fetch_url_path=$(bobshell_install_find_cache "$shelduck_cached_fetch_url_key"); then
+		# todo expiration
+		cat "$shelduck_cached_fetch_url_path"
+		unset shelduck_cached_fetch_url_path
+		return
+	fi
+	
+	shelduck_cached_fetch_url_result=$(bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'")
+
+	bobshell_install_put_cache var:shelduck_cached_fetch_url_result "$shelduck_cached_fetch_url_key"
+	printf %s "$shelduck_cached_fetch_url_result"
+
+)

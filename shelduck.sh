@@ -171,7 +171,7 @@ shelduck_apply_rules() {
 shelduck_eval_with_args() {
 	shelduck_eval_with_args_script="$1"
 	shift
-	eval "$shelduck_eval_with_args_script"
+	eval "$shelduck_eval_with_args_script" # todo check if it is message add arguments
 }
 
 
@@ -495,23 +495,42 @@ shelduck_print_addition() {
 # fun: shelduck_cached_fetch_url ABSURL
 # txt: download dependency given url and save to cache
 # api: private
-shelduck_cached_fetch_url() {
+shelduck_cached_fetch_url() (
 	# bypass cache if local file
-	if bobshell_remove_prefix "$1" 'file://' file_name; then
+	if bobshell_remove_prefix "$1" 'file://' shelduck_cached_fetch_url_path; then
 		# shellcheck disable=SC2154
 		# starts_with sets variable file_name indirectly
-		if ! [ -f "$file_name" ]; then
-			bobshell_die "shelduck: fetch error '$1': file '$file_name' not found"
+		if ! [ -f "$shelduck_cached_fetch_url_path" ]; then
+			bobshell_die "shelduck: fetch error '$1': file '$shelduck_cached_fetch_url_path' not found"
 		fi
-		cat "$file_name" || bobshell_die "shelduck: fetch error '$1': error loading '$file_name'"
-		unset file_name
+		cat "$shelduck_cached_fetch_url_path" || bobshell_die "shelduck: fetch error '$1': error loading '$shelduck_cached_fetch_url_path'"
+		unset shelduck_cached_fetch_url_path
 		return
 	fi
-	# todo implement cache
-	# todo timeout
-	bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'"
-}
 
+	# init bobshell_install_* library
+	: "${SHELDUCK_INSTALL_NAME:=shelduck}"
+	bobshell_scope_mirror SHELDUCK_INSTALL_ BOBSHELL_INSTALL_
+	bobshell_install_init
+
+	# key
+	shelduck_cached_fetch_url_key=$(printf %s "$1" | sed 's/[\/<>:\\|?*]/-/g')
+
+
+	shelduck_cached_fetch_url_path=
+	if shelduck_cached_fetch_url_path=$(bobshell_install_find_cache "$shelduck_cached_fetch_url_key"); then
+		# todo expiration
+		cat "$shelduck_cached_fetch_url_path"
+		unset shelduck_cached_fetch_url_path
+		return
+	fi
+	
+	shelduck_cached_fetch_url_result=$(bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'")
+
+	bobshell_install_put_cache var:shelduck_cached_fetch_url_result "$shelduck_cached_fetch_url_key"
+	printf %s "$shelduck_cached_fetch_url_result"
+
+)
 
 # disable recursive dependency resolution when building shelduck itself
 # shelduck import string.sh
@@ -943,6 +962,709 @@ bobshell_fetch_url_with_curl() {
 
 bobshell_fetch_url_with_wget() {
 	wget --no-verbose --output-document -
+}
+
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import locator.sh
+
+
+bobshell_scope_names() {
+	for bobshell_scope_names_scope in "$@"; do
+		bobshell_scope_names_all=$(set | sed -n "s/^\($bobshell_scope_names_scope[A-Za-z_0-9]*\)=.*$/\1/pg" | sort -u)
+		for bobshell_scope_names_item in $bobshell_scope_names_all; do
+			if bobshell_isset "$bobshell_scope_names_item"; then
+				printf ' %s' "$bobshell_scope_names_item"
+			fi
+		done
+	done
+	unset bobshell_scope_names_all bobshell_scope_names_scope bobshell_scope_names_item
+}
+
+
+
+bobshell_scope_unset() {
+	for bobshell_scope_unset_name in $(bobshell_scope_names "$@"); do
+		unset "$bobshell_scope_unset_name"
+	done
+	unset bobshell_scope_unset_name
+}
+
+
+
+bobshell_scope_export() {
+	for bobshell_scope_export_name in $(bobshell_scope_names "$@"); do
+		export "$bobshell_scope_export_name"
+	done
+	unset bobshell_scope_export_name
+}
+
+
+
+bobshell_scope_env() {
+	bobshell_scope_env_result=
+	for bobshell_scope_env_name in $(bobshell_scope_names "$1"); do
+		bobshell_scope_env_result="$bobshell_scope_env_result$bobshell_scope_env_name="
+		bobshell_scope_env_value=$(bobshell_getvar "$bobshell_scope_env_name")
+		bobshell_scope_env_value=$(bobshell_quote "$bobshell_scope_env_value")
+		bobshell_scope_env_result="$bobshell_scope_env_result$bobshell_scope_env_value$bobshell_newline"
+	done
+	bobshell_copy var:bobshell_scope_env_result "$2"
+	unset bobshell_scope_env_result bobshell_scope_env_name bobshell_scope_env_value
+}
+
+
+# fun: bobshell_scope_copy SRCSCOPE DESTSCOPE
+bobshell_scope_copy() {
+	for bobshell_scope_copy_name in $(bobshell_scope_names "$1"); do
+		bobshell_scope_copy_value=$(bobshell_getvar "$bobshell_scope_copy_name")
+		bobshell_remove_prefix "$bobshell_scope_copy_name" "$1" bobshell_scope_copy_name
+		bobshell_putvar "$2$bobshell_scope_copy_name" "$bobshell_scope_copy_value"
+	done
+	unset bobshell_scope_copy_name bobshell_scope_copy_value
+}
+
+
+# fun: bobshell_scope_mirror SRCSCOPE DESTSCOPE
+bobshell_scope_mirror() {
+	bobshell_scope_unset "$2"
+	bobshell_scope_copy "$@"
+}
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import string.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import util.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import locator.sh
+
+
+# env: BOBSHELL_INSTALL_NAME
+bobshell_install_init() {
+	# https://www.gnu.org/prep/standards/html_node/Directory-Variables.html#Directory-Variables
+	
+	: "${BOBSHELL_INSTALL_DESTDIR:=}"
+	: "${BOBSHELL_INSTALL_ROOT:=}"
+	if [ -n "${BOBSHELL_INSTALL_ROOT:-}" ]; then
+		BOBSHELL_INSTALL_ROOT=$(realpath "$BOBSHELL_INSTALL_ROOT")
+	fi
+
+	: "${BOBSHELL_INSTALL_SYSTEM_PREFIX=${BOBSHELL_INSTALL_PREFIX-/opt}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_BINDIR=${BOBSHELL_INSTALL_BINDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/bin}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_CONFDIR=${BOBSHELL_INSTALL_CONFDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/etc}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_DATADIR=${BOBSHELL_INSTALL_DATADIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/share}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_LOCALSTATEDIR=${BOBSHELL_INSTALL_LOCALSTATEDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/var}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_CACHEDIR=${BOBSHELL_INSTALL_CACHEDIR-$BOBSHELL_INSTALL_ROOT/var/cache}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_SYSTEMDDIR=${BOBSHELL_INSTALL_SYSTEMDDIR-$BOBSHELL_INSTALL_ROOT/etc/systemd/system}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_PROFILE=${BOBSHELL_INSTALL_PROFILE-$BOBSHELL_INSTALL_ROOT/etc/profile}}"
+
+	: "${BOBSHELL_INSTALL_USER_PREFIX=${BOBSHELL_INSTALL_PREFIX-$HOME/.local}}"
+	: "${BOBSHELL_INSTALL_USER_BINDIR=${BOBSHELL_INSTALL_BINDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/bin}}"
+	: "${BOBSHELL_INSTALL_USER_CONFDIR=${BOBSHELL_INSTALL_CONFDIR-$BOBSHELL_INSTALL_ROOT$HOME/.config}}"
+	: "${BOBSHELL_INSTALL_USER_DATADIR=${BOBSHELL_INSTALL_DATADIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/share}}"
+	: "${BOBSHELL_INSTALL_USER_LOCALSTATEDIR=${BOBSHELL_INSTALL_LOCALSTATEDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/var}}"
+	: "${BOBSHELL_INSTALL_USER_CACHEDIR=${BOBSHELL_INSTALL_CACHEDIR-$BOBSHELL_INSTALL_ROOT$HOME/.cache}}"
+	: "${BOBSHELL_INSTALL_USER_SYSTEMDDIR=${BOBSHELL_INSTALL_SYSTEMDDIR-$BOBSHELL_INSTALL_ROOT$HOME/.config/systemd/user}}"
+	: "${BOBSHELL_INSTALL_USER_PROFILE=${BOBSHELL_INSTALL_PROFILE-$BOBSHELL_INSTALL_ROOT$HOME/.profile}}"
+
+	if [ -z "${BOBSHELL_INSTALL_ROLE:-}" ]; then
+		if bobshell_is_root; then
+			BOBSHELL_INSTALL_ROLE=SYSTEM
+		else
+			BOBSHELL_INSTALL_ROLE=USER
+		fi
+	fi
+
+
+	if [ SYSTEM = "$BOBSHELL_INSTALL_ROLE" ]; then
+		BOBSHELL_INSTALL_PREFIX="$BOBSHELL_INSTALL_SYSTEM_PREFIX"
+		BOBSHELL_INSTALL_BINDIR="$BOBSHELL_INSTALL_SYSTEM_BINDIR"
+		BOBSHELL_INSTALL_CONFDIR="$BOBSHELL_INSTALL_SYSTEM_CONFDIR"
+		BOBSHELL_INSTALL_DATADIR="$BOBSHELL_INSTALL_SYSTEM_DATADIR"
+		BOBSHELL_INSTALL_LOCALSTATEDIR="$BOBSHELL_INSTALL_SYSTEM_LOCALSTATEDIR"
+		BOBSHELL_INSTALL_CACHEDIR="$BOBSHELL_INSTALL_SYSTEM_CACHEDIR"
+		BOBSHELL_INSTALL_SYSTEMDDIR="$BOBSHELL_INSTALL_SYSTEM_SYSTEMDDIR"
+		BOBSHELL_INSTALL_PROFILE="$BOBSHELL_INSTALL_SYSTEM_PROFILE"
+	else
+		BOBSHELL_INSTALL_PREFIX="$BOBSHELL_INSTALL_USER_PREFIX"
+		BOBSHELL_INSTALL_BINDIR="$BOBSHELL_INSTALL_USER_BINDIR"
+		BOBSHELL_INSTALL_CONFDIR="$BOBSHELL_INSTALL_USER_CONFDIR"
+		BOBSHELL_INSTALL_DATADIR="$BOBSHELL_INSTALL_USER_DATADIR"
+		BOBSHELL_INSTALL_LOCALSTATEDIR="$BOBSHELL_INSTALL_USER_LOCALSTATEDIR"
+		BOBSHELL_INSTALL_CACHEDIR="$BOBSHELL_INSTALL_USER_CACHEDIR"
+		BOBSHELL_INSTALL_SYSTEMDDIR="$BOBSHELL_INSTALL_USER_SYSTEMDDIR"
+		BOBSHELL_INSTALL_PROFILE="$BOBSHELL_INSTALL_USER_PROFILE"
+	fi
+
+		
+	: "${BOBSHELL_INSTALL_SYSTEMCTL:=systemctl}"
+}
+
+
+
+
+
+
+# fun: bobshell_install_service SRCLOCATOR DESTNAME
+# use: bobshell_install_service file:target/myservice myservice.service
+bobshell_install_service() {
+	bobshell_install_service_dir="$BOBSHELL_INSTALL_DESTDIR$BOBSHELL_INSTALL_SYSTEMDDIR"
+	mkdir -p "$bobshell_install_service_dir"
+	bobshell_copy "$1" "file:$bobshell_install_service_dir/$2"
+
+	
+	if [ 0 = "$(id -u)" ]; then
+		bobshell_install_service_arg=
+	else
+		bobshell_install_service_arg='--user'
+	fi
+	$BOBSHELL_INSTALL_SYSTEMCTL $bobshell_install_service_arg daemon-reload
+	$BOBSHELL_INSTALL_SYSTEMCTL $bobshell_install_service_arg enable "$2"
+}
+
+
+
+
+
+
+
+
+# fun: bobshell_install_put SRC DIR DESTNAME MODE
+bobshell_install_put() {
+	mkdir -p "$BOBSHELL_INSTALL_DESTDIR$2"
+	bobshell_copy "$1" "file:$BOBSHELL_INSTALL_DESTDIR$2/$3"
+	chmod "$4" "$BOBSHELL_INSTALL_DESTDIR$2/$3"
+}
+
+# fun: bobshell_install_binary SRC DESTNAME
+# use: bobshell_install_binary target/exesrc.sh mysuperprog
+bobshell_install_put_executable() {
+	bobshell_install_put "$1" "$BOBSHELL_INSTALL_BINDIR" "$2" u=rwx,go=rx
+}
+
+bobshell_install_put_config() {
+	bobshell_install_put "$1" "$BOBSHELL_INSTALL_CONFDIR/$BOBSHELL_INSTALL_NAME" "$2" u=rw,go=r
+}
+
+bobshell_install_put_data() {
+	bobshell_install_put "$1" "$BOBSHELL_INSTALL_DATADIR/$BOBSHELL_INSTALL_NAME" "$2" u=rw,go=r
+}
+
+bobshell_install_put_localstate() {
+	bobshell_install_put "$1" "$BOBSHELL_INSTALL_LOCALSTATEDIR/$BOBSHELL_INSTALL_NAME" "$2" u=rw,go=r
+}
+
+bobshell_install_put_cache() {
+	bobshell_install_put "$1" "$BOBSHELL_INSTALL_CACHEDIR/$BOBSHELL_INSTALL_NAME" "$2" u=rw,go=r
+}
+
+
+
+
+
+
+
+
+
+# fun: bobshell_install_find SYSTEMCANDIDATE USERCANDIDATE
+bobshell_install_find() {
+	if bobshell_is_not_root && [ -f "$BOBSHELL_INSTALL_DESTDIR$2" ]; then
+		printf %s "$2"
+		return
+	fi
+
+	if [ -f "$BOBSHELL_INSTALL_DESTDIR$1" ]; then
+		printf %s "$1"
+		return
+	fi
+
+	return 1
+}
+
+bobshell_install_find_executable() {
+	bobshell_install_find "$BOBSHELL_INSTALL_SYSTEM_BINDIR/$1" "$BOBSHELL_INSTALL_USER_BINFDIR/$1"
+}
+
+bobshell_install_find_config() {
+	bobshell_install_find "$BOBSHELL_INSTALL_SYSTEM_CONFDIR/$BOBSHELL_INSTALL_NAME/$1" "$BOBSHELL_INSTALL_USER_CONFDIR/$BOBSHELL_INSTALL_NAME/$1"
+}
+
+bobshell_install_find_data() {
+	bobshell_install_find "$BOBSHELL_INSTALL_SYSTEM_DATADIR/$BOBSHELL_INSTALL_NAME/$1" "$BOBSHELL_INSTALL_USER_DATADIR/$BOBSHELL_INSTALL_NAME/$1"
+}
+
+bobshell_install_find_localstate() {
+	bobshell_install_find "$BOBSHELL_INSTALL_SYSTEM_LOCALSTATEDIR/$BOBSHELL_INSTALL_NAME/$1" "$BOBSHELL_INSTALL_USER_LOCALSTATEDIR/$BOBSHELL_INSTALL_NAME/$1"
+}
+
+bobshell_install_find_cache() {
+	bobshell_install_find "$BOBSHELL_INSTALL_SYSTEM_CACHEDIR/$BOBSHELL_INSTALL_NAME/$1" "$BOBSHELL_INSTALL_USER_CACHEDIR/$BOBSHELL_INSTALL_NAME/$1"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# fun: bobshell_install_get FUN NAME DEST
+bobshell_install_get() {
+	bobshell_install_get_dest="$3"
+	set -- "$1" "$2"
+	if bobshell_install_get_found=$("$@"); then
+		bobshell_copy "file:$bobshell_install_get_found" "$bobshell_install_get_dest"
+		return
+	else
+		return 1
+	fi
+}
+
+# fun: bobshell_install_get_executable NAME DEST
+bobshell_install_get_executable() {
+	bobshell_install_get bobshell_install_find_executable "$1" "$2"
+}
+
+# fun: bobshell_install_get_config NAME DEST
+bobshell_install_get_config() {
+	bobshell_install_get bobshell_install_find_config "$1" "$2"
+}
+
+bobshell_install_get_data() {
+	bobshell_install_get bobshell_install_find_data "$1" "$2"
+}
+
+bobshell_install_get_localstate() {
+	bobshell_install_get bobshell_install_find_localstate "$1" "$2"
+}
+
+bobshell_install_get_cache() {
+	bobshell_install_get bobshell_install_find_cache "$1" "$2"
+}
+
+
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import string.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import url.sh
+
+
+bobshell_parse_locator() {
+	if ! bobshell_split_first "$1" : bobshell_parse_locator_type bobshell_parse_locator_ref; then
+		bobshell_die "unrecognized locator: $1"
+	fi
+
+	case "$bobshell_parse_locator_type" in
+		(val | var | eval | stdin | stdout | file | url)
+			true ;;
+		(http | https | ftp | ftps) 
+			bobshell_parse_locator_type=url
+			bobshell_parse_locator_ref="$1"
+			;;
+		(*)
+			bobshell_die "unsupported locator type: $bobshell_parse_locator_type (in locator: $1)"
+	esac
+	
+	if [ -n "$2" ]; then
+		bobshell_copy_val_to_var "$bobshell_parse_locator_type" "$2"
+	fi
+	if [ -n "$3" ]; then
+		bobshell_copy_val_to_var "$bobshell_parse_locator_ref" "$3"
+	fi
+}
+
+
+
+# fun: bobshell_copy SOURCE DESTINATION
+bobshell_copy() {
+	bobshell_parse_locator "$1" bobshell_copy_source_type      bobshell_copy_source_ref
+	bobshell_parse_locator "$2" bobshell_copy_destination_type bobshell_copy_destination_ref
+
+
+	bobshell_copy_command="bobshell_copy_${bobshell_copy_source_type}_to_${bobshell_copy_destination_type}"
+	if ! bobshell_command_available "$bobshell_copy_command"; then
+		bobshell_die "bobshell_copy: unsupported copy $bobshell_copy_source_type to $bobshell_copy_destination_type"
+	fi
+
+	"$bobshell_copy_command" "$bobshell_copy_source_ref" "$bobshell_copy_destination_ref"
+	
+	unset bobshell_copy_source_type bobshell_copy_source_ref
+	unset bobshell_copy_destination_type bobshell_copy_destination_ref
+}
+
+
+bobshell_copy_to_val()           { bobshell_die 'cannot write to val resource'; }
+bobshell_copy_eval()             { bobshell_die 'eval resource cannot be destination'; }
+bobshell_copy_to_stdin()         { bobshell_die 'cannot write to stdin resource'; }
+bobshell_copy_stdout()           { bobshell_die 'cannot read from stdout resource'; }
+bobshell_copy_to_url()           { bobshell_die 'cannot write to stdin resource'; }
+
+
+
+bobshell_copy_val_to_val()       { test "$1" != "$2" && bobshell_copy_to_val; }
+bobshell_copy_val_to_var()       { eval "$2='$1'"; }
+bobshell_copy_val_to_eval()      { eval "$1"; }
+bobshell_copy_val_to_stdin()     { bobshell_copy_to_stdin; }
+bobshell_copy_val_to_stdout()    { printf %s "$1"; }
+bobshell_copy_val_to_file()      { printf %s "$1" > "$2"; }
+bobshell_copy_val_to_url()       { bobshell_copy_to_url; }
+
+
+
+bobshell_copy_var_to_val()       { bobshell_copy_to_val; }
+bobshell_copy_var_to_var()       { test "$1" != "$2" && eval "$2=\${$1}"; }
+bobshell_copy_var_to_eval()      { eval "bobshell_copy_var_to_eval \"\$$1\""; }
+bobshell_copy_var_to_stdin()     { bobshell_copy_to_stdin; }
+bobshell_copy_var_to_stdout()    { eval "printf %s \"\$$1\""; }
+bobshell_copy_var_to_file()      { eval "printf %s \"\$$1\"" > "$2"; }
+bobshell_copy_var_to_url()       { bobshell_copy_to_url; }
+
+
+
+bobshell_copy_eval_to_val()      { bobshell_copy_eval; }
+bobshell_copy_eval_to_var()      { bobshell_copy_eval; }
+bobshell_copy_eval_to_eval()     { bobshell_copy_eval; }
+bobshell_copy_eval_to_stdin()    { bobshell_copy_eval; }
+bobshell_copy_eval_to_stdout()   { bobshell_copy_eval; }
+bobshell_copy_eval_to_file()     { bobshell_copy_eval; }
+bobshell_copy_eval_to_url()      { bobshell_copy_eval; }
+
+
+
+bobshell_copy_stdin_to_val()     { bobshell_copy_to_val; }
+bobshell_copy_stdin_to_var()     { eval "$2=\$(cat)"; }
+bobshell_copy_stdin_to_eval()    {
+	bobshell_copy_stdin_to_var "$1" bobshell_copy_stdin_to_eval_data
+	bobshell_copy_var_to_eval bobshell_copy_stdin_to_eval_data ''
+	unset bobshell_copy_stdin_to_eval_data; 
+}
+bobshell_copy_stdin_to_stdin()   { bobshell_copy_to_stdin; }
+bobshell_copy_stdin_to_stdout()  { cat; }
+bobshell_copy_stdin_to_file()    { cat > "$2"; }
+bobshell_copy_stdin_to_url()     { bobshell_copy_to_url; }
+
+
+
+bobshell_copy_stdout_to_val()    { bobshell_copy_stdout; }
+bobshell_copy_stdout_to_var()    { bobshell_copy_stdout; }
+bobshell_copy_stdout_to_eval()   { bobshell_copy_stdout; }
+bobshell_copy_stdout_to_stdin()  { bobshell_copy_stdout; }
+bobshell_copy_stdout_to_stdout() { bobshell_copy_stdout; }
+bobshell_copy_stdout_to_file()   { bobshell_copy_stdout; }
+bobshell_copy_stdout_to_url()    { bobshell_copy_to_url; }
+
+
+
+bobshell_copy_file_to_val()      { bobshell_copy_to_val; }
+bobshell_copy_file_to_var()      { eval "$2=\$(cat '$1')"; }
+bobshell_copy_file_to_eval()     {
+	bobshell_copy_file_to_var "$1" bobshell_copy_file_to_eval_data
+	bobshell_copy_var_to_eval bobshell_copy_file_to_eval_data ''
+	unset bobshell_copy_file_to_eval_data; 
+}
+bobshell_copy_file_to_stdin()    { bobshell_copy_to_stdin; }
+bobshell_copy_file_to_stdout()   { cat "$1"; }
+bobshell_copy_file_to_file()     { test "$1" != "$2" && { mkdir -p "$(dirname "$2")" && rm -rf "$2" && cp "$1" "$2";}; }
+bobshell_copy_file_to_url()      { bobshell_copy_to_url; }
+
+
+
+bobshell_copy_url_to_val()       { bobshell_copy_to_val; }
+bobshell_copy_url_to_var()       { bobshell_fetch_url "$1" | bobshell_copy_stdin_to_var '' "$2"; }
+bobshell_copy_url_to_eval()      { bobshell_fetch_url "$1" | bobshell_copy_stdin_to_var '' "$2"; }
+bobshell_copy_url_to_stdin()     { bobshell_copy_to_stdin; }
+bobshell_copy_url_to_stdout()    { bobshell_fetch_url "$1"; }
+bobshell_copy_url_to_file()      { bobshell_fetch_url "$1" | bobshell_copy_stdin_to_file '' "$2"; }
+bobshell_copy_url_to_url()       { bobshell_copy_to_url; }
+
+
+
+# fun: bobshell_as_file LOCATOR
+bobshell_as_file() {
+	if bobshell_starts_with "$1" "file:" bobshell_as_file_ref; then
+		copy_resource var:bobshell_as_file_ref "$2"
+	else
+		# shellcheck disable=SC2034
+		bobshell_as_file_result="$(mktemp)"
+		copy_resource "$1" "file:$bobshell_as_file_result"
+		copy_resource var:bobshell_as_file_result "$2"
+		unset bobshell_as_file_result
+	fi
+	unset bobshell_as_file_ref
+}
+
+# fun: bobshell_is_file LOCATOR
+bobshell_is_file() {
+	bobshell_starts_with "$1" file: "$2"
+}
+
+
+bobshell_move() {
+	bobshell_parse_locator "$1" bobshell_move_source_type      bobshell_move_source_ref
+	bobshell_parse_locator "$2" bobshell_move_destination_type bobshell_move_destination_ref
+
+
+	bobshell_move_command="bobshell_move_${bobshell_move_source_type}_to_${bobshell_move_destination_type}"
+	if bobshell_command_available "$bobshell_move_command"; then
+		"$bobshell_move_command" "$bobshell_move_source_ref" "$bobshell_move_destination_ref"
+		unset bobshell_move_source_type bobshell_move_source_ref
+		unset bobshell_move_destination_type bobshell_move_destination_ref
+		return
+	fi
+	
+	bobshell_copy "$1" "$2"
+	bobshell_delete "$1"
+}
+
+bobshell_delete_file() { rm -f "$1"; }
+bobshell_delete_var() { unset "$1"; }
+
+
+bobshell_move_file_to_file() {
+	bobshell_die not implemented
+}
+
+bobshell_delete() {
+	bobshell_parse_locator "$1" bobshell_delete_type bobshell_delete_ref
+
+	bobshell_delete_command="bobshell_delete_${bobshell_delete_type}"
+	if ! bobshell_command_available "$bobshell_delete_command"; then
+		bobshell_die "bobshell_delete: unsupported resource of type: $bobshell_delete_type"
+	fi
+
+	"$bobshell_delete_command" "$bobshell_delete_ref"
+	return
+}
+
+bobshell_append() {
+	bobshell_die not implemented
+}
+
+
+
+
+bobshell_append_to_val()           { bobshell_die 'cannot append to val resource'; }
+bobshell_append_eval()             { bobshell_die 'eval resource cannot be destination'; }
+bobshell_append_to_stdin()         { bobshell_die 'cannot append to stdin resource'; }
+bobshell_append_stdout()           { bobshell_die 'cannot read from stdout resource'; }
+bobshell_append_to_url()           { bobshell_die 'cannot append to stdin resource'; }
+
+
+
+bobshell_append_val_to_val()       { test "$1" != "$2" && bobshell_append_to_val; }
+bobshell_append_val_to_var()       { eval "$2='$1'"; }
+bobshell_append_val_to_eval()      { eval "$1"; }
+bobshell_append_val_to_stdin()     { bobshell_append_to_stdin; }
+bobshell_append_val_to_stdout()    { printf %s "$1"; }
+bobshell_append_val_to_file()      { printf %s "$1" > "$2"; }
+bobshell_append_val_to_url()       { bobshell_append_to_url; }
+
+
+
+bobshell_append_var_to_val()       { bobshell_append_to_val; }
+bobshell_append_var_to_var()       { test "$1" != "$2" && eval "$2=\${$1}"; }
+bobshell_append_var_to_eval()      { eval "bobshell_append_var_to_eval \"\$$1\""; }
+bobshell_append_var_to_stdin()     { bobshell_append_to_stdin; }
+bobshell_append_var_to_stdout()    { eval "printf %s \"\$$1\""; }
+bobshell_append_var_to_file()      { eval "printf %s \"\$$1\"" > "$2"; }
+bobshell_append_var_to_url()       { bobshell_append_to_url; }
+
+
+
+bobshell_append_eval_to_val()      { bobshell_append_eval; }
+bobshell_append_eval_to_var()      { bobshell_append_eval; }
+bobshell_append_eval_to_eval()     { bobshell_append_eval; }
+bobshell_append_eval_to_stdin()    { bobshell_append_eval; }
+bobshell_append_eval_to_stdout()   { bobshell_append_eval; }
+bobshell_append_eval_to_file()     { bobshell_append_eval; }
+bobshell_append_eval_to_url()      { bobshell_append_eval; }
+
+
+
+bobshell_append_stdin_to_val()     { bobshell_append_to_val; }
+bobshell_append_stdin_to_var()     { eval "$2=\$(cat)"; }
+bobshell_append_stdin_to_eval()    {
+	bobshell_append_stdin_to_var "$1" bobshell_append_stdin_to_eval_data
+	bobshell_append_var_to_eval bobshell_append_stdin_to_eval_data ''
+	unset bobshell_append_stdin_to_eval_data; 
+}
+bobshell_append_stdin_to_stdin()   { bobshell_append_to_stdin; }
+bobshell_append_stdin_to_stdout()  { cat; }
+bobshell_append_stdin_to_file()    { cat > "$2"; }
+bobshell_append_stdin_to_url()     { bobshell_append_to_url; }
+
+
+
+bobshell_append_stdout_to_val()    { bobshell_append_stdout; }
+bobshell_append_stdout_to_var()    { bobshell_append_stdout; }
+bobshell_append_stdout_to_eval()   { bobshell_append_stdout; }
+bobshell_append_stdout_to_stdin()  { bobshell_append_stdout; }
+bobshell_append_stdout_to_stdout() { bobshell_append_stdout; }
+bobshell_append_stdout_to_file()   { bobshell_append_stdout; }
+bobshell_append_stdout_to_url()    { bobshell_append_to_url; }
+
+
+
+bobshell_append_file_to_val()      { bobshell_append_to_val; }
+bobshell_append_file_to_var()      { eval "$2=\$(cat '$1')"; }
+bobshell_append_file_to_eval()     {
+	bobshell_append_file_to_var "$1" bobshell_append_file_to_eval_data
+	bobshell_append_var_to_eval bobshell_append_file_to_eval_data ''
+	unset bobshell_append_file_to_eval_data; 
+}
+bobshell_append_file_to_stdin()    { bobshell_append_to_stdin; }
+bobshell_append_file_to_stdout()   { cat "$1"; }
+bobshell_append_file_to_file()     { test "$1" != "$2" && { mkdir -p "$(dirname "$2")" && rm -rf "$2" && cp "$1" "$2";}; }
+bobshell_append_file_to_url()      { bobshell_append_to_url; }
+
+
+
+bobshell_append_url_to_val()       { bobshell_append_to_val; }
+bobshell_append_url_to_var()       { bobshell_fetch_url "$1" | bobshell_append_stdin_to_var '' "$2"; }
+bobshell_append_url_to_eval()      { bobshell_fetch_url "$1" | bobshell_append_stdin_to_var '' "$2"; }
+bobshell_append_url_to_stdin()     { bobshell_append_to_stdin; }
+bobshell_append_url_to_stdout()    { bobshell_fetch_url "$1"; }
+bobshell_append_url_to_file()      { bobshell_fetch_url "$1" | bobshell_append_stdin_to_file '' "$2"; }
+bobshell_append_url_to_url()       { bobshell_append_to_url; }
+
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import string.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import git.sh
+
+
+bobshell_current_seconds() {
+	date +%s
+}
+
+
+
+# fun: save_output VARIABLE COMMAND [ARG...]
+bobshell_save_output() {
+	save_output_var="$1"
+	shift
+	save_output=$("$@")
+	bobshell_putvar "$save_output_var" "$save_output"
+	unset save_output_var save_output
+}
+
+
+
+bobshell_eval_output() {
+	# stdout:cat
+	# stdin:cat
+	# todo: copy_resource "stdout:$*" "eval:"
+	bobshell_eval_output=$("$@")
+	eval "$bobshell_eval_output"
+	unset bobshell_eval_output
+}
+
+
+# txt: read -sr 
+bobshell_read_secret() {
+  # https://github.com/biox/pa/blob/main/pa
+  [ -t 0 ] && stty -echo
+	read -r "$1"
+	[ -t 0 ] &&  stty echo
+}
+
+
+
+bobshell_run_url() {
+	if bobshell_command_available "$1"; then
+		"$@"
+	elif [ -z "$1" ]; then
+		"$@"
+	elif bobshell_ends_with "$1" '.git'; then
+		bobshell_run_url_git "$@"
+	else
+		bobshell_die "bobshell_run_url: unrecognized parameters: $(boshell_quote "$@")"
+	fi
+}
+
+bobshell_run_url_git() {
+	bobshell_run_url_git_dir=$(mktemp -d)
+	bobshell_git clone "$1" "$bobshell_run_url_git_dir"
+	"$bobshell_run_url_git_dir/run" "$@"
+}
+
+# txt: выполнить команду, восстановить после неё значения переменных окружения
+# use: X=1; Y=2; preserve_environment 'eval' 'X=2, Z=3'; echo "$X, $Y, $Z" # gives 1, 2, 3
+bobshell_preserve_env() {
+  bobshell_preserve_env_orig=
+  # shellcheck disable=SC2016
+  bobshell_preserve_env_orig="$(set)"
+  "$@"
+  eval "$bobshell_preserve_env_orig"
+  unset bobshell_preserve_env_orig
+}
+
+bobshell_is_root() {
+	test 0 = "$(id -u)"
+}
+
+bobshell_is_not_root() {
+	test 0 != "$(id -u)"
+}
+
+bobshell_eval() {
+	bobshell_eval_script=
+	bobshell_copy "$1" var:bobshell_eval_script
+	eval "$bobshell_eval_script"
+}
+
+
+
+# fun: shelduck_eval_with_args SCRIPT [ARGS...]
+shelduck_eval_with_args() {
+	shelduck_eval_with_args_script="$1"
+	shift
+	eval "$shelduck_eval_with_args_script"
+}
+
+
+bobshell_uid() {
+	id -u
+}
+
+bobshell_gid() {
+	id -g
+}
+
+
+bobshell_user_name() {
+	printf %s "$USER" # todo
+}
+
+
+
+bobshell_user_home() {
+	printf %s "$HOME" # todo
 }
 
 

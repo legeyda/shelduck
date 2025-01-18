@@ -189,7 +189,7 @@ shelduck_import() {
 	shelduck_analyze_cli "$@"
 	bobshell_require_not_empty "${shelduck_analyze_cli_url:-}" "import: url must be defined" # since we checking for duplicates, url is mandatorry
 	if [ -n "$shelduck_analyze_cli_command" ]; then
-		bobshell_log "shelduck_import: warn: function makes no sence and hence ignored"
+		bobshell_log "shelduck_import: warn: command makes no sence and hence ignored"
 	fi
 	if [ -n "$shelduck_analyze_cli_args" ]; then
 		bobshell_log "shelduck_import: warn: args make no sence and hence ignored"

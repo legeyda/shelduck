@@ -192,7 +192,7 @@ shelduck_import() {
 	shelduck_analyze_cli "$@"
 	bobshell_require_not_empty "${shelduck_analyze_cli_url:-}" "import: url must be defined" # since we checking for duplicates, url is mandatorry
 	if [ -n "$shelduck_analyze_cli_command" ]; then
-		bobshell_log "shelduck_import: warn: function makes no sence and hence ignored"
+		bobshell_log "shelduck_import: warn: command makes no sence and hence ignored"
 	fi
 	if [ -n "$shelduck_analyze_cli_args" ]; then
 		bobshell_log "shelduck_import: warn: args make no sence and hence ignored"
@@ -534,6 +534,8 @@ shelduck_cached_fetch_url() (
 
 # disable recursive dependency resolution when building shelduck itself
 # shelduck import string.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import require.sh
 
 bobshell_die() {
   # https://github.com/biox/pa/blob/main/pa
@@ -542,7 +544,7 @@ bobshell_die() {
 }
 
 
-# use isset unreliablevar
+# use isset OPTVARNAME
 bobshell_isset() {
 	eval "test \"\${$1+defined}\" = defined"
 }
@@ -550,6 +552,14 @@ bobshell_isset() {
 #  
 bobshell_isset_1() {
 	eval "test \"\${1+defined}\" = defined"
+}
+
+bobshell_isset_2() {
+	eval "test \"\${2+defined}\" = defined"
+}
+
+bobshell_isset_3() {
+	eval "test \"\${3+defined}\" = defined"
 }
 
 bobshell_command_available() {
@@ -664,6 +674,22 @@ bobshell_not_empty() {
 
 # 	unset bobshell_foreach_items bobshell_foreach_command
 # }
+
+bobshell_printf_stderr() {
+	printf "$@" >&2
+}
+
+bobshell_subshell() {
+	( "$@" )
+}
+
+bobshell_last_arg() {
+	bobshell_require_isset_1 'bobshell_last_arg: at least one positional argument expected'
+	while bobshell_isset_2 "$@"; do
+		shift
+	done
+	printf %s "$1"
+}
 
 
 
@@ -892,6 +918,14 @@ bobshell_strip() {
 	bobshell_strip_right "$bobshell_strip_value"
 }
 
+bobshell_upper_case() {
+	printf %s "$*" | awk 'BEGIN { getline; print toupper($0) }'
+}
+
+bobshell_lower_case() {
+	printf %s "$*" | awk 'BEGIN { getline; print tolower($0) }'
+}
+
 
 # shellcheck disable=SC2148
 
@@ -1049,26 +1083,30 @@ bobshell_scope_mirror() {
 bobshell_install_init() {
 	# https://www.gnu.org/prep/standards/html_node/Directory-Variables.html#Directory-Variables
 	
+	if [ -z "$BOBSHELL_INSTALL_NAME" ] && [ -n "$BOBSHELL_APP_NAME" ]; then
+		BOBSHELL_INSTALL_NAME="$BOBSHELL_APP_NAME"
+	fi
+
 	: "${BOBSHELL_INSTALL_DESTDIR:=}"
 	: "${BOBSHELL_INSTALL_ROOT:=}"
 	if [ -n "${BOBSHELL_INSTALL_ROOT:-}" ]; then
 		BOBSHELL_INSTALL_ROOT=$(realpath "$BOBSHELL_INSTALL_ROOT")
 	fi
 
-	: "${BOBSHELL_INSTALL_SYSTEM_PREFIX=${BOBSHELL_INSTALL_PREFIX-/opt}}"
-	: "${BOBSHELL_INSTALL_SYSTEM_BINDIR=${BOBSHELL_INSTALL_BINDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/bin}}"
-	: "${BOBSHELL_INSTALL_SYSTEM_CONFDIR=${BOBSHELL_INSTALL_CONFDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/etc}}"
-	: "${BOBSHELL_INSTALL_SYSTEM_DATADIR=${BOBSHELL_INSTALL_DATADIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/share}}"
-	: "${BOBSHELL_INSTALL_SYSTEM_LOCALSTATEDIR=${BOBSHELL_INSTALL_LOCALSTATEDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_SYSTEM_PREFIX/var}}"
-	: "${BOBSHELL_INSTALL_SYSTEM_CACHEDIR=${BOBSHELL_INSTALL_CACHEDIR-$BOBSHELL_INSTALL_ROOT/var/cache}}"
+	# https://refspecs.linuxfoundation.org/FHS_3.0/fhs-3.0.html
+	: "${BOBSHELL_INSTALL_SYSTEM_BINDIR=${BOBSHELL_INSTALL_BINDIR-$BOBSHELL_INSTALL_ROOT/opt/bin}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_CONFDIR=${BOBSHELL_INSTALL_CONFDIR-$BOBSHELL_INSTALL_ROOT/etc/opt}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_DATADIR=${BOBSHELL_INSTALL_DATADIR-$BOBSHELL_INSTALL_ROOT/opt}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_LOCALSTATEDIR=${BOBSHELL_INSTALL_LOCALSTATEDIR-$BOBSHELL_INSTALL_ROOT/var/opt}}"
+	: "${BOBSHELL_INSTALL_SYSTEM_CACHEDIR=${BOBSHELL_INSTALL_CACHEDIR-$BOBSHELL_INSTALL_ROOT/var/cache/opt}}"
 	: "${BOBSHELL_INSTALL_SYSTEM_SYSTEMDDIR=${BOBSHELL_INSTALL_SYSTEMDDIR-$BOBSHELL_INSTALL_ROOT/etc/systemd/system}}"
 	: "${BOBSHELL_INSTALL_SYSTEM_PROFILE=${BOBSHELL_INSTALL_PROFILE-$BOBSHELL_INSTALL_ROOT/etc/profile}}"
 
-	: "${BOBSHELL_INSTALL_USER_PREFIX=${BOBSHELL_INSTALL_PREFIX-$HOME/.local}}"
-	: "${BOBSHELL_INSTALL_USER_BINDIR=${BOBSHELL_INSTALL_BINDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/bin}}"
+	# https://wiki.archlinux.org/title/XDG_Base_Directory
+	: "${BOBSHELL_INSTALL_USER_BINDIR=${BOBSHELL_INSTALL_BINDIR-$BOBSHELL_INSTALL_ROOT$HOME/.local/bin}}"
 	: "${BOBSHELL_INSTALL_USER_CONFDIR=${BOBSHELL_INSTALL_CONFDIR-$BOBSHELL_INSTALL_ROOT$HOME/.config}}"
-	: "${BOBSHELL_INSTALL_USER_DATADIR=${BOBSHELL_INSTALL_DATADIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/share}}"
-	: "${BOBSHELL_INSTALL_USER_LOCALSTATEDIR=${BOBSHELL_INSTALL_LOCALSTATEDIR-$BOBSHELL_INSTALL_ROOT$BOBSHELL_INSTALL_USER_PREFIX/var}}"
+	: "${BOBSHELL_INSTALL_USER_DATADIR=${BOBSHELL_INSTALL_DATADIR-$BOBSHELL_INSTALL_ROOT$HOME/.local/share}}"
+	: "${BOBSHELL_INSTALL_USER_LOCALSTATEDIR=${BOBSHELL_INSTALL_LOCALSTATEDIR-$BOBSHELL_INSTALL_ROOT$HOME/.local/state}}"
 	: "${BOBSHELL_INSTALL_USER_CACHEDIR=${BOBSHELL_INSTALL_CACHEDIR-$BOBSHELL_INSTALL_ROOT$HOME/.cache}}"
 	: "${BOBSHELL_INSTALL_USER_SYSTEMDDIR=${BOBSHELL_INSTALL_SYSTEMDDIR-$BOBSHELL_INSTALL_ROOT$HOME/.config/systemd/user}}"
 	: "${BOBSHELL_INSTALL_USER_PROFILE=${BOBSHELL_INSTALL_PROFILE-$BOBSHELL_INSTALL_ROOT$HOME/.profile}}"
@@ -1083,7 +1121,6 @@ bobshell_install_init() {
 
 
 	if [ SYSTEM = "$BOBSHELL_INSTALL_ROLE" ]; then
-		BOBSHELL_INSTALL_PREFIX="$BOBSHELL_INSTALL_SYSTEM_PREFIX"
 		BOBSHELL_INSTALL_BINDIR="$BOBSHELL_INSTALL_SYSTEM_BINDIR"
 		BOBSHELL_INSTALL_CONFDIR="$BOBSHELL_INSTALL_SYSTEM_CONFDIR"
 		BOBSHELL_INSTALL_DATADIR="$BOBSHELL_INSTALL_SYSTEM_DATADIR"
@@ -1092,7 +1129,6 @@ bobshell_install_init() {
 		BOBSHELL_INSTALL_SYSTEMDDIR="$BOBSHELL_INSTALL_SYSTEM_SYSTEMDDIR"
 		BOBSHELL_INSTALL_PROFILE="$BOBSHELL_INSTALL_SYSTEM_PROFILE"
 	else
-		BOBSHELL_INSTALL_PREFIX="$BOBSHELL_INSTALL_USER_PREFIX"
 		BOBSHELL_INSTALL_BINDIR="$BOBSHELL_INSTALL_USER_BINDIR"
 		BOBSHELL_INSTALL_CONFDIR="$BOBSHELL_INSTALL_USER_CONFDIR"
 		BOBSHELL_INSTALL_DATADIR="$BOBSHELL_INSTALL_USER_DATADIR"
@@ -1188,7 +1224,7 @@ bobshell_install_find() {
 }
 
 bobshell_install_find_executable() {
-	bobshell_install_find "$BOBSHELL_INSTALL_SYSTEM_BINDIR/$1" "$BOBSHELL_INSTALL_USER_BINFDIR/$1"
+	bobshell_install_find "$BOBSHELL_INSTALL_SYSTEM_BINDIR/$1" "$BOBSHELL_INSTALL_USER_BINDIR/$1"
 }
 
 bobshell_install_find_config() {
@@ -1384,7 +1420,7 @@ bobshell_copy_file_to_eval()     {
 }
 bobshell_copy_file_to_stdin()    { bobshell_copy_to_stdin; }
 bobshell_copy_file_to_stdout()   { cat "$1"; }
-bobshell_copy_file_to_file()     { test "$1" != "$2" && { mkdir -p "$(dirname "$2")" && rm -rf "$2" && cp "$1" "$2";}; }
+bobshell_copy_file_to_file()     { test "$1" != "$2" && { mkdir -p "$(dirname "$2")" && rm -rf "$2" && cp -f "$1" "$2";}; }
 bobshell_copy_file_to_url()      { bobshell_copy_to_url; }
 
 
@@ -1399,23 +1435,31 @@ bobshell_copy_url_to_url()       { bobshell_copy_to_url; }
 
 
 
-# fun: bobshell_as_file LOCATOR
-bobshell_as_file() {
-	if bobshell_starts_with "$1" "file:" bobshell_as_file_ref; then
-		copy_resource var:bobshell_as_file_ref "$2"
+# fun: bobshell_locator_as_file LOCATOR
+bobshell_locator_as_file() {
+	if bobshell_starts_with "$1" "file:" bobshell_locator_as_file_ref; then
+		copy_resource var:bobshell_locator_as_file_ref "$2"
 	else
 		# shellcheck disable=SC2034
-		bobshell_as_file_result="$(mktemp)"
-		copy_resource "$1" "file:$bobshell_as_file_result"
-		copy_resource var:bobshell_as_file_result "$2"
-		unset bobshell_as_file_result
+		bobshell_locator_as_file_result="$(mktemp)"
+		copy_resource "$1" "file:$bobshell_locator_as_file_result"
+		copy_resource var:bobshell_locator_as_file_result "$2"
+		unset bobshell_locator_as_file_result
 	fi
-	unset bobshell_as_file_ref
+	unset bobshell_locator_as_file_ref
 }
 
-# fun: bobshell_is_file LOCATOR
-bobshell_is_file() {
-	bobshell_starts_with "$1" file: "$2"
+# fun: bobshell_is_file LOCATOR [FILEPATHVAR]
+bobshell_locator_is_file() {
+	bobshell_starts_with "$1" file: "${2:-}"
+}
+
+bobshell_locator_is_stdin() {
+	bobshell_starts_with "$1" stdin: "${2:-}"
+}
+
+bobshell_locator_is_stdout() {
+	bobshell_starts_with "$1" stdout: "${2:-}"
 }
 
 
@@ -1665,6 +1709,25 @@ bobshell_user_name() {
 
 bobshell_user_home() {
 	printf %s "$HOME" # todo
+}
+
+bobshell_get_file_mtime() {
+
+	# LC_TIME=en_US.UTF-8 ls -ld ./pom.xml | sed -n 's/^.* \([A-Z][a-z]\{2\} \+[0-9]\+\).*$/\1/p'
+	#LC_TIME=en_US.UTF-8 ls -ld ./pom.xml | sed -n 's/^.* \(\(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec\) \+[0-9]\+ \+\).*$/\1/p'
+
+	LC_TIME=en_US.UTF-8 ls -ld ./pom.xml | sed -n 's/^.* \(\(Jan\|Feb\|Mar\|Apr\|May\|Jun\|Jul\|Aug\|Sep\|Oct\|Nov\|Dec\) \+[1-9]\+ \+[0-9]\+\:[0-9]\+\).*$/\1/p'
+	# 
+
+	bobshell_get_file_mtime_dirname=$(dirname "$1")
+	bobshell_get_file_mtime_basename=$(basename "$1")
+	find "$bobshell_get_file_mtime_dirname" -maxdepth 1 -name "$bobshell_get_file_mtime_basename" -printf "%Ts"
+	unset bobshell_get_file_mtime_dirname bobshell_get_file_mtime_basename
+}
+
+# bobshell_line_in_file: 
+bobshell_line_in_file() {
+	true
 }
 
 

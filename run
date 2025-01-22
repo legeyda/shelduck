@@ -131,7 +131,7 @@ eval_dependency() {
 
 run_install() {
 	run_build
-	sh ./install.sh
+	SHELDUCK_LIBRARY_URL=file://$(realpath "$(pwd)/shelduck.sh") sh ./install.sh
 }
 
 main "$@"

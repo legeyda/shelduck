@@ -22,31 +22,33 @@ shelduck() {
 shelduck_ensure_base_url() {
 	# guess base url
 	if [ -z "${shelduck_base_url:-}" ]; then
-		shelduck_base_url=$(pwd)
-		shelduck_base_url="file://$shelduck_base_url"
+		if [ -n "${SHELDUCK_BASE_URL:-}" ]; then
+			shelduck_base_url="$SHELDUCK_BASE_URL"
+		else
+			shelduck_base_url=$(pwd)
+			shelduck_base_url="file://$shelduck_base_url"
+		fi
 	fi
 }
 
 
 
-# fun: shelduck_run URL CLIARGS...
+# fun: shelduck_run URL [ARGS...]
 # api: private
 shelduck_run() {
-	shelduck_ensure_base_url
+	# parse cli
+	bobshell_isset_1 "$@" || bobshell_die '"shelduck run" requires at least 1 argument'
+	shelduck_run_url=$(shelduck_fix_url "$1")
+	shift
+	shelduck_run_args="$(bobshell_quote "$@")"
 
-	# todo save (and restore) old run_args
-	# todo apply url rules
-
-	# parse arguments
-	shelduck_analyze_cli "$@"
 
 	# save vars before recursive_call
-	set -- "${shelduck_run_args:-}"
+	set -- "$shelduck_run_args" # save latest run args, since recursive imports use it # todo needed?
 	
 	# delegate to shelduck_exec
-	shelduck_run_args="$shelduck_analyze_cli_args" # save latest run args, since recursive imports use it
-	shelduck_exec "$shelduck_analyze_cli_aliases" "$shelduck_analyze_cli_command" "$shelduck_analyze_cli_url" "$shelduck_analyze_cli_args"
-	unset shelduck_analyze_cli_aliases shelduck_analyze_cli_command shelduck_analyze_cli_url shelduck_analyze_cli_args
+	shelduck_exec '' "$shelduck_run_url" "$shelduck_run_args"
+	unset shelduck_run_url shelduck_run_args
 
 	# restore state after recursive call
 	shelduck_run_args="$1"
@@ -54,87 +56,84 @@ shelduck_run() {
 }
 
 
-
-
-# fun: shelduck_analyze_cli [CLIARGS...]
-shelduck_analyze_cli() {
-	shelduck_parse_cli "$@"
-
-	shelduck_analyze_cli_aliases="$shelduck_parse_cli_aliases"
-	unset shelduck_parse_cli_aliases
-
-	shelduck_analyze_cli_command="$shelduck_parse_cli_command"
-	unset shelduck_parse_cli_command
-
-	: "${shelduck_base_url:=${SHELDUCK_BASE_URL:-}}"
-	if [ -n "$shelduck_parse_cli_url" ]; then
-		shelduck_analyze_cli_url=$(bobshell_resolve_url "$shelduck_parse_cli_url" "$shelduck_base_url")
-		unset shelduck_parse_cli_url
-		if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
-			shelduck_analyze_cli_url=$(shelduck_apply_rules "$shelduck_analyze_cli_url" "$SHELDUCK_URL_RULES")
-		fi
-	else
-		shelduck_analyze_cli_url="$shelduck_parse_cli_url"
-		unset shelduck_parse_cli_url
+shelduck_fix_url() {
+	if [ -z "$1" ]; then
+		bobshell_die "shelduck: invalid url"
 	fi
 
-	shelduck_analyze_cli_args="$shelduck_parse_cli_args"
-	unset shelduck_parse_cli_args
+	shelduck_ensure_base_url
+	if bobshell_locator_is_remote "$1" || bobshell_locator_is_file "$1" || ! bobshell_parse_locator "$1"; then
+		shelduck_fix_url=$(bobshell_resolve_url "$1" "$shelduck_base_url")
+		if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
+			shelduck_fix_url=$(shelduck_apply_rules "$shelduck_fix_url" "$SHELDUCK_URL_RULES")
+		fi
+		printf %s "$shelduck_fix_url"
+		unset shelduck_fix_url
+	else
+		printf %s "$1"
+	fi
 }
 
 
 
-
-# fun: shelduck_parse_cli [CLIARGS...]
-# env: shelduck_parse_cli_aliases
-#      shelduck_parse_cli_command
-#      shelduck_parse_cli_url
-#      shelduck_parse_cli_args
-# api: private
-shelduck_parse_cli() {
-	bobshell_require_not_empty "${1:-}" 'at least one argument expected'
-	shelduck_parse_cli_aliases=
-	shelduck_parse_cli_command=
-	shelduck_parse_cli_url=
-	shelduck_parse_cli_args=
-	while [ "${1+defined}" = defined ]; do
-		bobshell_require_not_empty "${1:-}" "arg expected to be nonempty"
+shelduck_parse_import_cli() {
+	bobshell_require_not_empty "${1:-}" '"shelduck import" requires at least 1 argument.'
+	shelduck_import_aliases=
+	shelduck_import_url=
+	while bobshell_isset_1 "$@"; do
 		case "$1" in
-			-a|--alias)
-				shift;
-				if [ defined != "${1+defined}" ]; then
-					bobshell_die 'alias argument expected'
+			(-a|--alias)
+				if ! bobshell_isset_2 "$@"; then
+					bobshell_die "option '$1' (alias) requires argument"
 				fi
-				bobshell_require_not_empty "${1:-}" "alias argument expected to be not empty"
-				shelduck_parse_cli_aliases="$shelduck_parse_cli_aliases $1"
+				shift
+				shelduck_import_cli_alias "$1"
 				shift
 				;;
 
-			-c|--command)
-				shift;
-				if [ defined != "${1+defined}" ]; then
-					bobshell_die 'command argument expected'
-				fi
-				bobshell_require_not_empty "${1:-}" "command argument expected to be not empty"
-				shelduck_parse_cli_command="$1"
+			(--alias=*)
+				bobshell_remove_prefix "$1" --alias= shelduck_analyze_cli_alias
 				shift
+				shelduck_import_cli_alias "$shelduck_analyze_cli_alias"
 				;;
 
-			*)
-				if [ -z "${1:-}" ]; then
-					bobshell_die "url expected to be nonempty"
-				fi
-				if [ -z "$shelduck_parse_cli_url" ]; then
-					shelduck_parse_cli_url="$1"
-					shift
-					shelduck_parse_cli_args="$(bobshell_quote "$@")"
-					break
-				fi
+			(*)
+				break
 				;;
 		esac
 	done
 
+	if [ -z "${1:-}" ]; then
+		bobshell_die "url expected to be nonempty"
+	fi
+	shelduck_import_url="$1"
+	
+	if bobshell_isset_2 "$@"; then
+		bobshell_die "unexpected argument \"$2\""
+	fi
+	
 }
+
+
+shelduck_import_cli_alias() {
+	if [ -z "$1" ]; then
+		bobshell_die 'alias cannot be empty'
+	fi
+	shelduck_import_aliases="$shelduck_import_aliases $1"
+}
+
+shelduck_import_usage() {
+	printf %s 'Import library.
+	
+Usage: shelduck import [OPTIONS] URL
+
+Options:
+
+   -a, --alias ALIAS    Defina alias for functions      
+'
+}
+
+
 
 
 
@@ -183,82 +182,56 @@ shelduck_eval_with_args() {
 # api: private
 # env: shelduck_base_url
 shelduck_import() {
-	shelduck_ensure_base_url
-	
-	# parse cli
-	shelduck_analyze_cli "$@"
-	bobshell_require_not_empty "${shelduck_analyze_cli_url:-}" "import: url must be defined" # since we checking for duplicates, url is mandatorry
-	if [ -n "$shelduck_analyze_cli_command" ]; then
-		bobshell_log "shelduck_import: warn: command makes no sence and hence ignored"
-	fi
-	if [ -n "$shelduck_analyze_cli_args" ]; then
-		bobshell_log "shelduck_import: warn: args make no sence and hence ignored"
-	fi
-
-	# todo apply url rules
+	shelduck_parse_import_cli "$@"
+	shelduck_import_url=$(shelduck_fix_url "$shelduck_import_url")
 
 	# check for duplicates
 	: "${shelduck_import_history:=}"
-	if bobshell_contains "$shelduck_import_history" "$shelduck_analyze_cli_url"; then
+	if bobshell_contains "$shelduck_import_history" "$shelduck_import_url"; then
 		# todo maybe base url is needed
-		shelduck_import_origin=$(shelduck_print_origin "$shelduck_analyze_cli_url")
-		shelduck_import_addition=$(shelduck_print_addition "$shelduck_import_origin" "$shelduck_analyze_cli_url" "$shelduck_analyze_cli_aliases")
+		shelduck_import_origin=$(shelduck_print_origin "$shelduck_import_url")
+		shelduck_import_addition=$(shelduck_print_addition "$shelduck_import_origin" "$shelduck_import_url" "$shelduck_import_aliases")
 		eval "$shelduck_import_addition"
 		unset shelduck_import_origin shelduck_import_addition
 		return
 	fi
-	shelduck_import_history="$shelduck_import_history $shelduck_analyze_cli_url"
+	shelduck_import_history="$shelduck_import_history $shelduck_import_url"
 	
 	# delegate to shelduck_exec
-	shelduck_exec "$shelduck_analyze_cli_aliases" '' "$shelduck_analyze_cli_url" ''
-	unset shelduck_analyze_cli_aliases shelduck_analyze_cli_command shelduck_analyze_cli_url shelduck_analyze_cli_args
+	shelduck_exec "$shelduck_import_aliases" "$shelduck_import_url" ''
+	unset shelduck_import_aliases shelduck_import_url shelduck_analyze_cli_args
 
 }
 
 
 
 
-# fun: shelduck_exec ALIASES COMMAND ABSURL ARGS
+# fun: shelduck_exec ALIASES ABSURL ARGS
 shelduck_exec() {
 	shelduck_ensure_base_url
 
 
 	# exec absurl ABSURL
-	if [ -n "$3" ]; then
+	if [ -n "$2" ]; then
 		shelduck_alias_strategy=wrap
-		shelduck_exec_origin=$(shelduck_print_origin "$3")
-		shelduck_exec_additions=$(shelduck_print_addition "$shelduck_exec_origin" "$3" "$1")
+		shelduck_exec_origin=$(shelduck_print_origin "$2")
+		shelduck_exec_additions=$(shelduck_print_addition "$shelduck_exec_origin" "$2" "$1")
 
 		# save state before recursive call
-		set -- "$shelduck_base_url" "$1" "$2" "$3" "$4" shelduck_eval_with_args "$shelduck_exec_origin$shelduck_exec_additions"
-		if [ -n "$5" ]; then
-			eval "set -- \"\$@\" $5"
+		set -- "$shelduck_base_url" "$1" "$2" "$3" shelduck_eval_with_args "$shelduck_exec_origin$shelduck_exec_additions"
+		if [ -n "$4" ]; then
+			eval "set -- \"\$@\" $4"
 		fi
 		
 		# recursive call
-		shelduck_base_url=$(bobshell_base_url "$4")
-		shelduck_shift_exec 5 "$@"
+		shelduck_update_base_url "$3"
+		shelduck_shift_exec 4 "$@"
 
 		# restore state after recursive call
 		shelduck_base_url="$1"
 		shift
 	fi
 	
-	if [ -n "$2" ]; then
-		# save state before recursive call
-		set -- "$shelduck_base_url" "$1" "$2" "$3" "$4" shelduck_eval_with_args "$2"
-		if [ -n "$5" ]; then
-			eval "set -- \"\$@\" $5"
-		fi
-
-		# recursive command
-		shelduck_base_url=$(bobshell_base_url "$4")
-		shelduck_shift_exec 5 "$@"
-
-		# restore state after recursive call
-		shelduck_base_url="$1"
-	fi
-
 }
 
 # fun: shelduck_shift_exec SHIFTNUM IGNORED ... COMMAND [ARGS...]
@@ -268,12 +241,19 @@ shelduck_shift_exec() {
 	"$@"
 }
 
+# fun: shelduck_update_base_url URL
+shelduck_update_base_url() {
+	if bobshell_locator_is_file "$1" || bobshell_locator_is_remote "$1"; then
+		shelduck_base_url=$(bobshell_base_url "$1")
+	fi
+}
+
 
 
 # api: private
 shelduck_usage() {
 	printf 'Usage: shelduck SUBCOMMAND [ARGS...]\n'
-	printf 'Subcommands are:\n'
+	printf 'Commands:\n'
 	printf '    usage\n'
 	printf '    import\n'
 	printf '    resolve\n'
@@ -303,31 +283,27 @@ shelduck_resolve() {
 # api: private
 shelduck_print() {
 
-	shelduck_print_initial_base_url="$shelduck_base_url"
+	shelduck_print_initial_base_url="$shelduck_base_url" # todo is shelduck_print_initial_base_url needed?
 
 	# parse cli
-	shelduck_analyze_cli "$@"
-	if [ -n "$shelduck_analyze_cli_command" ]; then
-		bobshell_log "warn: function makes no sence and hence ignored"
-	fi
-	unset shelduck_analyze_cli_command
-	bobshell_require_not_empty "$shelduck_analyze_cli_url" 'cli url is required'
-	if [ -n "$shelduck_analyze_cli_args" ]; then
-		bobshell_log "warn: url arguments make no sence and hence ignored"
-	fi
-	unset shelduck_analyze_cli_args
+	shelduck_parse_import_cli "$@"
+	shelduck_print_url=$(shelduck_fix_url "$shelduck_import_url")
+	unset shelduck_import_url
+	shelduck_print_aliases="$shelduck_import_aliases"
+	unset shelduck_import_aliases
+
 
 	# load script
-	shelduck_print_script=$(shelduck_print_origin "$shelduck_analyze_cli_url")
+	shelduck_print_script=$(shelduck_print_origin "$shelduck_print_url")
 	
 	# save variables to local array before subsequent (possibly recursive) calls
-	set -- "$shelduck_print_script" "$shelduck_analyze_cli_url" "$shelduck_analyze_cli_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
+	set -- "$shelduck_print_script" "$shelduck_print_url" "$shelduck_print_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
 
 	# check if dependency was already compiled
 	if ! bobshell_contains "$shelduck_print_history" "$2"; then
 		shelduck_print_history="$shelduck_print_history $2"
 
-		shelduck_base_url=$(bobshell_base_url "$shelduck_analyze_cli_url")
+		shelduck_update_base_url "$shelduck_print_url"
 
 		# recursive call
 		#shelduck_print_compile_args=$(bobshell_quote "$@")
@@ -503,28 +479,31 @@ shelduck_cached_fetch_url() (
 		cat "$shelduck_cached_fetch_url_path" || bobshell_die "shelduck: fetch error '$1': error loading '$shelduck_cached_fetch_url_path'"
 		unset shelduck_cached_fetch_url_path
 		return
+	elif bobshell_locator_is_remote "$1" || ! bobshell_parse_locator "$1"; then
+
+		# init bobshell_install_* library
+		: "${SHELDUCK_INSTALL_NAME:=shelduck}"
+		bobshell_scope_mirror SHELDUCK_INSTALL_ BOBSHELL_INSTALL_
+		bobshell_install_init
+
+		# key
+		shelduck_cached_fetch_url_key=$(printf %s "$1" | sed 's/[\/<>:\\|?*]/-/g')
+
+
+		shelduck_cached_fetch_url_path=
+		if shelduck_cached_fetch_url_path=$(bobshell_install_find_cache "$shelduck_cached_fetch_url_key"); then
+			# todo expiration
+			cat "$shelduck_cached_fetch_url_path"
+			unset shelduck_cached_fetch_url_path
+			return
+		fi
+		
+		shelduck_cached_fetch_url_result=$(bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'")
+
+		bobshell_install_put_cache var:shelduck_cached_fetch_url_result "$shelduck_cached_fetch_url_key"
+		printf %s "$shelduck_cached_fetch_url_result"
+	else
+		bobshell_copy "$1" stdout:
 	fi
-
-	# init bobshell_install_* library
-	: "${SHELDUCK_INSTALL_NAME:=shelduck}"
-	bobshell_scope_mirror SHELDUCK_INSTALL_ BOBSHELL_INSTALL_
-	bobshell_install_init
-
-	# key
-	shelduck_cached_fetch_url_key=$(printf %s "$1" | sed 's/[\/<>:\\|?*]/-/g')
-
-
-	shelduck_cached_fetch_url_path=
-	if shelduck_cached_fetch_url_path=$(bobshell_install_find_cache "$shelduck_cached_fetch_url_key"); then
-		# todo expiration
-		cat "$shelduck_cached_fetch_url_path"
-		unset shelduck_cached_fetch_url_path
-		return
-	fi
-	
-	shelduck_cached_fetch_url_result=$(bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'")
-
-	bobshell_install_put_cache var:shelduck_cached_fetch_url_result "$shelduck_cached_fetch_url_key"
-	printf %s "$shelduck_cached_fetch_url_result"
 
 )

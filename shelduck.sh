@@ -327,7 +327,7 @@ shelduck_print() {
 
 
 
-# fun: shelduck_compile SCRIPT
+# fun: shelduck_compile SCRIPT URL
 # txt: print recusively expanded shelduck commands, and print rewritten rest of script
 # api: private
 shelduck_compile() {
@@ -406,7 +406,7 @@ shelduck_print_origin() {
 
 
 
-# fun: shelduck_rewrite ORIGCONTENT
+# fun: shelduck_rewrite ORIGCONTENT URL
 # txt: rewrite original script (e.g. rename functions)
 # api: private
 shelduck_rewrite() {
@@ -553,11 +553,18 @@ bobshell_putvar() {
 
 
 
-# fun bobshell_getvar VARNAME
+# fun bobshell_getvar VARNAME [DEFAULTVALUE]
 # use: echo "$(getvar MSG)"
 # txt: считывание значения переменной по динамическому имени
 bobshell_getvar() {
-  eval "printf %s \"\$$1\""
+	if bobshell_isset "$1"; then
+  		eval "printf %s \"\$$1\""
+	elif bobshell_isset_2 "$@"; then
+		printf %s "$2"
+	else
+		bobshell_errcho "bobshell_getvar: $1: parameter not set"
+		return 1
+	fi
 }
 
 

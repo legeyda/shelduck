@@ -107,6 +107,16 @@ go_test_shelduck() {
 	shelduck import -a test_echo file://./example/smoketest.sh
 	assert_equals 'ahoi (starts with a)' "$(test_echo ahoi)"
 	echo 'all tests passed'
+
+	test 'hello from baz 1 2 3' = "$(sh -euxc '. ./shelduck.sh
+shelduck import ./test/test.sh
+fun 1 2 3')"
+
+	sh -euxc '. ./shelduck.sh
+shelduck resolve ./test/test.sh' > target/test.sh
+	test 'hello from baz 1 2 3' = "$(sh -euxc '. ./target/test.sh; fun 1 2 3')"
+
+	echo 'shelduck tests passed'
 }
 
 go_test_installer() {

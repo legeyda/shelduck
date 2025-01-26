@@ -218,6 +218,7 @@ shelduck_exec() {
 	if [ -n "$2" ]; then
 		shelduck_alias_strategy=wrap
 		shelduck_exec_origin=$(shelduck_print_origin "$2")
+		shelduck_event_url "$2" "$shelduck_exec_origin"
 		shelduck_exec_additions=$(shelduck_print_addition "$shelduck_exec_origin" "$2" "$1")
 
 		# save state before recursive call
@@ -235,6 +236,12 @@ shelduck_exec() {
 		shift
 	fi
 	
+}
+
+# fun: shelduck_event_url URL TEXT
+# txt: event listener to extend shelduck core
+shelduck_event_url() {
+	true
 }
 
 # fun: shelduck_shift_exec SHIFTNUM IGNORED ... COMMAND [ARGS...]
@@ -298,6 +305,7 @@ shelduck_print() {
 
 	# load script
 	shelduck_print_script=$(shelduck_print_origin "$shelduck_print_url")
+	shelduck_event_url "$shelduck_print_url" "$shelduck_print_script"
 	
 	# save variables to local array before subsequent (possibly recursive) calls
 	set -- "$shelduck_print_script" "$shelduck_print_url" "$shelduck_print_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
@@ -1753,17 +1761,6 @@ bobshell_get_file_mtime() {
 # bobshell_line_in_file: 
 bobshell_line_in_file() {
 	true
-}
-
-# fun: bobshell_var_mirror VAR1 VAR2
-bobshell_var_mirror() {
-	if ! bobshell_isset "$1"; then
-		unset "$2"
-		return
-	fi
-	bobshell_var_mirror_value=$(bobshell_getvar "$1")
-	bobshell_putvar "$2" "$bobshell_var_mirror_value"
-	unset bobshell_var_mirror_value
 }
 
 

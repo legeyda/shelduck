@@ -72,10 +72,17 @@ eof
 
 # use: bobshell_starts_with hello he && echo "$rest" # prints llo
 bobshell_starts_with() {
-	bobshell_require_empty "bobshell_starts_with takes 2 arguments, 3 given, did you mean bobshell_remove_prefix?"
-	case "$1" in
-		("$2"*) return 0
-	esac
+	bobshell_starts_with_str="$1"
+	shift
+	while bobshell_isset_1 "$@"; do
+		case "$bobshell_starts_with_str" in
+			("$1"*) 
+				unset bobshell_starts_with_str			
+				return 0
+		esac
+		shift
+	done
+	unset bobshell_starts_with_str
 	return 1
 }
 
@@ -88,12 +95,14 @@ bobshell_remove_prefix() {
 	if [ "$1" = "$4" ]; then
 		return 1
 	fi
-	bobshell_putvar "$3" "$4"	
+	if [ -n "$3" ]; then
+		bobshell_putvar "$3" "$4"
+	fi	
 }
 
 # use: bobshell_starts_with hello he rest && echo "$rest" # prints llo
 bobshell_ends_with() {
-	bobshell_require_empty "bobshell_ends_with takes 2 arguments, 3 given, did you mean bobshell_remove_suffix?"
+	bobshell_isset_3 "$@" && bobshell_die "bobshell_ends_with takes 2 arguments, 3 given, did you mean bobshell_remove_suffix?" || true
 	case "$1" in
 		(*"$2") return 0
 	esac
@@ -108,7 +117,9 @@ bobshell_remove_suffix() {
 	if [ "$1" = "$4" ]; then
 		return 1
 	fi
-	bobshell_putvar "$3" "$4"
+	if [ -n "$3" ]; then
+		bobshell_putvar "$3" "$4"
+	fi
 }
 
 
@@ -251,6 +262,7 @@ bobshell_join() {
 		printf %s "$bobshell_join_item"
 		break
 	done
+	shift
 	for bobshell_join_item in "$@"; do
 		printf %s "$bobshell_join_separator"
 		printf %s "$bobshell_join_item"
@@ -376,11 +388,18 @@ bobshell_putvar() {
 
 
 
-# fun bobshell_getvar VARNAME
+# fun bobshell_getvar VARNAME [DEFAULTVALUE]
 # use: echo "$(getvar MSG)"
 # txt: считывание значения переменной по динамическому имени
 bobshell_getvar() {
-  eval "printf %s \"\$$1\""
+	if bobshell_isset "$1"; then
+  		eval "printf %s \"\$$1\""
+	elif bobshell_isset_2 "$@"; then
+		printf %s "$2"
+	else
+		bobshell_errcho "bobshell_getvar: $1: parameter not set"
+		return 1
+	fi
 }
 
 
@@ -636,30 +655,61 @@ bobshell_notrace() {
 
 
 
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/is_file.sh
 
 
-bobshell_parse_locator() {
-	if ! bobshell_split_first "$1" : bobshell_parse_locator_type bobshell_parse_locator_ref; then
-		bobshell_die "unrecognized locator: $1"
+
+
+# fun: bobshell_is_file LOCATOR [FILEPATHVAR]
+bobshell_locator_is_file() {
+	if bobshell_starts_with "$1" /; then
+		if [ -n "${2:-}" ]; then
+			bobshell_putvar "$2" "$1"
+		fi
+	else
+		bobshell_remove_prefix "$1" file: "${2:-}"
+	fi
+}
+
+
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/parse.sh
+
+
+
+
+
+bobshell_locator_parse() {
+	if bobshell_starts_with "$1" /; then
+		bobshell_locator_parse_type='file'
+		bobshell_locator_parse_ref="$1"
+	elif ! bobshell_split_first "$1" : bobshell_locator_parse_type bobshell_locator_parse_ref; then
+		return 1
 	fi
 
-	case "$bobshell_parse_locator_type" in
+	case "$bobshell_locator_parse_type" in
 		(val | var | eval | stdin | stdout | file | url)
 			true ;;
 		(http | https | ftp | ftps) 
-			bobshell_parse_locator_type=url
-			bobshell_parse_locator_ref="$1"
+			bobshell_locator_parse_type=url
+			bobshell_locator_parse_ref="$1"
 			;;
 		(*)
-			bobshell_die "unsupported locator type: $bobshell_parse_locator_type (in locator: $1)"
+			return 1
 	esac
 	
-	if [ -n "$2" ]; then
-		bobshell_copy_val_to_var "$bobshell_parse_locator_type" "$2"
+	if [ -n "${2:-}" ]; then
+		bobshell_copy_val_to_var "$bobshell_locator_parse_type" "$2"
 	fi
-	if [ -n "$3" ]; then
-		bobshell_copy_val_to_var "$bobshell_parse_locator_ref" "$3"
+	if [ -n "${3:-}" ]; then
+		bobshell_copy_val_to_var "$bobshell_locator_parse_ref" "$3"
 	fi
+}
+
+
+
+# deprecated see ./locator/parse.sh
+bobshell_parse_locator() {
+	bobshell_locator_parse "$1" "$2" "${3:-bobshell_parse_locator_type}" "${3:-bobshell_parse_locator_ref}"
 }
 
 
@@ -701,7 +751,7 @@ bobshell_copy_val_to_url()       { bobshell_copy_to_url; }
 
 
 bobshell_copy_var_to_val()       { bobshell_copy_to_val; }
-bobshell_copy_var_to_var()       { test "$1" != "$2" && eval "$2=\${$1}"; }
+bobshell_copy_var_to_var()       { test "$1" != "$2" && eval "$2=\"\$$1\""; }
 bobshell_copy_var_to_eval()      { eval "bobshell_copy_var_to_eval \"\$$1\""; }
 bobshell_copy_var_to_stdin()     { bobshell_copy_to_stdin; }
 bobshell_copy_var_to_stdout()    { eval "printf %s \"\$$1\""; }
@@ -782,19 +832,26 @@ bobshell_locator_as_file() {
 	unset bobshell_locator_as_file_ref
 }
 
-# fun: bobshell_is_file LOCATOR [FILEPATHVAR]
-bobshell_locator_is_file() {
-	bobshell_starts_with "$1" file: "${2:-}"
-}
-
 bobshell_locator_is_stdin() {
-	bobshell_starts_with "$1" stdin: "${2:-}"
+	bobshell_remove_prefix "$1" stdin: "${2:-}"
 }
 
 bobshell_locator_is_stdout() {
-	bobshell_starts_with "$1" stdout: "${2:-}"
+	bobshell_remove_prefix "$1" stdout: "${2:-}"
 }
 
+# fun: bobshell_resource_is_appendable LOCATOR
+bobshell_locator_is_appendable() {
+	bobshell_starts_with "$1" var: stdout: file: /
+}
+
+
+bobshell_locator_is_remote() {
+	bobshell_remove_prefix "$1" http:// "${2:-}" \
+	  || bobshell_remove_prefix "$1" https:// "${2:-}" \
+	  || bobshell_remove_prefix "$1" ftp:// "${2:-}"\
+	  || bobshell_remove_prefix "$1" ftps:// "${2:-}"
+}
 
 bobshell_move() {
 	bobshell_parse_locator "$1" bobshell_move_source_type      bobshell_move_source_ref
@@ -928,6 +985,8 @@ bobshell_append_url_to_url()       { bobshell_append_to_url; }
 
 
 
+
+
 # use: bobshell_ssh user@host echo hello
 bobshell_ssh() {
 	sleep "${BOBSHELL_SSH_DELAY:-0}"
@@ -963,6 +1022,24 @@ bobshell_ssh_auth() {
 		set -- "$bobshell_sshauth_executable" -o "UserKnownHostsFile='$BOBSHELL_SSH_KNOWN_HOSTS_FILE'" "$@"
 		unset bobshell_sshauth_executable
 	fi
+	if [ -n "${BOBSHELL_SSH_USER:-}" ]; then
+		bobshell_sshauth_executable="$1"
+		shift
+		set -- "$bobshell_sshauth_executable" -o "User='$BOBSHELL_SSH_USER'" "$@"
+		unset bobshell_sshauth_executable
+	fi
+	if bobshell_isset BOBSHELL_SSH_CONNECT_TIMEOUT; then
+		_bobshell_ssh_auth__executable="$1"
+		shift
+		set -- "$_bobshell_ssh_auth__executable" -o "ConnectTimeout=$BOBSHELL_SSH_CONNECT_TIMEOUT" "$@"
+		unset _bobshell_ssh_auth__executable
+	fi
+	if bobshell_isset BOBSHELL_SSH_CONNECTION_ATTEMPTS; then
+		_bobshell_ssh_auth__executable="$1"
+		shift
+		set -- "$_bobshell_ssh_auth__executable" -o "ConnectionAttempts=$BOBSHELL_SSH_CONNECTION_ATTEMPTS" "$@"
+		unset _bobshell_ssh_auth__executable
+	fi
 
 	if [ -n "${BOBSHELL_SSH_IDENTITY:-}" ]; then
 		if [ "${BOBSHELL_SSH_USE_AGENT:-true}" == 'true' ]; then
@@ -978,8 +1055,7 @@ bobshell_ssh_auth() {
 			bobshell_notrace printf '%s\n' "$BOBSHELL_SSH_IDENTITY" > "$BOBSHELL_SSH_IDENTITY_FILE"
 		fi
 	fi
-
-	# shellcheck disable=SC2016
+	
 	if [ -n "${BOBSHELL_SSH_IDENTITY_FILE:-}" ]; then
 		bobshell_sshauth_executable="$1"
 		shift

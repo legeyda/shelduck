@@ -49,7 +49,7 @@ run_build() {
 run_build_shelduck() {
 	print_generated_file_warning shelduck.sh.in > shelduck.sh
 	cat shelduck.sh.in >> shelduck.sh
-	for dependency in base.sh string.sh url.sh scope.sh install.sh locator.sh util.sh; do
+	for dependency in base.sh string.sh url.sh scope.sh install.sh locator.sh locator/parse.sh locator/is_file.sh resource/copy.sh util.sh; do
 		fetch_dependency "$dependency"
 		printf '%s' "$fetch_dependency_result" >> shelduck.sh
 	done
@@ -85,8 +85,8 @@ fetch_dependency() {
 }
 
 fetch_url() {
-	: "${SHELDUCK_BASE_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable}"
-	fetch_url_result="$(curl --fail --silent --show-error --location "$SHELDUCK_BASE_URL/$1")"
+	: "${SHELDUCK_BUILD_BOBSHELL_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable}"
+	fetch_url_result="$(curl --fail --silent --show-error --location "$SHELDUCK_BUILD_BOBSHELL_URL/$1")"
 }
 
 

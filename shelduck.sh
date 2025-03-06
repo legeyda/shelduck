@@ -65,7 +65,7 @@ shelduck_fix_url() {
 	fi
 
 	shelduck_ensure_base_url
-	if bobshell_locator_is_remote "$1" || bobshell_locator_is_file "$1" || ! bobshell_parse_locator "$1"; then
+	if bobshell_locator_is_remote "$1" || bobshell_locator_is_file "$1" || ! bobshell_locator_parse "$1"; then
 		shelduck_fix_url=$(bobshell_resolve_url "$1" "$shelduck_base_url")
 		if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
 			shelduck_fix_url=$(shelduck_apply_rules "$shelduck_fix_url" "$SHELDUCK_URL_RULES")
@@ -490,7 +490,7 @@ shelduck_cached_fetch_url() (
 		cat "$shelduck_cached_fetch_url_path" || bobshell_die "shelduck: fetch error '$1': error loading '$shelduck_cached_fetch_url_path'"
 		unset shelduck_cached_fetch_url_path
 		return
-	elif bobshell_locator_is_remote "$1" || ! bobshell_parse_locator "$1"; then
+	elif bobshell_locator_is_remote "$1" || ! bobshell_locator_parse "$1"; then
 
 		# init bobshell_install_* library
 		: "${SHELDUCK_INSTALL_NAME:=shelduck}"
@@ -514,7 +514,7 @@ shelduck_cached_fetch_url() (
 		bobshell_install_put_cache var:shelduck_cached_fetch_url_result "$shelduck_cached_fetch_url_key"
 		printf %s "$shelduck_cached_fetch_url_result"
 	else
-		bobshell_copy "$1" stdout:
+		bobshell_resource_copy "$1" stdout:
 	fi
 
 )
@@ -893,6 +893,7 @@ bobshell_join() {
 		printf %s "$bobshell_join_item"
 		break
 	done
+	shift
 	for bobshell_join_item in "$@"; do
 		printf %s "$bobshell_join_separator"
 		printf %s "$bobshell_join_item"
@@ -1024,7 +1025,7 @@ bobshell_fetch_url_with_wget() {
 # disable recursive dependency resolution when building shelduck itself
 # shelduck import base.sh
 # disable recursive dependency resolution when building shelduck itself
-# shelduck import locator.sh
+# shelduck import resource/copy.sh
 
 
 bobshell_scope_names() {
@@ -1067,7 +1068,7 @@ bobshell_scope_env() {
 		bobshell_scope_env_value=$(bobshell_quote "$bobshell_scope_env_value")
 		bobshell_scope_env_result="$bobshell_scope_env_result$bobshell_scope_env_value$bobshell_newline"
 	done
-	bobshell_copy var:bobshell_scope_env_result "$2"
+	bobshell_resource_copy var:bobshell_scope_env_result "$2"
 	unset bobshell_scope_env_result bobshell_scope_env_name bobshell_scope_env_value
 }
 
@@ -1096,7 +1097,7 @@ bobshell_scope_mirror() {
 # disable recursive dependency resolution when building shelduck itself
 # shelduck import util.sh
 # disable recursive dependency resolution when building shelduck itself
-# shelduck import locator.sh
+# shelduck import resource/copy.sh
 
 
 # env: BOBSHELL_INSTALL_NAME
@@ -1172,7 +1173,7 @@ bobshell_install_init() {
 bobshell_install_service() {
 	bobshell_install_service_dir="$BOBSHELL_INSTALL_DESTDIR$BOBSHELL_INSTALL_SYSTEMDDIR"
 	mkdir -p "$bobshell_install_service_dir"
-	bobshell_copy "$1" "file:$bobshell_install_service_dir/$2"
+	bobshell_resource_copy "$1" "file:$bobshell_install_service_dir/$2"
 
 	
 	if [ 0 = "$(id -u)" ]; then
@@ -1194,7 +1195,7 @@ bobshell_install_service() {
 # fun: bobshell_install_put SRC DIR DESTNAME MODE
 bobshell_install_put() {
 	mkdir -p "$BOBSHELL_INSTALL_DESTDIR$2"
-	bobshell_copy "$1" "file:$BOBSHELL_INSTALL_DESTDIR$2/$3"
+	bobshell_resource_copy "$1" "file:$BOBSHELL_INSTALL_DESTDIR$2/$3"
 	chmod "$4" "$BOBSHELL_INSTALL_DESTDIR$2/$3"
 }
 
@@ -1284,7 +1285,7 @@ bobshell_install_get() {
 	bobshell_install_get_dest="$3"
 	set -- "$1" "$2"
 	if bobshell_install_get_found=$("$@"); then
-		bobshell_copy "file:$bobshell_install_get_found" "$bobshell_install_get_dest"
+		bobshell_resource_copy "file:$bobshell_install_get_found" "$bobshell_install_get_dest"
 		return
 	else
 		return 1
@@ -1314,7 +1315,7 @@ bobshell_install_get_cache() {
 }
 
 
-
+# DEPRECATED see ./locator folder
 
 
 # disable recursive dependency resolution when building shelduck itself
@@ -1323,135 +1324,16 @@ bobshell_install_get_cache() {
 # shelduck import string.sh
 # disable recursive dependency resolution when building shelduck itself
 # shelduck import url.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ./locator/is_file.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ./locator/parse.sh
 
-
+# deprecated see ./locator/parse.sh
 bobshell_parse_locator() {
-	if ! bobshell_split_first "$1" : bobshell_parse_locator_type bobshell_parse_locator_ref; then
-		return 1
-	fi
-
-	case "$bobshell_parse_locator_type" in
-		(val | var | eval | stdin | stdout | file | url)
-			true ;;
-		(http | https | ftp | ftps) 
-			bobshell_parse_locator_type=url
-			bobshell_parse_locator_ref="$1"
-			;;
-		(*)
-			return 1
-	esac
-	
-	if [ -n "${2:-}" ]; then
-		bobshell_copy_val_to_var "$bobshell_parse_locator_type" "$2"
-	fi
-	if [ -n "${3:-}" ]; then
-		bobshell_copy_val_to_var "$bobshell_parse_locator_ref" "$3"
-	fi
+	bobshell_locator_parse "$1" "${2:-bobshell_parse_locator_type}" "${2:-bobshell_parse_locator_ref}"
 }
 
-
-
-# fun: bobshell_copy SOURCE DESTINATION
-bobshell_copy() {
-	bobshell_parse_locator "$1" bobshell_copy_source_type      bobshell_copy_source_ref
-	bobshell_parse_locator "$2" bobshell_copy_destination_type bobshell_copy_destination_ref
-
-
-	bobshell_copy_command="bobshell_copy_${bobshell_copy_source_type}_to_${bobshell_copy_destination_type}"
-	if ! bobshell_command_available "$bobshell_copy_command"; then
-		bobshell_die "bobshell_copy: unsupported copy $bobshell_copy_source_type to $bobshell_copy_destination_type"
-	fi
-
-	"$bobshell_copy_command" "$bobshell_copy_source_ref" "$bobshell_copy_destination_ref"
-	
-	unset bobshell_copy_source_type bobshell_copy_source_ref
-	unset bobshell_copy_destination_type bobshell_copy_destination_ref
-}
-
-
-bobshell_copy_to_val()           { bobshell_die 'cannot write to val resource'; }
-bobshell_copy_eval()             { bobshell_die 'eval resource cannot be destination'; }
-bobshell_copy_to_stdin()         { bobshell_die 'cannot write to stdin resource'; }
-bobshell_copy_stdout()           { bobshell_die 'cannot read from stdout resource'; }
-bobshell_copy_to_url()           { bobshell_die 'cannot write to stdin resource'; }
-
-
-
-bobshell_copy_val_to_val()       { test "$1" != "$2" && bobshell_copy_to_val; }
-bobshell_copy_val_to_var()       { eval "$2='$1'"; }
-bobshell_copy_val_to_eval()      { eval "$1"; }
-bobshell_copy_val_to_stdin()     { bobshell_copy_to_stdin; }
-bobshell_copy_val_to_stdout()    { printf %s "$1"; }
-bobshell_copy_val_to_file()      { printf %s "$1" > "$2"; }
-bobshell_copy_val_to_url()       { bobshell_copy_to_url; }
-
-
-
-bobshell_copy_var_to_val()       { bobshell_copy_to_val; }
-bobshell_copy_var_to_var()       { test "$1" != "$2" && eval "$2=\${$1}"; }
-bobshell_copy_var_to_eval()      { eval "bobshell_copy_var_to_eval \"\$$1\""; }
-bobshell_copy_var_to_stdin()     { bobshell_copy_to_stdin; }
-bobshell_copy_var_to_stdout()    { eval "printf %s \"\$$1\""; }
-bobshell_copy_var_to_file()      { eval "printf %s \"\$$1\"" > "$2"; }
-bobshell_copy_var_to_url()       { bobshell_copy_to_url; }
-
-
-
-bobshell_copy_eval_to_val()      { bobshell_copy_eval; }
-bobshell_copy_eval_to_var()      { bobshell_copy_eval; }
-bobshell_copy_eval_to_eval()     { bobshell_copy_eval; }
-bobshell_copy_eval_to_stdin()    { bobshell_copy_eval; }
-bobshell_copy_eval_to_stdout()   { bobshell_copy_eval; }
-bobshell_copy_eval_to_file()     { bobshell_copy_eval; }
-bobshell_copy_eval_to_url()      { bobshell_copy_eval; }
-
-
-
-bobshell_copy_stdin_to_val()     { bobshell_copy_to_val; }
-bobshell_copy_stdin_to_var()     { eval "$2=\$(cat)"; }
-bobshell_copy_stdin_to_eval()    {
-	bobshell_copy_stdin_to_var "$1" bobshell_copy_stdin_to_eval_data
-	bobshell_copy_var_to_eval bobshell_copy_stdin_to_eval_data ''
-	unset bobshell_copy_stdin_to_eval_data; 
-}
-bobshell_copy_stdin_to_stdin()   { bobshell_copy_to_stdin; }
-bobshell_copy_stdin_to_stdout()  { cat; }
-bobshell_copy_stdin_to_file()    { cat > "$2"; }
-bobshell_copy_stdin_to_url()     { bobshell_copy_to_url; }
-
-
-
-bobshell_copy_stdout_to_val()    { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_var()    { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_eval()   { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_stdin()  { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_stdout() { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_file()   { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_url()    { bobshell_copy_to_url; }
-
-
-
-bobshell_copy_file_to_val()      { bobshell_copy_to_val; }
-bobshell_copy_file_to_var()      { eval "$2=\$(cat '$1')"; }
-bobshell_copy_file_to_eval()     {
-	bobshell_copy_file_to_var "$1" bobshell_copy_file_to_eval_data
-	bobshell_copy_var_to_eval bobshell_copy_file_to_eval_data ''
-	unset bobshell_copy_file_to_eval_data; 
-}
-bobshell_copy_file_to_stdin()    { bobshell_copy_to_stdin; }
-bobshell_copy_file_to_stdout()   { cat "$1"; }
-bobshell_copy_file_to_file()     { test "$1" != "$2" && { mkdir -p "$(dirname "$2")" && rm -rf "$2" && cp -f "$1" "$2";}; }
-bobshell_copy_file_to_url()      { bobshell_copy_to_url; }
-
-
-
-bobshell_copy_url_to_val()       { bobshell_copy_to_val; }
-bobshell_copy_url_to_var()       { bobshell_fetch_url "$1" | bobshell_copy_stdin_to_var '' "$2"; }
-bobshell_copy_url_to_eval()      { bobshell_fetch_url "$1" | bobshell_copy_stdin_to_var '' "$2"; }
-bobshell_copy_url_to_stdin()     { bobshell_copy_to_stdin; }
-bobshell_copy_url_to_stdout()    { bobshell_fetch_url "$1"; }
-bobshell_copy_url_to_file()      { bobshell_fetch_url "$1" | bobshell_copy_stdin_to_file '' "$2"; }
-bobshell_copy_url_to_url()       { bobshell_copy_to_url; }
 
 
 
@@ -1477,17 +1359,11 @@ bobshell_locator_is_stdout() {
 	bobshell_remove_prefix "$1" stdout: "${2:-}"
 }
 
-
-# fun: bobshell_is_file LOCATOR [FILEPATHVAR]
-bobshell_locator_is_file() {
-	if bobshell_starts_with "$1" /; then
-		if [ -n "${2:-}" ]; then
-			bobshell_putvar "$2" "$1"
-		fi
-	else
-		bobshell_remove_prefix "$1" file: "${2:-}"
-	fi
+# fun: bobshell_resource_is_appendable LOCATOR
+bobshell_locator_is_appendable() {
+	bobshell_starts_with "$1" var: stdout: file: /
 }
+
 
 bobshell_locator_is_remote() {
 	bobshell_remove_prefix "$1" http:// "${2:-}" \
@@ -1497,8 +1373,8 @@ bobshell_locator_is_remote() {
 }
 
 bobshell_move() {
-	bobshell_parse_locator "$1" bobshell_move_source_type      bobshell_move_source_ref
-	bobshell_parse_locator "$2" bobshell_move_destination_type bobshell_move_destination_ref
+	bobshell_locator_parse "$1" bobshell_move_source_type      bobshell_move_source_ref
+	bobshell_locator_parse "$2" bobshell_move_destination_type bobshell_move_destination_ref
 
 
 	bobshell_move_command="bobshell_move_${bobshell_move_source_type}_to_${bobshell_move_destination_type}"
@@ -1509,7 +1385,7 @@ bobshell_move() {
 		return
 	fi
 	
-	bobshell_copy "$1" "$2"
+	bobshell_resource_copy "$1" "$2"
 	bobshell_delete "$1"
 }
 
@@ -1522,7 +1398,7 @@ bobshell_move_file_to_file() {
 }
 
 bobshell_delete() {
-	bobshell_parse_locator "$1" bobshell_delete_type bobshell_delete_ref
+	bobshell_locator_parse "$1" bobshell_delete_type bobshell_delete_ref
 
 	bobshell_delete_command="bobshell_delete_${bobshell_delete_type}"
 	if ! bobshell_command_available "$bobshell_delete_command"; then
@@ -1626,6 +1502,175 @@ bobshell_append_url_to_url()       { bobshell_append_to_url; }
 
 
 
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../string.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../resource/copy.sh
+
+
+bobshell_locator_parse() {
+	if bobshell_starts_with "$1" /; then
+		bobshell_locator_parse_type='file'
+		bobshell_locator_parse_ref="$1"
+	elif ! bobshell_split_first "$1" : bobshell_locator_parse_type bobshell_locator_parse_ref; then
+		return 1
+	fi
+
+	case "$bobshell_locator_parse_type" in
+		(val | var | eval | stdin | stdout | file | url)
+			true ;;
+		(http | https | ftp | ftps) 
+			bobshell_locator_parse_type=url
+			bobshell_locator_parse_ref="$1"
+			;;
+		(*)
+			return 1
+	esac
+	
+	if [ -n "${2:-}" ]; then
+		bobshell_resource_copy_val_to_var "$bobshell_locator_parse_type" "$2"
+	fi
+	if [ -n "${3:-}" ]; then
+		bobshell_resource_copy_val_to_var "$bobshell_locator_parse_ref" "$3"
+	fi
+}
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../string.sh
+
+# fun: bobshell_is_file LOCATOR [FILEPATHVAR]
+bobshell_locator_is_file() {
+	if bobshell_starts_with "$1" /; then
+		if [ -n "${2:-}" ]; then
+			bobshell_putvar "$2" "$1"
+		fi
+	else
+		bobshell_remove_prefix "$1" file: "${2:-}"
+	fi
+}
+
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../locator/parse.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../resource/copy.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../string.sh
+
+
+
+# fun: bobshell_resource_copy SOURCE DESTINATION
+bobshell_resource_copy() {
+	bobshell_locator_parse "$1" bobshell_resource_copy_source_type      bobshell_resource_copy_source_ref
+	bobshell_locator_parse "$2" bobshell_resource_copy_destination_type bobshell_resource_copy_destination_ref
+
+
+	bobshell_resource_copy_command="bobshell_resource_copy_${bobshell_resource_copy_source_type}_to_${bobshell_resource_copy_destination_type}"
+	if ! bobshell_command_available "$bobshell_resource_copy_command"; then
+		bobshell_die "bobshell_resource_copy: unsupported copy $bobshell_resource_copy_source_type to $bobshell_resource_copy_destination_type"
+	fi
+
+	"$bobshell_resource_copy_command" "$bobshell_resource_copy_source_ref" "$bobshell_resource_copy_destination_ref"
+	
+	unset bobshell_resource_copy_source_type bobshell_resource_copy_source_ref
+	unset bobshell_resource_copy_destination_type bobshell_resource_copy_destination_ref
+}
+
+
+bobshell_resource_copy_to_val()           { bobshell_die 'cannot write to val resource'; }
+bobshell_resource_copy_eval()             { bobshell_die 'eval resource cannot be destination'; }
+bobshell_resource_copy_to_stdin()         { bobshell_die 'cannot write to stdin resource'; }
+bobshell_resource_copy_stdout()           { bobshell_die 'cannot read from stdout resource'; }
+bobshell_resource_copy_to_url()           { bobshell_die 'cannot write to stdin resource'; }
+
+
+
+bobshell_resource_copy_val_to_val()       { test "$1" != "$2" && bobshell_resource_copy_to_val; }
+bobshell_resource_copy_val_to_var()       { eval "$2='$1'"; }
+bobshell_resource_copy_val_to_eval()      { eval "$1"; }
+bobshell_resource_copy_val_to_stdin()     { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_val_to_stdout()    { printf %s "$1"; }
+bobshell_resource_copy_val_to_file()      { printf %s "$1" > "$2"; }
+bobshell_resource_copy_val_to_url()       { bobshell_resource_copy_to_url; }
+
+
+
+bobshell_resource_copy_var_to_val()       { bobshell_resource_copy_to_val; }
+bobshell_resource_copy_var_to_var()       { test "$1" != "$2" && eval "$2=\"\$$1\""; }
+bobshell_resource_copy_var_to_eval()      { eval "bobshell_resource_copy_var_to_eval \"\$$1\""; }
+bobshell_resource_copy_var_to_stdin()     { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_var_to_stdout()    { eval "printf %s \"\$$1\""; }
+bobshell_resource_copy_var_to_file()      { eval "printf %s \"\$$1\"" > "$2"; }
+bobshell_resource_copy_var_to_url()       { bobshell_resource_copy_to_url; }
+
+
+
+bobshell_resource_copy_eval_to_val()      { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_var()      { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_eval()     { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_stdin()    { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_stdout()   { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_file()     { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_url()      { bobshell_resource_copy_eval; }
+
+
+
+bobshell_resource_copy_stdin_to_val()     { bobshell_resource_copy_to_val; }
+bobshell_resource_copy_stdin_to_var()     { eval "$2=\$(cat)"; }
+bobshell_resource_copy_stdin_to_eval()    {
+	bobshell_resource_copy_stdin_to_var "$1" bobshell_resource_copy_stdin_to_eval_data
+	bobshell_resource_copy_var_to_eval bobshell_resource_copy_stdin_to_eval_data ''
+	unset bobshell_resource_copy_stdin_to_eval_data; 
+}
+bobshell_resource_copy_stdin_to_stdin()   { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_stdin_to_stdout()  { cat; }
+bobshell_resource_copy_stdin_to_file()    { cat > "$2"; }
+bobshell_resource_copy_stdin_to_url()     { bobshell_resource_copy_to_url; }
+
+
+
+bobshell_resource_copy_stdout_to_val()    { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_var()    { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_eval()   { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_stdin()  { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_stdout() { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_file()   { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_url()    { bobshell_resource_copy_to_url; }
+
+
+
+bobshell_resource_copy_file_to_val()      { bobshell_resource_copy_to_val; }
+bobshell_resource_copy_file_to_var()      { eval "$2=\$(cat '$1')"; }
+bobshell_resource_copy_file_to_eval()     {
+	bobshell_resource_copy_file_to_var "$1" bobshell_resource_copy_file_to_eval_data
+	bobshell_resource_copy_var_to_eval bobshell_resource_copy_file_to_eval_data ''
+	unset bobshell_resource_copy_file_to_eval_data; 
+}
+bobshell_resource_copy_file_to_stdin()    { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_file_to_stdout()   { cat "$1"; }
+bobshell_resource_copy_file_to_file()     { test "$1" != "$2" && { mkdir -p "$(dirname "$2")" && rm -rf "$2" && cp -f "$1" "$2";}; }
+bobshell_resource_copy_file_to_url()      { bobshell_resource_copy_to_url; }
+
+
+
+bobshell_resource_copy_url_to_val()       { bobshell_resource_copy_to_val; }
+bobshell_resource_copy_url_to_var()       { bobshell_fetch_url "$1" | bobshell_resource_copy_stdin_to_var '' "$2"; }
+bobshell_resource_copy_url_to_eval()      { bobshell_fetch_url "$1" | bobshell_resource_copy_stdin_to_var '' "$2"; }
+bobshell_resource_copy_url_to_stdin()     { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_url_to_stdout()    { bobshell_fetch_url "$1"; }
+bobshell_resource_copy_url_to_file()      { bobshell_fetch_url "$1" | bobshell_resource_copy_stdin_to_file '' "$2"; }
+bobshell_resource_copy_url_to_url()       { bobshell_resource_copy_to_url; }
+
+
+
 
 # disable recursive dependency resolution when building shelduck itself
 # shelduck import base.sh
@@ -1633,6 +1678,8 @@ bobshell_append_url_to_url()       { bobshell_append_to_url; }
 # shelduck import string.sh
 # disable recursive dependency resolution when building shelduck itself
 # shelduck import git.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import resource/copy.sh
 
 
 bobshell_current_seconds() {
@@ -1711,7 +1758,7 @@ bobshell_is_not_root() {
 
 bobshell_eval() {
 	bobshell_eval_script=
-	bobshell_copy "$1" var:bobshell_eval_script
+	bobshell_resource_copy "$1" var:bobshell_eval_script
 	eval "$bobshell_eval_script"
 }
 

@@ -62,7 +62,7 @@ shelduck_fix_url() {
 	fi
 
 	shelduck_ensure_base_url
-	if bobshell_locator_is_remote "$1" || bobshell_locator_is_file "$1" || ! bobshell_parse_locator "$1"; then
+	if bobshell_locator_is_remote "$1" || bobshell_locator_is_file "$1" || ! bobshell_locator_parse "$1"; then
 		shelduck_fix_url=$(bobshell_resolve_url "$1" "$shelduck_base_url")
 		if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
 			shelduck_fix_url=$(shelduck_apply_rules "$shelduck_fix_url" "$SHELDUCK_URL_RULES")
@@ -487,7 +487,7 @@ shelduck_cached_fetch_url() (
 		cat "$shelduck_cached_fetch_url_path" || bobshell_die "shelduck: fetch error '$1': error loading '$shelduck_cached_fetch_url_path'"
 		unset shelduck_cached_fetch_url_path
 		return
-	elif bobshell_locator_is_remote "$1" || ! bobshell_parse_locator "$1"; then
+	elif bobshell_locator_is_remote "$1" || ! bobshell_locator_parse "$1"; then
 
 		# init bobshell_install_* library
 		: "${SHELDUCK_INSTALL_NAME:=shelduck}"
@@ -511,7 +511,7 @@ shelduck_cached_fetch_url() (
 		bobshell_install_put_cache var:shelduck_cached_fetch_url_result "$shelduck_cached_fetch_url_key"
 		printf %s "$shelduck_cached_fetch_url_result"
 	else
-		bobshell_copy "$1" stdout:
+		bobshell_resource_copy "$1" stdout:
 	fi
 
 )

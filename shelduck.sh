@@ -1331,8 +1331,20 @@ bobshell_locator_parse() {
 	fi
 
 	case "$bobshell_locator_parse_type" in
-		(val | var | eval | stdin | stdout | file | url)
-			true ;;
+		(val | var | eval | stdin | stdout | url)
+			true
+			;;
+		(file)
+			if bobshell_remove_prefix "$bobshell_locator_parse_ref" /// bobshell_locator_parse_ref; then
+				bobshell_locator_parse_ref="/$bobshell_locator_parse_ref"
+			elif bobshell_remove_prefix "$bobshell_locator_parse_ref" // bobshell_locator_parse_ref; then
+				true
+			elif bobshell_remove_prefix "$bobshell_locator_parse_ref" / bobshell_locator_parse_ref; then
+				bobshell_locator_parse_ref="/$bobshell_locator_parse_ref"
+			else
+				true
+			fi
+			;;
 		(http | https | ftp | ftps) 
 			bobshell_locator_parse_type=url
 			bobshell_locator_parse_ref="$1"

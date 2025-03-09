@@ -648,28 +648,7 @@ bobshell_notrace() {
 }
 
 
-# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator.sh
-
-
-
-
-
-
-# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/is_file.sh
-
-
-
-
-# fun: bobshell_is_file LOCATOR [FILEPATHVAR]
-bobshell_locator_is_file() {
-	if bobshell_starts_with "$1" /; then
-		if [ -n "${2:-}" ]; then
-			bobshell_putvar "$2" "$1"
-		fi
-	else
-		bobshell_remove_prefix "$1" file: "${2:-}"
-	fi
-}
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/resource/copy.sh
 
 
 # shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/parse.sh
@@ -687,8 +666,20 @@ bobshell_locator_parse() {
 	fi
 
 	case "$bobshell_locator_parse_type" in
-		(val | var | eval | stdin | stdout | file | url)
-			true ;;
+		(val | var | eval | stdin | stdout | url)
+			true
+			;;
+		(file)
+			if bobshell_remove_prefix "$bobshell_locator_parse_ref" /// bobshell_locator_parse_ref; then
+				bobshell_locator_parse_ref="/$bobshell_locator_parse_ref"
+			elif bobshell_remove_prefix "$bobshell_locator_parse_ref" // bobshell_locator_parse_ref; then
+				true
+			elif bobshell_remove_prefix "$bobshell_locator_parse_ref" / bobshell_locator_parse_ref; then
+				bobshell_locator_parse_ref="/$bobshell_locator_parse_ref"
+			else
+				true
+			fi
+			;;
 		(http | https | ftp | ftps) 
 			bobshell_locator_parse_type=url
 			bobshell_locator_parse_ref="$1"
@@ -698,289 +689,121 @@ bobshell_locator_parse() {
 	esac
 	
 	if [ -n "${2:-}" ]; then
-		bobshell_copy_val_to_var "$bobshell_locator_parse_type" "$2"
+		bobshell_resource_copy_val_to_var "$bobshell_locator_parse_type" "$2"
 	fi
 	if [ -n "${3:-}" ]; then
-		bobshell_copy_val_to_var "$bobshell_locator_parse_ref" "$3"
+		bobshell_resource_copy_val_to_var "$bobshell_locator_parse_ref" "$3"
 	fi
 }
 
 
 
-# deprecated see ./locator/parse.sh
-bobshell_parse_locator() {
-	bobshell_locator_parse "$1" "$2" "${3:-bobshell_parse_locator_type}" "${3:-bobshell_parse_locator_ref}"
-}
 
 
 
-# fun: bobshell_copy SOURCE DESTINATION
-bobshell_copy() {
-	bobshell_parse_locator "$1" bobshell_copy_source_type      bobshell_copy_source_ref
-	bobshell_parse_locator "$2" bobshell_copy_destination_type bobshell_copy_destination_ref
 
 
-	bobshell_copy_command="bobshell_copy_${bobshell_copy_source_type}_to_${bobshell_copy_destination_type}"
-	if ! bobshell_command_available "$bobshell_copy_command"; then
-		bobshell_die "bobshell_copy: unsupported copy $bobshell_copy_source_type to $bobshell_copy_destination_type"
+# fun: bobshell_resource_copy SOURCE DESTINATION
+bobshell_resource_copy() {
+	bobshell_locator_parse "$1" bobshell_resource_copy_source_type      bobshell_resource_copy_source_ref
+	bobshell_locator_parse "$2" bobshell_resource_copy_destination_type bobshell_resource_copy_destination_ref
+
+
+	bobshell_resource_copy_command="bobshell_resource_copy_${bobshell_resource_copy_source_type}_to_${bobshell_resource_copy_destination_type}"
+	if ! bobshell_command_available "$bobshell_resource_copy_command"; then
+		bobshell_die "bobshell_resource_copy: unsupported copy $bobshell_resource_copy_source_type to $bobshell_resource_copy_destination_type"
 	fi
 
-	"$bobshell_copy_command" "$bobshell_copy_source_ref" "$bobshell_copy_destination_ref"
+	"$bobshell_resource_copy_command" "$bobshell_resource_copy_source_ref" "$bobshell_resource_copy_destination_ref"
 	
-	unset bobshell_copy_source_type bobshell_copy_source_ref
-	unset bobshell_copy_destination_type bobshell_copy_destination_ref
+	unset bobshell_resource_copy_source_type bobshell_resource_copy_source_ref
+	unset bobshell_resource_copy_destination_type bobshell_resource_copy_destination_ref
 }
 
 
-bobshell_copy_to_val()           { bobshell_die 'cannot write to val resource'; }
-bobshell_copy_eval()             { bobshell_die 'eval resource cannot be destination'; }
-bobshell_copy_to_stdin()         { bobshell_die 'cannot write to stdin resource'; }
-bobshell_copy_stdout()           { bobshell_die 'cannot read from stdout resource'; }
-bobshell_copy_to_url()           { bobshell_die 'cannot write to stdin resource'; }
+bobshell_resource_copy_to_val()           { bobshell_die 'cannot write to val resource'; }
+bobshell_resource_copy_eval()             { bobshell_die 'eval resource cannot be destination'; }
+bobshell_resource_copy_to_stdin()         { bobshell_die 'cannot write to stdin resource'; }
+bobshell_resource_copy_stdout()           { bobshell_die 'cannot read from stdout resource'; }
+bobshell_resource_copy_to_url()           { bobshell_die 'cannot write to stdin resource'; }
 
 
 
-bobshell_copy_val_to_val()       { test "$1" != "$2" && bobshell_copy_to_val; }
-bobshell_copy_val_to_var()       { eval "$2='$1'"; }
-bobshell_copy_val_to_eval()      { eval "$1"; }
-bobshell_copy_val_to_stdin()     { bobshell_copy_to_stdin; }
-bobshell_copy_val_to_stdout()    { printf %s "$1"; }
-bobshell_copy_val_to_file()      { printf %s "$1" > "$2"; }
-bobshell_copy_val_to_url()       { bobshell_copy_to_url; }
+bobshell_resource_copy_val_to_val()       { test "$1" != "$2" && bobshell_resource_copy_to_val; }
+bobshell_resource_copy_val_to_var()       { eval "$2='$1'"; }
+bobshell_resource_copy_val_to_eval()      { eval "$1"; }
+bobshell_resource_copy_val_to_stdin()     { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_val_to_stdout()    { printf %s "$1"; }
+bobshell_resource_copy_val_to_file()      { printf %s "$1" > "$2"; }
+bobshell_resource_copy_val_to_url()       { bobshell_resource_copy_to_url; }
 
 
 
-bobshell_copy_var_to_val()       { bobshell_copy_to_val; }
-bobshell_copy_var_to_var()       { test "$1" != "$2" && eval "$2=\"\$$1\""; }
-bobshell_copy_var_to_eval()      { eval "bobshell_copy_var_to_eval \"\$$1\""; }
-bobshell_copy_var_to_stdin()     { bobshell_copy_to_stdin; }
-bobshell_copy_var_to_stdout()    { eval "printf %s \"\$$1\""; }
-bobshell_copy_var_to_file()      { eval "printf %s \"\$$1\"" > "$2"; }
-bobshell_copy_var_to_url()       { bobshell_copy_to_url; }
+bobshell_resource_copy_var_to_val()       { bobshell_resource_copy_to_val; }
+bobshell_resource_copy_var_to_var()       { test "$1" != "$2" && eval "$2=\"\$$1\""; }
+bobshell_resource_copy_var_to_eval()      { eval "bobshell_resource_copy_var_to_eval \"\$$1\""; }
+bobshell_resource_copy_var_to_stdin()     { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_var_to_stdout()    { eval "printf %s \"\$$1\""; }
+bobshell_resource_copy_var_to_file()      { eval "printf %s \"\$$1\"" > "$2"; }
+bobshell_resource_copy_var_to_url()       { bobshell_resource_copy_to_url; }
 
 
 
-bobshell_copy_eval_to_val()      { bobshell_copy_eval; }
-bobshell_copy_eval_to_var()      { bobshell_copy_eval; }
-bobshell_copy_eval_to_eval()     { bobshell_copy_eval; }
-bobshell_copy_eval_to_stdin()    { bobshell_copy_eval; }
-bobshell_copy_eval_to_stdout()   { bobshell_copy_eval; }
-bobshell_copy_eval_to_file()     { bobshell_copy_eval; }
-bobshell_copy_eval_to_url()      { bobshell_copy_eval; }
+bobshell_resource_copy_eval_to_val()      { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_var()      { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_eval()     { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_stdin()    { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_stdout()   { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_file()     { bobshell_resource_copy_eval; }
+bobshell_resource_copy_eval_to_url()      { bobshell_resource_copy_eval; }
 
 
 
-bobshell_copy_stdin_to_val()     { bobshell_copy_to_val; }
-bobshell_copy_stdin_to_var()     { eval "$2=\$(cat)"; }
-bobshell_copy_stdin_to_eval()    {
-	bobshell_copy_stdin_to_var "$1" bobshell_copy_stdin_to_eval_data
-	bobshell_copy_var_to_eval bobshell_copy_stdin_to_eval_data ''
-	unset bobshell_copy_stdin_to_eval_data; 
+bobshell_resource_copy_stdin_to_val()     { bobshell_resource_copy_to_val; }
+bobshell_resource_copy_stdin_to_var()     { eval "$2=\$(cat)"; }
+bobshell_resource_copy_stdin_to_eval()    {
+	bobshell_resource_copy_stdin_to_var "$1" bobshell_resource_copy_stdin_to_eval_data
+	bobshell_resource_copy_var_to_eval bobshell_resource_copy_stdin_to_eval_data ''
+	unset bobshell_resource_copy_stdin_to_eval_data; 
 }
-bobshell_copy_stdin_to_stdin()   { bobshell_copy_to_stdin; }
-bobshell_copy_stdin_to_stdout()  { cat; }
-bobshell_copy_stdin_to_file()    { cat > "$2"; }
-bobshell_copy_stdin_to_url()     { bobshell_copy_to_url; }
+bobshell_resource_copy_stdin_to_stdin()   { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_stdin_to_stdout()  { cat; }
+bobshell_resource_copy_stdin_to_file()    { cat > "$2"; }
+bobshell_resource_copy_stdin_to_url()     { bobshell_resource_copy_to_url; }
 
 
 
-bobshell_copy_stdout_to_val()    { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_var()    { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_eval()   { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_stdin()  { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_stdout() { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_file()   { bobshell_copy_stdout; }
-bobshell_copy_stdout_to_url()    { bobshell_copy_to_url; }
+bobshell_resource_copy_stdout_to_val()    { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_var()    { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_eval()   { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_stdin()  { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_stdout() { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_file()   { bobshell_resource_copy_stdout; }
+bobshell_resource_copy_stdout_to_url()    { bobshell_resource_copy_to_url; }
 
 
 
-bobshell_copy_file_to_val()      { bobshell_copy_to_val; }
-bobshell_copy_file_to_var()      { eval "$2=\$(cat '$1')"; }
-bobshell_copy_file_to_eval()     {
-	bobshell_copy_file_to_var "$1" bobshell_copy_file_to_eval_data
-	bobshell_copy_var_to_eval bobshell_copy_file_to_eval_data ''
-	unset bobshell_copy_file_to_eval_data; 
+bobshell_resource_copy_file_to_val()      { bobshell_resource_copy_to_val; }
+bobshell_resource_copy_file_to_var()      { eval "$2=\$(cat '$1')"; }
+bobshell_resource_copy_file_to_eval()     {
+	bobshell_resource_copy_file_to_var "$1" bobshell_resource_copy_file_to_eval_data
+	bobshell_resource_copy_var_to_eval bobshell_resource_copy_file_to_eval_data ''
+	unset bobshell_resource_copy_file_to_eval_data; 
 }
-bobshell_copy_file_to_stdin()    { bobshell_copy_to_stdin; }
-bobshell_copy_file_to_stdout()   { cat "$1"; }
-bobshell_copy_file_to_file()     { test "$1" != "$2" && { mkdir -p "$(dirname "$2")" && rm -rf "$2" && cp -f "$1" "$2";}; }
-bobshell_copy_file_to_url()      { bobshell_copy_to_url; }
+bobshell_resource_copy_file_to_stdin()    { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_file_to_stdout()   { cat "$1"; }
+bobshell_resource_copy_file_to_file()     { test "$1" != "$2" && { mkdir -p "$(dirname "$2")" && rm -rf "$2" && cp -f "$1" "$2";}; }
+bobshell_resource_copy_file_to_url()      { bobshell_resource_copy_to_url; }
 
 
 
-bobshell_copy_url_to_val()       { bobshell_copy_to_val; }
-bobshell_copy_url_to_var()       { bobshell_fetch_url "$1" | bobshell_copy_stdin_to_var '' "$2"; }
-bobshell_copy_url_to_eval()      { bobshell_fetch_url "$1" | bobshell_copy_stdin_to_var '' "$2"; }
-bobshell_copy_url_to_stdin()     { bobshell_copy_to_stdin; }
-bobshell_copy_url_to_stdout()    { bobshell_fetch_url "$1"; }
-bobshell_copy_url_to_file()      { bobshell_fetch_url "$1" | bobshell_copy_stdin_to_file '' "$2"; }
-bobshell_copy_url_to_url()       { bobshell_copy_to_url; }
-
-
-
-# fun: bobshell_locator_as_file LOCATOR
-bobshell_locator_as_file() {
-	if bobshell_starts_with "$1" "file:" bobshell_locator_as_file_ref; then
-		copy_resource var:bobshell_locator_as_file_ref "$2"
-	else
-		# shellcheck disable=SC2034
-		bobshell_locator_as_file_result="$(mktemp)"
-		copy_resource "$1" "file:$bobshell_locator_as_file_result"
-		copy_resource var:bobshell_locator_as_file_result "$2"
-		unset bobshell_locator_as_file_result
-	fi
-	unset bobshell_locator_as_file_ref
-}
-
-bobshell_locator_is_stdin() {
-	bobshell_remove_prefix "$1" stdin: "${2:-}"
-}
-
-bobshell_locator_is_stdout() {
-	bobshell_remove_prefix "$1" stdout: "${2:-}"
-}
-
-# fun: bobshell_resource_is_appendable LOCATOR
-bobshell_locator_is_appendable() {
-	bobshell_starts_with "$1" var: stdout: file: /
-}
-
-
-bobshell_locator_is_remote() {
-	bobshell_remove_prefix "$1" http:// "${2:-}" \
-	  || bobshell_remove_prefix "$1" https:// "${2:-}" \
-	  || bobshell_remove_prefix "$1" ftp:// "${2:-}"\
-	  || bobshell_remove_prefix "$1" ftps:// "${2:-}"
-}
-
-bobshell_move() {
-	bobshell_parse_locator "$1" bobshell_move_source_type      bobshell_move_source_ref
-	bobshell_parse_locator "$2" bobshell_move_destination_type bobshell_move_destination_ref
-
-
-	bobshell_move_command="bobshell_move_${bobshell_move_source_type}_to_${bobshell_move_destination_type}"
-	if bobshell_command_available "$bobshell_move_command"; then
-		"$bobshell_move_command" "$bobshell_move_source_ref" "$bobshell_move_destination_ref"
-		unset bobshell_move_source_type bobshell_move_source_ref
-		unset bobshell_move_destination_type bobshell_move_destination_ref
-		return
-	fi
-	
-	bobshell_copy "$1" "$2"
-	bobshell_delete "$1"
-}
-
-bobshell_delete_file() { rm -f "$1"; }
-bobshell_delete_var() { unset "$1"; }
-
-
-bobshell_move_file_to_file() {
-	bobshell_die not implemented
-}
-
-bobshell_delete() {
-	bobshell_parse_locator "$1" bobshell_delete_type bobshell_delete_ref
-
-	bobshell_delete_command="bobshell_delete_${bobshell_delete_type}"
-	if ! bobshell_command_available "$bobshell_delete_command"; then
-		bobshell_die "bobshell_delete: unsupported resource of type: $bobshell_delete_type"
-	fi
-
-	"$bobshell_delete_command" "$bobshell_delete_ref"
-	return
-}
-
-bobshell_append() {
-	bobshell_die not implemented
-}
-
-
-
-
-bobshell_append_to_val()           { bobshell_die 'cannot append to val resource'; }
-bobshell_append_eval()             { bobshell_die 'eval resource cannot be destination'; }
-bobshell_append_to_stdin()         { bobshell_die 'cannot append to stdin resource'; }
-bobshell_append_stdout()           { bobshell_die 'cannot read from stdout resource'; }
-bobshell_append_to_url()           { bobshell_die 'cannot append to stdin resource'; }
-
-
-
-bobshell_append_val_to_val()       { test "$1" != "$2" && bobshell_append_to_val; }
-bobshell_append_val_to_var()       { eval "$2='$1'"; }
-bobshell_append_val_to_eval()      { eval "$1"; }
-bobshell_append_val_to_stdin()     { bobshell_append_to_stdin; }
-bobshell_append_val_to_stdout()    { printf %s "$1"; }
-bobshell_append_val_to_file()      { printf %s "$1" > "$2"; }
-bobshell_append_val_to_url()       { bobshell_append_to_url; }
-
-
-
-bobshell_append_var_to_val()       { bobshell_append_to_val; }
-bobshell_append_var_to_var()       { test "$1" != "$2" && eval "$2=\${$1}"; }
-bobshell_append_var_to_eval()      { eval "bobshell_append_var_to_eval \"\$$1\""; }
-bobshell_append_var_to_stdin()     { bobshell_append_to_stdin; }
-bobshell_append_var_to_stdout()    { eval "printf %s \"\$$1\""; }
-bobshell_append_var_to_file()      { eval "printf %s \"\$$1\"" > "$2"; }
-bobshell_append_var_to_url()       { bobshell_append_to_url; }
-
-
-
-bobshell_append_eval_to_val()      { bobshell_append_eval; }
-bobshell_append_eval_to_var()      { bobshell_append_eval; }
-bobshell_append_eval_to_eval()     { bobshell_append_eval; }
-bobshell_append_eval_to_stdin()    { bobshell_append_eval; }
-bobshell_append_eval_to_stdout()   { bobshell_append_eval; }
-bobshell_append_eval_to_file()     { bobshell_append_eval; }
-bobshell_append_eval_to_url()      { bobshell_append_eval; }
-
-
-
-bobshell_append_stdin_to_val()     { bobshell_append_to_val; }
-bobshell_append_stdin_to_var()     { eval "$2=\$(cat)"; }
-bobshell_append_stdin_to_eval()    {
-	bobshell_append_stdin_to_var "$1" bobshell_append_stdin_to_eval_data
-	bobshell_append_var_to_eval bobshell_append_stdin_to_eval_data ''
-	unset bobshell_append_stdin_to_eval_data; 
-}
-bobshell_append_stdin_to_stdin()   { bobshell_append_to_stdin; }
-bobshell_append_stdin_to_stdout()  { cat; }
-bobshell_append_stdin_to_file()    { cat > "$2"; }
-bobshell_append_stdin_to_url()     { bobshell_append_to_url; }
-
-
-
-bobshell_append_stdout_to_val()    { bobshell_append_stdout; }
-bobshell_append_stdout_to_var()    { bobshell_append_stdout; }
-bobshell_append_stdout_to_eval()   { bobshell_append_stdout; }
-bobshell_append_stdout_to_stdin()  { bobshell_append_stdout; }
-bobshell_append_stdout_to_stdout() { bobshell_append_stdout; }
-bobshell_append_stdout_to_file()   { bobshell_append_stdout; }
-bobshell_append_stdout_to_url()    { bobshell_append_to_url; }
-
-
-
-bobshell_append_file_to_val()      { bobshell_append_to_val; }
-bobshell_append_file_to_var()      { eval "$2=\$(cat '$1')"; }
-bobshell_append_file_to_eval()     {
-	bobshell_append_file_to_var "$1" bobshell_append_file_to_eval_data
-	bobshell_append_var_to_eval bobshell_append_file_to_eval_data ''
-	unset bobshell_append_file_to_eval_data; 
-}
-bobshell_append_file_to_stdin()    { bobshell_append_to_stdin; }
-bobshell_append_file_to_stdout()   { cat "$1"; }
-bobshell_append_file_to_file()     { test "$1" != "$2" && { mkdir -p "$(dirname "$2")" && rm -rf "$2" && cp "$1" "$2";}; }
-bobshell_append_file_to_url()      { bobshell_append_to_url; }
-
-
-
-bobshell_append_url_to_val()       { bobshell_append_to_val; }
-bobshell_append_url_to_var()       { bobshell_fetch_url "$1" | bobshell_append_stdin_to_var '' "$2"; }
-bobshell_append_url_to_eval()      { bobshell_fetch_url "$1" | bobshell_append_stdin_to_var '' "$2"; }
-bobshell_append_url_to_stdin()     { bobshell_append_to_stdin; }
-bobshell_append_url_to_stdout()    { bobshell_fetch_url "$1"; }
-bobshell_append_url_to_file()      { bobshell_fetch_url "$1" | bobshell_append_stdin_to_file '' "$2"; }
-bobshell_append_url_to_url()       { bobshell_append_to_url; }
-
+bobshell_resource_copy_url_to_val()       { bobshell_resource_copy_to_val; }
+bobshell_resource_copy_url_to_var()       { bobshell_fetch_url "$1" | bobshell_resource_copy_stdin_to_var '' "$2"; }
+bobshell_resource_copy_url_to_eval()      { bobshell_fetch_url "$1" | bobshell_resource_copy_stdin_to_var '' "$2"; }
+bobshell_resource_copy_url_to_stdin()     { bobshell_resource_copy_to_stdin; }
+bobshell_resource_copy_url_to_stdout()    { bobshell_fetch_url "$1"; }
+bobshell_resource_copy_url_to_file()      { bobshell_fetch_url "$1" | bobshell_resource_copy_stdin_to_file '' "$2"; }
+bobshell_resource_copy_url_to_url()       { bobshell_resource_copy_to_url; }
 
 
 
@@ -1099,14 +922,14 @@ bobshell_ssh_keygen() {
 
 # fun: bobshell_get_private_key FILEPATH LOCATOR
 bobshell_copy_private_key() {
-	bobshell_copy "file:$1" "$2"
+	bobshell_resource_copy "file:$1" "$2"
 }
 
 
 
 # fun: bobshell_get_public_key FILEPATH LOCATOR
 bobshell_copy_public_key() {
-	bobshell_copy "file:$1.pub" "$2"
+	bobshell_resource_copy "file:$1.pub" "$2"
 }
 
 
@@ -1206,6 +1029,7 @@ bobshell_git_change_hash() {
 
 
 
+
 bobshell_current_seconds() {
 	date +%s
 }
@@ -1282,7 +1106,7 @@ bobshell_is_not_root() {
 
 bobshell_eval() {
 	bobshell_eval_script=
-	bobshell_copy "$1" var:bobshell_eval_script
+	bobshell_resource_copy "$1" var:bobshell_eval_script
 	eval "$bobshell_eval_script"
 }
 
@@ -1333,6 +1157,7 @@ bobshell_get_file_mtime() {
 bobshell_line_in_file() {
 	true
 }
+
 
 
 
@@ -1412,7 +1237,7 @@ bobshell_install_init() {
 bobshell_install_service() {
 	bobshell_install_service_dir="$BOBSHELL_INSTALL_DESTDIR$BOBSHELL_INSTALL_SYSTEMDDIR"
 	mkdir -p "$bobshell_install_service_dir"
-	bobshell_copy "$1" "file:$bobshell_install_service_dir/$2"
+	bobshell_resource_copy "$1" "file:$bobshell_install_service_dir/$2"
 
 	
 	if [ 0 = "$(id -u)" ]; then
@@ -1434,7 +1259,7 @@ bobshell_install_service() {
 # fun: bobshell_install_put SRC DIR DESTNAME MODE
 bobshell_install_put() {
 	mkdir -p "$BOBSHELL_INSTALL_DESTDIR$2"
-	bobshell_copy "$1" "file:$BOBSHELL_INSTALL_DESTDIR$2/$3"
+	bobshell_resource_copy "$1" "file:$BOBSHELL_INSTALL_DESTDIR$2/$3"
 	chmod "$4" "$BOBSHELL_INSTALL_DESTDIR$2/$3"
 }
 
@@ -1524,7 +1349,7 @@ bobshell_install_get() {
 	bobshell_install_get_dest="$3"
 	set -- "$1" "$2"
 	if bobshell_install_get_found=$("$@"); then
-		bobshell_copy "file:$bobshell_install_get_found" "$bobshell_install_get_dest"
+		bobshell_resource_copy "file:$bobshell_install_get_found" "$bobshell_install_get_dest"
 		return
 	else
 		return 1
@@ -1602,7 +1427,7 @@ bobshell_scope_env() {
 		bobshell_scope_env_value=$(bobshell_quote "$bobshell_scope_env_value")
 		bobshell_scope_env_result="$bobshell_scope_env_result$bobshell_scope_env_value$bobshell_newline"
 	done
-	bobshell_copy var:bobshell_scope_env_result "$2"
+	bobshell_resource_copy var:bobshell_scope_env_result "$2"
 	unset bobshell_scope_env_result bobshell_scope_env_name bobshell_scope_env_value
 }
 

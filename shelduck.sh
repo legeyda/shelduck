@@ -14,9 +14,11 @@ shelduck() {
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
 		(usage|import|resolve|run)
-				shelduck_subcommand="$1"
+				_shelduck__subcommand="$1"
 				shift
-				"shelduck_$shelduck_subcommand" "$@" ;;
+				"shelduck_$_shelduck__subcommand" "$@"
+				unset _shelduck__subcommand
+				;;
 		(*) printf 'unknown subcommand %s, see shelduck usage' "$1"
 	esac
 }
@@ -342,7 +344,9 @@ shelduck_compile() {
 	shelduck_compile_input="$1"
 	shift
 	if bobshell_starts_with "$shelduck_compile_input" "$bobshell_newline"; then
-		printf '%s\n' "# shelduck: source for $1"	
+		if bobshell_starts_with "$1" file:// https:// http:// stdin:; then
+			printf '%s\n' "# shelduck: source for $1"
+		fi
 	fi
 
 	shelduck_compile_before=
@@ -810,6 +814,7 @@ bobshell_replace() {
 
 # fun: bobshell_substr STR RANGE OUTPUTVAR
 bobshell_substr() {
+	bobshell_die "not implemented"
 	
 	set -- "$1"
 	bobshell_substr_result=$(printf %s "$1" | cut -c "$2-$3")
@@ -873,7 +878,7 @@ bobshell_quote() {
 	bobshell_quote_separator=''
 	for bobshell_quote_arg in "$@"; do
 		printf %s "$bobshell_quote_separator"
-		if bobshell_basic_regex_match "$bobshell_quote_arg" '[A-Za-z0-9_/\-\=]\+'; then
+		if bobshell_basic_regex_match "$bobshell_quote_arg" '[-A-Za-z0-9_/=\.]\+'; then
 			printf %s "$bobshell_quote_arg"
 		else
 			bobshell_quote_arg=$(bobshell_replace "$bobshell_quote_arg" "'" "'"'"'"'"'"'"'")
@@ -1374,8 +1379,10 @@ bobshell_locator_is_file() {
 		if [ -n "${2:-}" ]; then
 			bobshell_putvar "$2" "$1"
 		fi
+	elif bobshell_remove_prefix "$1" file:// "${2:-}"; then
+		true
 	else
-		bobshell_remove_prefix "$1" file: "${2:-}"
+		bobshell_remove_prefix "$1" file: "${2:-}";
 	fi
 }
 
@@ -1519,7 +1526,8 @@ bobshell_resource_copy_url_to_url()       { bobshell_resource_copy_to_url; }
 # shelduck import git.sh
 # disable recursive dependency resolution when building shelduck itself
 # shelduck import resource/copy.sh
-
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ./eval.sh
 
 bobshell_current_seconds() {
 	date +%s
@@ -1594,14 +1602,6 @@ bobshell_is_root() {
 bobshell_is_not_root() {
 	test 0 != "$(id -u)"
 }
-
-bobshell_eval() {
-	bobshell_eval_script=
-	bobshell_resource_copy "$1" var:bobshell_eval_script
-	eval "$bobshell_eval_script"
-}
-
-
 
 # fun: shelduck_eval_with_args SCRIPT [ARGS...]
 shelduck_eval_with_args() {

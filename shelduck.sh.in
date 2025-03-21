@@ -11,9 +11,11 @@ shelduck() {
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
 		(usage|import|resolve|run)
-				shelduck_subcommand="$1"
+				_shelduck__subcommand="$1"
 				shift
-				"shelduck_$shelduck_subcommand" "$@" ;;
+				"shelduck_$_shelduck__subcommand" "$@"
+				unset _shelduck__subcommand
+				;;
 		(*) printf 'unknown subcommand %s, see shelduck usage' "$1"
 	esac
 }
@@ -339,7 +341,9 @@ shelduck_compile() {
 	shelduck_compile_input="$1"
 	shift
 	if bobshell_starts_with "$shelduck_compile_input" "$bobshell_newline"; then
-		printf '%s\n' "# shelduck: source for $1"	
+		if bobshell_starts_with "$1" file:// https:// http:// stdin:; then
+			printf '%s\n' "# shelduck: source for $1"
+		fi
 	fi
 
 	shelduck_compile_before=

@@ -179,6 +179,7 @@ bobshell_replace() {
 
 # fun: bobshell_substr STR RANGE OUTPUTVAR
 bobshell_substr() {
+	bobshell_die "not implemented"
 	
 	set -- "$1"
 	bobshell_substr_result=$(printf %s "$1" | cut -c "$2-$3")
@@ -242,7 +243,7 @@ bobshell_quote() {
 	bobshell_quote_separator=''
 	for bobshell_quote_arg in "$@"; do
 		printf %s "$bobshell_quote_separator"
-		if bobshell_basic_regex_match "$bobshell_quote_arg" '[A-Za-z0-9_/\-\=]\+'; then
+		if bobshell_basic_regex_match "$bobshell_quote_arg" '[-A-Za-z0-9_/=\.]\+'; then
 			printf %s "$bobshell_quote_arg"
 		else
 			bobshell_quote_arg=$(bobshell_replace "$bobshell_quote_arg" "'" "'"'"'"'"'"'"'")
@@ -1028,6 +1029,41 @@ bobshell_git_change_hash() {
 
 
 
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/eval.sh
+
+
+# shelduck: source for https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/is_file.sh
+
+
+
+
+# fun: bobshell_is_file LOCATOR [FILEPATHVAR]
+bobshell_locator_is_file() {
+	if bobshell_starts_with "$1" /; then
+		if [ -n "${2:-}" ]; then
+			bobshell_putvar "$2" "$1"
+		fi
+	elif bobshell_remove_prefix "$1" file:// "${2:-}"; then
+		true
+	else
+		bobshell_remove_prefix "$1" file: "${2:-}";
+	fi
+}
+
+
+
+bobshell_eval() {
+	bobshell_locator parse "$1" _bobshell_eval__type _bobshell_eval__ref
+	if [ 'file' = "$_bobshell_eval__type" ]; then
+		_bobshell_eval__ref=$(realpath "$_bobshell_eval__ref")
+		. "$_bobshell_eval__ref"
+	else
+		bobshell_resource_copy "$1" var:__bobshell_eval__script
+		eval "$__bobshell_eval__script"
+		unset __bobshell_eval__script
+	fi
+}
+
 
 
 bobshell_current_seconds() {
@@ -1104,14 +1140,6 @@ bobshell_is_not_root() {
 	test 0 != "$(id -u)"
 }
 
-bobshell_eval() {
-	bobshell_eval_script=
-	bobshell_resource_copy "$1" var:bobshell_eval_script
-	eval "$bobshell_eval_script"
-}
-
-
-
 # fun: shelduck_eval_with_args SCRIPT [ARGS...]
 shelduck_eval_with_args() {
 	shelduck_eval_with_args_script="$1"
@@ -1157,6 +1185,7 @@ bobshell_get_file_mtime() {
 bobshell_line_in_file() {
 	true
 }
+
 
 
 

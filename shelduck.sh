@@ -192,7 +192,7 @@ shelduck_import() {
 
 	# check for duplicates
 	: "${shelduck_import_history:=}"
-	if bobshell_contains "$shelduck_import_history" "$shelduck_import_url"; then
+	if bobshell_contains "$shelduck_import_history" "[$shelduck_import_url]"; then
 		# todo maybe base url is needed
 		shelduck_import_origin=$(shelduck_print_origin "$shelduck_import_url")
 		shelduck_import_addition=$(shelduck_print_addition "$shelduck_import_origin" "$shelduck_import_url" "$shelduck_import_aliases")
@@ -200,7 +200,7 @@ shelduck_import() {
 		unset shelduck_import_origin shelduck_import_addition
 		return
 	fi
-	shelduck_import_history="$shelduck_import_history $shelduck_import_url"
+	shelduck_import_history="$shelduck_import_history [$shelduck_import_url]"
 	
 	# delegate to shelduck_exec
 	shelduck_exec "$shelduck_import_aliases" "$shelduck_import_url" ''
@@ -313,8 +313,8 @@ shelduck_print() {
 	set -- "$shelduck_print_script" "$shelduck_print_url" "$shelduck_print_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
 
 	# check if dependency was already compiled
-	if ! bobshell_contains "$shelduck_print_history" "$2"; then
-		shelduck_print_history="$shelduck_print_history $2"
+	if ! bobshell_contains "$shelduck_print_history" "[$2]"; then
+		shelduck_print_history="$shelduck_print_history [$2]"
 
 		shelduck_update_base_url "$shelduck_print_url"
 
@@ -485,7 +485,7 @@ shelduck_print_addition() {
 # api: private
 shelduck_cached_fetch_url() (
 	# bypass cache if local file
-	if bobshell_remove_prefix "$1" 'file://' shelduck_cached_fetch_url_path; then
+	if bobshell_locator_is_file "$1" shelduck_cached_fetch_url_path; then
 		# shellcheck disable=SC2154
 		# starts_with sets variable file_name indirectly
 		if ! [ -f "$shelduck_cached_fetch_url_path" ]; then
@@ -494,7 +494,7 @@ shelduck_cached_fetch_url() (
 		cat "$shelduck_cached_fetch_url_path" || bobshell_die "shelduck: fetch error '$1': error loading '$shelduck_cached_fetch_url_path'"
 		unset shelduck_cached_fetch_url_path
 		return
-	elif bobshell_locator_is_remote "$1" || ! bobshell_locator_parse "$1"; then
+	elif bobshell_locator_is_remote "$1"; then
 
 		# init bobshell_install_* library
 		: "${SHELDUCK_INSTALL_NAME:=shelduck}"
@@ -507,10 +507,20 @@ shelduck_cached_fetch_url() (
 
 		shelduck_cached_fetch_url_path=
 		if shelduck_cached_fetch_url_path=$(bobshell_install_find_cache "$shelduck_cached_fetch_url_key"); then
-			# todo expiration
-			cat "$shelduck_cached_fetch_url_path"
+			bobshell_file_date --format %s "$shelduck_cached_fetch_url_path"
+			if bobshell_result_check _shelduck_cached_fetch_url__timestamp; then
+				_shelduck_cached_fetch_url__timestamp=$(( _shelduck_cached_fetch_url__timestamp + ${SHELDUCK_CACHE_TIMEOUT:-3600} ))
+				_shelduck_cached_fetch_url__now=$(date '+%s')
+				
+				if [ "$_shelduck_cached_fetch_url__now" -lt "$_shelduck_cached_fetch_url__timestamp" ]; then
+					# todo expiration
+					cat "$shelduck_cached_fetch_url_path"
+					unset shelduck_cached_fetch_url_path _shelduck_cached_fetch_url__timestamp _shelduck_cached_fetch_url__now
+					return
+				fi
+				unset _shelduck_cached_fetch_url__timestamp _shelduck_cached_fetch_url__now
+			fi
 			unset shelduck_cached_fetch_url_path
-			return
 		fi
 		
 		shelduck_cached_fetch_url_result=$(bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'")
@@ -1403,6 +1413,27 @@ bobshell_locator_is_remote() {
 
 
 # disable recursive dependency resolution when building shelduck itself
+# shelduck import ../string.sh
+
+bobshell_locator_is_stdin() {
+	#set -- bobshell_remove_prefix "$1" stdin:
+	bobshell_remove_prefix "$1" stdin: "${2:-}"
+}
+
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../string.sh
+
+bobshell_locator_is_stdout() {
+	bobshell_remove_prefix "$1" stdout: "${2:-}"
+}
+
+
+
+
+# disable recursive dependency resolution when building shelduck itself
 # shelduck import ../locator/parse.sh
 # disable recursive dependency resolution when building shelduck itself
 # shelduck import ../resource/copy.sh
@@ -1647,6 +1678,598 @@ bobshell_get_file_mtime() {
 # bobshell_line_in_file: 
 bobshell_line_in_file() {
 	true
+}
+
+
+
+# https://stackoverflow.com/a/32158604
+# https://howardhinnant.github.io/date_algorithms.html
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../misc/awk.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../result/set.sh
+
+bobshell_file_date_lib='
+
+
+function civil_to_days(year, month, day) {
+	year -= (month <= 2) ? 1 : 0;
+	era = int((year >= 0 ? year : year - 399) / 400);
+	year_of_era = year - era*400; # [0, 399]
+	day_of_year = int((153*(month > 2 ? month-3 : month+9) + 2)/5) + day-1;  # [0, 365]
+	day_of_era = year_of_era * 365 + int(year_of_era/4) - int(year_of_era/100) + day_of_year;  # [0, 146096]
+	result = 146097*era + day_of_era - 719468
+	return result;
+}
+
+
+function offset_to_minutes(offset) {
+	offset_minutes=int(offset);
+	result = int(offset_minutes/100)*60 + (offset_minutes%100);
+	
+	return result;
+}
+
+function format_date(format, year, month, day, hour, minute, second, nano, offset_minutes) {
+
+	# parse format and output
+	format_length = split(format, format_chars, "")
+	if(0 == format_length) {
+		print("error parsing ls output") > "/dev/stderr"
+		exit
+	}
+
+
+	i=1;
+	while(i<format_length) {
+		current_char=format_chars[i];
+		if("%" == current_char) {
+			i++;
+			if(i>format_length) {
+				print("malformed format") > "/dev/stderr"
+				exit 1
+			}
+			current_char=format_chars[i];
+			if("%" == current_char) {
+				printf("%")
+			} else if("s" == current_char) {
+				seconds_since_epoch=60*(60*(24*civil_to_days(year, month, day) + hour) + minute - offset_minutes) + second;
+				printf("%d", seconds_since_epoch)
+			} else if("Y" == current_char) {
+				printf("%04d", year)
+			} else if("m" == current_char) {
+				printf("%02d", month)
+			} else if("d" == current_char) {
+				printf("%02d", day)
+			} else if("H" == current_char) {
+				printf("%02d", hour)
+			} else if("M" == current_char) {
+				printf("%02d", minute)
+			} else if("S" == current_char) {
+				printf("%02d", seconds)
+			} else {
+				printf("unsupported format %s", current_char) > "/dev/stderr"
+				exit 1
+			}
+			i++
+		} else {
+			printf(current_char);
+			i++
+		}
+	}
+}
+
+'
+
+
+
+
+# fun: bobshell_file_date FORMAT FILE
+# txt: print file modification date
+#      if time is earlier then half year ago, there is no time information
+#      if time is after half year ago, minute-precision is available
+bobshell_file_date_ls() {
+	if ! bobshell_isset _bobshell_file_date__offset; then
+		_bobshell_file_date__offset="$(date +%z)"
+	fi
+
+	_bobshell_file_date_ls=$(LC_ALL=C ls -dl "$2")
+	bobshell_awk var:_bobshell_file_date_ls var:_bobshell_file_date_ls__result \
+			-v debug=1 \
+			-v current_month="$(date +%m)" \
+			-v current_year="$(date +%Y)" \
+			-v offset="$_bobshell_file_date__offset:" \
+			-v format="$1" \
+			"$bobshell_file_date_lib"'
+
+{
+
+	# month
+	if     ("Jan" == $6) { month= 1; }
+	else if("Feb" == $6) { month= 2; }
+	else if("Mar" == $6) { month= 3; }
+	else if("Apr" == $6) { month= 4; }
+	else if("May" == $6) { month= 5; }
+	else if("Jun" == $6) { month= 6; }
+	else if("Jul" == $6) { month= 7; }
+	else if("Aug" == $6) { month= 8; }
+	else if("Sep" == $6) { month= 9; }
+	else if("Oct" == $6) { month=10; }
+	else if("Nov" == $6) { month=11; }
+	else if("Dec" == $6) { month=12; }
+	else {
+		print("error parsing ls output") > "/dev/stderr"
+		exit 1
+	}
+
+	# day
+	day=int($7)
+
+	# year or time
+	if ($8 ~ /^[[:digit:]]{4}$/) {
+		year = int($8)
+		hour = 0
+		minute = 0
+		offset_minutes = 0
+	} else if ($8 ~ /^[[:digit:]]{2}:[[:digit:]]{2}$/) {
+		hour = substr($8, 1, 2);
+		minute = substr($8, 4, 2);
+		
+		if(month <= int(current_month)) {
+			year = int(current_year)
+		} else {
+			year = int(current_year) - 1;
+		}
+		offset_minutes = offset_to_minutes(offset)
+	} else {
+		print("error parsing ls output") > "/dev/stderr"
+		exit 1
+	}
+
+	print(format_date(format, year, month, day, hour, minute, 0, 0, offset_minutes))
+
+}'
+	unset _bobshell_file_date_ls
+
+	bobshell_result_set true "$_bobshell_file_date_ls__result"
+	unset _bobshell_file_date_ls__result
+}
+
+bobshell_file_date_diff() {
+	if ! bobshell_isset _bobshell_file_date__offset; then
+		_bobshell_file_date__offset="$(date +%z)"
+	fi
+
+	_bobshell_file_date_diff__src=$(printf '%s' 35de218667274492878d89dad9ce0d9cb8a3d80d169e4f36b5ad93e4dfc900123e695dd496ab44359f620d59435a35fa0f5e4af8e22f4a4eb1e3888a6ea41af | LC_ALL=C diff -ua "$2" - | head -1)
+	bobshell_awk var:_bobshell_file_date_diff__src var:_bobshell_file_date_diff__result \
+			-F '	' \
+			-v format="$1" "$bobshell_file_date_lib"'{
+	year   = int(substr($2, 1, 4))
+	month  = int(substr($2, 6, 2))
+	day    = int(substr($2, 9, 2))
+	hour   = int(substr($2, 12, 2))
+	minute = int(substr($2, 15, 2))
+	second = int(substr($2, 18, 2))
+	nano   = int(substr($2, 21, 9))
+	offset = int(substr($2, 31, 5))
+
+	print(format_date(format, year, month, day, hour, minute, second, nano, offset_to_minutes(offset)))
+}'
+	unset _bobshell_file_date_diff__src
+
+	bobshell_result_set true "$_bobshell_file_date_diff__result"
+	unset _bobshell_file_date_diff__result
+}
+
+bobshell_file_date() {
+	_bobshell_file_date_format="%s"
+	while bobshell_isset_1 "$@"; do
+		case "$1" in
+			(-f|--format)
+				_bobshell_file_date_format="$2"
+				shift 2
+				;;
+			(-*)
+				bobshell_die "bobshell_file_date: unsupported option: $1"
+				;; 
+			(*) break
+		esac
+	done
+
+	if ! [ -r "$1" ]; then
+		bobshell_result_set false
+		return
+	fi
+
+	if ! bobshell_command_available diff || [ -d "$1" ]; then
+		bobshell_file_date_ls "$_bobshell_file_date_format" "$1"
+	else
+		bobshell_file_date_diff "$_bobshell_file_date_format" "$1"
+	fi
+	unset _bobshell_file_date_format
+}
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../base.sh
+
+# fun: bobshell_result_get VAR ...
+bobshell_result_read() {
+	if   [ 0 = "$#" ]; then
+		return
+	fi
+
+	if [ "$#" -gt "$bobshell_result_size" ]; then
+		bobshell_die "not enough values in result"
+	fi
+
+	if   [ 1 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+	elif [ 2 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+	elif [ 3 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+	elif [ 4 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+	elif [ 5 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+	elif [ 6 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+		bobshell_resource_copy_var_to_var bobshell_result_6 "$6"
+	elif [ 7 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+		bobshell_resource_copy_var_to_var bobshell_result_6 "$6"
+		bobshell_resource_copy_var_to_var bobshell_result_7 "$7"
+	elif [ 8 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+		bobshell_resource_copy_var_to_var bobshell_result_6 "$6"
+		bobshell_resource_copy_var_to_var bobshell_result_7 "$7"
+		bobshell_resource_copy_var_to_var bobshell_result_8 "$8"
+	elif [ 9 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+		bobshell_resource_copy_var_to_var bobshell_result_6 "$6"
+		bobshell_resource_copy_var_to_var bobshell_result_7 "$7"
+		bobshell_resource_copy_var_to_var bobshell_result_8 "$8"
+		bobshell_resource_copy_var_to_var bobshell_result_9 "$9"
+	else
+		for _bobshell_result_read__i in $(seq "$#"); do
+			bobshell_resource_copy_var_to_var "bobshell_result_$_bobshell_result_read__i" "$1"
+			shift
+			if ! bobshell_isset_1 "$@"; then
+				break
+			fi
+		done
+		unset _bobshell_result_read__i
+	fi
+
+}
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../resource/copy.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../locator/is_stdin.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../locator/is_stdout.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../redirect/io.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../redirect/input.sh
+
+# fun: bobshell_awk INPUT OUTPUT AWKARGS...
+bobshell_awk() {
+	bobshell_isset_3 "$@" || bobshell_die 'bobshell_awk: 3 arguments required'
+	
+	bobshell_awk__input="$1"
+	shift
+
+	bobshell_awk__output="$1"
+	shift
+	
+	if bobshell_locator_is_file "$bobshell_awk__input" bobshell_awk__input_file; then
+		bobshell_redirect_output "$bobshell_awk__output" awk "$@" "$bobshell_awk__input_file"
+		unset bobshell_awk__input_file
+	else
+		bobshell_redirect_io "$bobshell_awk__input" "$bobshell_awk__output" awk "$@"
+		unset bobshell_awk__input bobshell_awk__output
+	fi
+}
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ./input.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ./output.sh
+
+# fun: bobshell_redirect INPUT OUTPUT COMMAND [ARGS...]
+bobshell_redirect_io() {
+	_bobshell_redirect_io__src="$1"
+	shift
+	bobshell_redirect_input "$_bobshell_redirect_io__src" bobshell_redirect_output "$@"
+	unset _bobshell_redirect_io__src
+}
+
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../resource/copy.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../locator/is_stdin.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../locator/is_stdout.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../locator/is_val.sh
+
+
+# fun: bobshell_redirect_input INPUT COMMAND [ARGS...]
+bobshell_redirect_input() {
+	if bobshell_locator_is_stdin "$1"; then
+		shift
+		"$@"
+	elif bobshell_locator_is_file "$1" _bobshell_redirect_input__file; then
+		shift
+		"$@" < "$_bobshell_redirect_input__file"
+		unset _bobshell_redirect_input__file
+	else
+		bobshell_resource_copy "$1" var:_bobshell_redirect_input
+		shift
+		"$@" <<EOF
+$_bobshell_redirect_input
+EOF
+		unset _bobshell_redirect_input
+	fi
+}
+
+
+
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../base.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../resource/copy.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../locator/is_stdin.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../locator/is_stdout.sh
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../locator/is_var.sh
+
+
+
+# fun: bobshell_redirect_output OUTPUT COMMAND [ARGS...]
+bobshell_redirect_output() {
+	if bobshell_locator_is_stdout "$1"; then
+		shift
+		"$@"
+	elif bobshell_locator_is_file "$1" _bobshell_redirect_output__file; then
+		shift
+		"$@" > "$_bobshell_redirect_output__file"
+		unset _bobshell_redirect_output__file
+	else
+		_bobshell_redirect_output="$1"
+		shift
+		_bobshell_redirect_output__temp=$(mktemp)
+		"$@" > "$_bobshell_redirect_output__temp"
+		bobshell_resource_copy "file://$_bobshell_redirect_output__temp" "$_bobshell_redirect_output"
+		rm -f "$_bobshell_redirect_output__temp"
+		unset bobshell_redirect_output _bobshell_redirect_output__temp
+	fi
+}
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../array/set.sh
+
+# fun: bobshell_result_set true
+bobshell_result_set() {
+	if   [ 0 = "$#" ]; then
+		bobshell_result_size=0
+	elif [ 1 = "$#" ]; then
+		bobshell_result_size=1
+		bobshell_result_1="$1"
+	elif [ 2 = "$#" ]; then
+		bobshell_result_size=2
+		bobshell_result_1="$1"
+		bobshell_result_2="$2"
+	elif [ 3 = "$#" ]; then
+		bobshell_result_size=3
+		bobshell_result_1="$1"
+		bobshell_result_2="$2"
+		bobshell_result_3="$3"
+	elif [ 4 = "$#" ]; then
+		bobshell_result_size=4
+		bobshell_result_1="$1"
+		bobshell_result_2="$2"
+		bobshell_result_3="$3"
+		bobshell_result_4="$4"
+	elif [ 5 = "$#" ]; then
+		bobshell_result_size=5
+		bobshell_result_1="$1"
+		bobshell_result_2="$2"
+		bobshell_result_3="$3"
+		bobshell_result_4="$4"
+		bobshell_result_5="$5"
+	elif [ 6 = "$#" ]; then
+		bobshell_result_size=6
+		bobshell_result_1="$1"
+		bobshell_result_2="$2"
+		bobshell_result_3="$3"
+		bobshell_result_4="$4"
+		bobshell_result_5="$5"
+		bobshell_result_6="$6"
+	elif [ 7 = "$#" ]; then
+		bobshell_result_size=7
+		bobshell_result_1="$1"
+		bobshell_result_2="$2"
+		bobshell_result_3="$3"
+		bobshell_result_4="$4"
+		bobshell_result_5="$5"
+		bobshell_result_6="$6"
+		bobshell_result_7="$7"
+	elif [ 8 = "$#" ]; then
+		bobshell_result_size=8
+		bobshell_result_1="$1"
+		bobshell_result_2="$2"
+		bobshell_result_3="$3"
+		bobshell_result_4="$4"
+		bobshell_result_5="$5"
+		bobshell_result_6="$6"
+		bobshell_result_7="$7"
+		bobshell_result_8="$8"
+	elif [ 9 = "$#" ]; then
+		bobshell_result_size=9
+		bobshell_result_1="$1"
+		bobshell_result_2="$2"
+		bobshell_result_3="$3"
+		bobshell_result_4="$4"
+		bobshell_result_5="$5"
+		bobshell_result_6="$6"
+		bobshell_result_7="$7"
+		bobshell_result_8="$8"
+		bobshell_result_9="$9"
+	else
+		bobshell_array_set bobshell_result "$@"
+	fi
+}
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ../base.sh
+
+# fun: bobshell_result_get VAR ...
+bobshell_result_read() {
+	if   [ 0 = "$#" ]; then
+		return
+	fi
+
+	if [ "$#" -gt "$bobshell_result_size" ]; then
+		bobshell_die "not enough values in result"
+	fi
+
+	if   [ 1 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+	elif [ 2 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+	elif [ 3 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+	elif [ 4 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+	elif [ 5 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+	elif [ 6 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+		bobshell_resource_copy_var_to_var bobshell_result_6 "$6"
+	elif [ 7 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+		bobshell_resource_copy_var_to_var bobshell_result_6 "$6"
+		bobshell_resource_copy_var_to_var bobshell_result_7 "$7"
+	elif [ 8 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+		bobshell_resource_copy_var_to_var bobshell_result_6 "$6"
+		bobshell_resource_copy_var_to_var bobshell_result_7 "$7"
+		bobshell_resource_copy_var_to_var bobshell_result_8 "$8"
+	elif [ 9 = "$#" ]; then
+		bobshell_resource_copy_var_to_var bobshell_result_1 "$1"
+		bobshell_resource_copy_var_to_var bobshell_result_2 "$2"
+		bobshell_resource_copy_var_to_var bobshell_result_3 "$3"
+		bobshell_resource_copy_var_to_var bobshell_result_4 "$4"
+		bobshell_resource_copy_var_to_var bobshell_result_5 "$5"
+		bobshell_resource_copy_var_to_var bobshell_result_6 "$6"
+		bobshell_resource_copy_var_to_var bobshell_result_7 "$7"
+		bobshell_resource_copy_var_to_var bobshell_result_8 "$8"
+		bobshell_resource_copy_var_to_var bobshell_result_9 "$9"
+	else
+		for _bobshell_result_read__i in $(seq "$#"); do
+			bobshell_resource_copy_var_to_var "bobshell_result_$_bobshell_result_read__i" "$1"
+			shift
+			if ! bobshell_isset_1 "$@"; then
+				break
+			fi
+		done
+		unset _bobshell_result_read__i
+	fi
+
+}
+
+
+
+# disable recursive dependency resolution when building shelduck itself
+# shelduck import ./read.sh
+
+bobshell_result_check() {
+	if [ '0' = "${bobshell_result_size:-0}" ]; then
+		bobshell_die "bobshell_result_check: no result"
+	fi
+	case "$bobshell_result_1" in
+		(true)  ;;
+		(false) return 1 ;;
+		(*) bobshell_die "bobshell_result_check: error parsing result as boolean: $bobshell_result_1"
+	esac
+	bobshell_result_read _bobshell_result_check__unused "$@"
+	unset _bobshell_result_check__unused
 }
 
 

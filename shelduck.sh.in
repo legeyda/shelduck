@@ -189,7 +189,7 @@ shelduck_import() {
 
 	# check for duplicates
 	: "${shelduck_import_history:=}"
-	if bobshell_contains "$shelduck_import_history" "$shelduck_import_url"; then
+	if bobshell_contains "$shelduck_import_history" "[$shelduck_import_url]"; then
 		# todo maybe base url is needed
 		shelduck_import_origin=$(shelduck_print_origin "$shelduck_import_url")
 		shelduck_import_addition=$(shelduck_print_addition "$shelduck_import_origin" "$shelduck_import_url" "$shelduck_import_aliases")
@@ -197,7 +197,7 @@ shelduck_import() {
 		unset shelduck_import_origin shelduck_import_addition
 		return
 	fi
-	shelduck_import_history="$shelduck_import_history $shelduck_import_url"
+	shelduck_import_history="$shelduck_import_history [$shelduck_import_url]"
 	
 	# delegate to shelduck_exec
 	shelduck_exec "$shelduck_import_aliases" "$shelduck_import_url" ''
@@ -310,8 +310,8 @@ shelduck_print() {
 	set -- "$shelduck_print_script" "$shelduck_print_url" "$shelduck_print_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
 
 	# check if dependency was already compiled
-	if ! bobshell_contains "$shelduck_print_history" "$2"; then
-		shelduck_print_history="$shelduck_print_history $2"
+	if ! bobshell_contains "$shelduck_print_history" "[$2]"; then
+		shelduck_print_history="$shelduck_print_history [$2]"
 
 		shelduck_update_base_url "$shelduck_print_url"
 
@@ -482,7 +482,7 @@ shelduck_print_addition() {
 # api: private
 shelduck_cached_fetch_url() (
 	# bypass cache if local file
-	if bobshell_remove_prefix "$1" 'file://' shelduck_cached_fetch_url_path; then
+	if bobshell_locator_is_file "$1" shelduck_cached_fetch_url_path; then
 		# shellcheck disable=SC2154
 		# starts_with sets variable file_name indirectly
 		if ! [ -f "$shelduck_cached_fetch_url_path" ]; then
@@ -491,7 +491,7 @@ shelduck_cached_fetch_url() (
 		cat "$shelduck_cached_fetch_url_path" || bobshell_die "shelduck: fetch error '$1': error loading '$shelduck_cached_fetch_url_path'"
 		unset shelduck_cached_fetch_url_path
 		return
-	elif bobshell_locator_is_remote "$1" || ! bobshell_locator_parse "$1"; then
+	elif bobshell_locator_is_remote "$1"; then
 
 		# init bobshell_install_* library
 		: "${SHELDUCK_INSTALL_NAME:=shelduck}"
@@ -504,10 +504,20 @@ shelduck_cached_fetch_url() (
 
 		shelduck_cached_fetch_url_path=
 		if shelduck_cached_fetch_url_path=$(bobshell_install_find_cache "$shelduck_cached_fetch_url_key"); then
-			# todo expiration
-			cat "$shelduck_cached_fetch_url_path"
+			bobshell_file_date --format %s "$shelduck_cached_fetch_url_path"
+			if bobshell_result_check _shelduck_cached_fetch_url__timestamp; then
+				_shelduck_cached_fetch_url__timestamp=$(( _shelduck_cached_fetch_url__timestamp + ${SHELDUCK_CACHE_TIMEOUT:-3600} ))
+				_shelduck_cached_fetch_url__now=$(date '+%s')
+				
+				if [ "$_shelduck_cached_fetch_url__now" -lt "$_shelduck_cached_fetch_url__timestamp" ]; then
+					# todo expiration
+					cat "$shelduck_cached_fetch_url_path"
+					unset shelduck_cached_fetch_url_path _shelduck_cached_fetch_url__timestamp _shelduck_cached_fetch_url__now
+					return
+				fi
+				unset _shelduck_cached_fetch_url__timestamp _shelduck_cached_fetch_url__now
+			fi
 			unset shelduck_cached_fetch_url_path
-			return
 		fi
 		
 		shelduck_cached_fetch_url_result=$(bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'")

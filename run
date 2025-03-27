@@ -60,10 +60,14 @@ run_build_shelduck() {
 go_build_installer() {
 	mkdir -p "$SHELDUCK_BUILD_ROOT"
 	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
-	shelduck resolve "$SHELDUCK_BUILD_BOBSHELL_URL/header.sh" > "$SHELDUCK_BUILD_ROOT/install.sh"
-	printf '\n' >> "$SHELDUCK_BUILD_ROOT/install.sh"
-	
-	shelduck resolve "file://install.sh" >> "$SHELDUCK_BUILD_ROOT/install.sh"
+	{
+		shelduck resolve "$SHELDUCK_BUILD_BOBSHELL_URL/header.sh"
+		printf '\n\n%s\n\n\n' 'shelduck_src=$(cat<<\SHELDUCK_INSTALLER_EOF'
+		cat "$SHELDUCK_BUILD_ROOT/shelduck.sh"
+		printf '%s\n' 'SHELDUCK_INSTALLER_EOF'
+		printf '%s\n\n\n' ')'
+		shelduck resolve "file://install.sh"
+	} > "$SHELDUCK_BUILD_ROOT/install.sh"
 }
 
 run_build_installer() {

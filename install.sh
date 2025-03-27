@@ -13,8 +13,7 @@ install_shelduck() {
 
 	
 	# install
-	: "${SHELDUCK_LIBRARY_URL:=https://raw.githubusercontent.com/legeyda/shelduck/refs/heads/main/shelduck.sh}"
-	bobshell_install_put_data "$SHELDUCK_LIBRARY_URL" shelduck.sh
+	bobshell_install_put_data var:shelduck_src shelduck.sh
 
 
 	: "${SHELDUCK_LIBRARY_PATH:=$SHELDUCK_INSTALL_DATADIR/$SHELDUCK_INSTALL_NAME/shelduck.sh}"

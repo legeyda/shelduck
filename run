@@ -47,6 +47,7 @@ run_build() {
 }
 
 run_build_shelduck() {
+	mkdir -p "$SHELDUCK_BUILD_ROOT"
 	all_imports=$(sed -n "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_URL/\(.*\)$|\1|gp" < shelduck.sh)
 	sed "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_URL/\(.*\)$||g" < shelduck.sh > "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	for dependency in $all_imports misc/awk.sh redirect/input.sh redirect/io.sh redirect/output.sh regex/match.sh result/read.sh result/set.sh; do
@@ -57,6 +58,7 @@ run_build_shelduck() {
 }
 
 go_build_installer() {
+	mkdir -p "$SHELDUCK_BUILD_ROOT"
 	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	shelduck resolve "$SHELDUCK_BUILD_BOBSHELL_URL/header.sh" > "$SHELDUCK_BUILD_ROOT/install.sh"
 	printf '\n' >> "$SHELDUCK_BUILD_ROOT/install.sh"

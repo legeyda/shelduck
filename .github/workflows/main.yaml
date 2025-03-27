@@ -34,6 +34,6 @@ jobs:
         run: |
           set -x
           tag_name="${GITHUB_REF_NAME}"
-          hub release create target/shelduck.sh target/shelduck.sh -m "$tag_name" "$tag_name"
+          hub release create target/shelduck.sh target/install.sh -m "$tag_name" "$tag_name"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_API_KEY }}

@@ -1,0 +1,39 @@
+name: Build
+on: [push]
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build shelduck&installer
+        run: sh ./run build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: build_artifact
+          path: target/*
+
+  publish_release:
+    if: startsWith(github.event.ref, 'refs/tags/v')
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build_artifact
+          path: ./target/
+
+      - run: sudo apt install hub
+      - name: upload all artifacts # https://gist.github.com/superbrothers/af84a2f8af394a62352e06537a640746
+        run: |
+          set -x
+          tag_name="${GITHUB_REF_NAME}"
+          hub release create target/shelduck.sh target/shelduck.sh -m "$tag_name" "$tag_name"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_API_KEY }}

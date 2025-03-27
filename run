@@ -4,14 +4,14 @@ set -eu
 main() {
 	test -n "$1" || run_die 'required argument missing'
 
+	: "${SHELDUCK_BUILD_BOBSHELL_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable}"
+	: "${SHELDUCK_BUILD_ROOT:=./target}"
 	# shellcheck disable=SC2145
 	run_"$@"
 }
 
 run_init() {
-	for file in shelduck.sh install.sh; do
-		jqscript="${jqscript:-}${jqscript:+ | }.[\"files.readonlyInclude\"][\"$file\"]=true"
-	done
+	jqscript='.["files.readonlyInclude"]["target/**"]=true'
 
 	file=.vscode/settings.json
 	if [ ! -e "$file" ] || [ ! -s "$file" ]; then
@@ -47,31 +47,26 @@ run_build() {
 }
 
 run_build_shelduck() {
-	print_generated_file_warning shelduck.sh.in > shelduck.sh
-	cat shelduck.sh.in >> shelduck.sh
-	for dependency in base.sh string.sh url.sh scope.sh install.sh locator/parse.sh locator/is_file.sh locator/is_remote.sh locator/is_stdin.sh locator/is_stdout.sh resource/copy.sh util.sh misc/file_date.sh result/read.sh misc/awk.sh redirect/io.sh redirect/input.sh redirect/output.sh result/set.sh result/read.sh result/check.sh; do
+	all_imports=$(sed -n "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_URL/\(.*\)$|\1|gp" < shelduck.sh)
+	sed "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_URL/\(.*\)$||g" < shelduck.sh > "$SHELDUCK_BUILD_ROOT/shelduck.sh"
+	for dependency in $all_imports misc/awk.sh redirect/input.sh redirect/io.sh redirect/output.sh regex/match.sh result/read.sh result/set.sh; do
 		fetch_dependency "$dependency"
-		printf '%s' "$fetch_dependency_result" >> shelduck.sh
+		printf '%s' "$fetch_dependency_result" >> "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	done
-	unset dependency
+	unset dependency fetch_dependency_result
 }
 
 go_build_installer() {
-	. ./shelduck.sh
-	shelduck resolve https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/header.sh > install.sh
-	printf '\n' >> install.sh
-	print_generated_file_warning install.sh.in >> install.sh
-	shelduck resolve file://install.sh.in >> install.sh
+	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
+	shelduck resolve "$SHELDUCK_BUILD_BOBSHELL_URL/header.sh" > "$SHELDUCK_BUILD_ROOT/install.sh"
+	printf '\n' >> "$SHELDUCK_BUILD_ROOT/install.sh"
+	
+	shelduck resolve "file://install.sh" >> "$SHELDUCK_BUILD_ROOT/install.sh"
 }
 
 run_build_installer() {
 	run_build_shelduck
 	go_build_installer
-}
-
-print_generated_file_warning() {
-	printf '# THIS FILE IS GENERATED AUTOMATICALLY, DO NOT EDIT IT MANUALLY.\n'
-	printf "# Instead, edit %s and run %s to regenerate it\n\n" "${1:-file}" "${2:-sh ./run build}"
 }
 
 fetch_dependency() {
@@ -85,7 +80,6 @@ fetch_dependency() {
 }
 
 fetch_url() {
-	: "${SHELDUCK_BUILD_BOBSHELL_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable}"
 	fetch_url_result="$(curl --fail --silent --show-error --location "$SHELDUCK_BUILD_BOBSHELL_URL/$1")"
 }
 
@@ -101,26 +95,26 @@ run_test() {
 }
 
 go_test_shelduck() {
-	. ./shelduck.sh
+	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	eval_dependency assert.sh
 	
 	shelduck import -a test_echo file://./example/smoketest.sh
 	assert_equals 'ahoi (starts with a)' "$(test_echo ahoi)"
 	echo 'all tests passed'
 
-	test 'hello from baz 1 2 3' = "$(sh -euxc '. ./shelduck.sh
+	test 'hello from baz 1 2 3' = "$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
 shelduck import ./test/test.sh
-fun 1 2 3')"
+fun 1 2 3")"
 
-	sh -euxc '. ./shelduck.sh
-shelduck resolve ./test/test.sh' > target/test.sh
-	test 'hello from baz 1 2 3' = "$(sh -euxc '. ./target/test.sh; fun 1 2 3')"
+	sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
+shelduck resolve ./test/test.sh" > target/test.sh
+	test 'hello from baz 1 2 3' = "$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/test.sh'; fun 1 2 3")"
 
 	echo 'shelduck tests passed'
 }
 
 go_test_installer() {
-	SHELDUCK_INSTALL_ROOT=./target/test-installer sh ./install.sh 
+	SHELDUCK_INSTALL_ROOT="$SHELDUCK_BUILD_ROOT/test-installer" sh "$SHELDUCK_BUILD_ROOT/install.sh"
 }
 
 run_test_shelduck() {
@@ -141,7 +135,7 @@ eval_dependency() {
 
 run_install() {
 	run_build
-	SHELDUCK_LIBRARY_URL=file://$(realpath "$(pwd)/shelduck.sh") sh ./install.sh
+	SHELDUCK_LIBRARY_URL=file://$(realpath "$SHELDUCK_BUILD_ROOT/shelduck.sh") sh "$SHELDUCK_BUILD_ROOT/install.sh"
 }
 
 main "$@"

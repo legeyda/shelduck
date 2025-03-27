@@ -70,7 +70,7 @@ Load shelduck library.
 
 Option 1. Without installing anything.
 
-	shelduck_lib_src=$(curl -fsS https://raw.githubusercontent.com/legeyda/shelduck/refs/heads/main/install.sh)
+	shelduck_lib_src=$(curl -fsSL https://github.com/legeyda/shelduck/releases/latest/download/shelduck.sh)
 	eval "$shelduck_lib_src"
 
 Option 2. If shelduck is already [installed](#installation), source it.
@@ -84,7 +84,7 @@ Now every "shelduck import" command will be resolved at runtime.
 
 Option 1:
 
-	curl -fsS https://raw.githubusercontent.com/legeyda/shelduck/refs/heads/main/install.sh | sh
+	curl -fsSL https://github.com/legeyda/shelduck/releases/latest/download/install.sh | sh
 
 Option 2:
 

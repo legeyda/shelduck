@@ -1,4 +1,6 @@
 # https://github.com/actions/create-release?tab=readme-ov-file#example-workflow---create-a-release
+# https://trstringer.com/github-actions-create-release-upload-artifacts/
+
 
 on:
   [push]
@@ -27,6 +29,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build_artifact
+          path: ./target/        
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -37,3 +44,22 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
+          artifacts: build_artifact
+      - name: upload shelduck.sh
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/shelduck.sh
+          asset_name: shelduck.sh
+          asset_content_type: text/plain
+      - name: upload install.sh
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/install.sh
+          asset_name: install.sh
+          asset_content_type: text/plain

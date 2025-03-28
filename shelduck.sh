@@ -184,14 +184,6 @@ shelduck_apply_rules() {
 
 
 
-# fun: shelduck_eval_with_args SCRIPT [ARGS...]
-shelduck_eval_with_args() {
-	shelduck_eval_with_args_script="$1"
-	shift
-	eval "$shelduck_eval_with_args_script" # todo check if it is message add arguments
-}
-
-
 # shelduck_run and shelduck_import are very similar, but:
 # - import requires url, since it checks for duplicates, whereas run does not requies url
 # - import checks for duplicate urls, run not

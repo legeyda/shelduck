@@ -1,5 +1,3 @@
-# https://github.com/actions/create-release?tab=readme-ov-file#example-workflow---create-a-release
-# https://trstringer.com/github-actions-create-release-upload-artifacts/
 
 
 on:
@@ -7,59 +5,16 @@ on:
 
 jobs:
   build:
-    name: Build and Test
+    name: Build and Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: build shelduck&installer
+      - name: build
         run: sh ./run ci_build
-      - uses: actions/upload-artifact@v4
+      - name: Release
+        uses: softprops/action-gh-release@v2 # https://github.com/softprops/action-gh-release
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: build_artifact
-          path: target/*
-
-  release:
-    name: Publish Release
-    permissions:
-      contents: write
-    if: startsWith(github.event.ref, 'refs/tags/v')
-    needs:
-      - build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: build_artifact
-          path: ./target/        
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-          artifacts: build_artifact
-      - name: upload shelduck.sh
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/shelduck.sh
-          asset_name: shelduck.sh
-          asset_content_type: text/plain
-      - name: upload install.sh
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/install.sh
-          asset_name: install.sh
-          asset_content_type: text/plain
+          files: |
+            ./target/shelduck.sh
+            ./target/install.sh

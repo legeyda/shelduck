@@ -37,8 +37,7 @@ run_usage() {
 }
 
 run_clean() {
-	rm -rf target
-	rm -f shelduck.sh install.sh
+	rm -rf "${SHELDUCK_BUILD_ROOT:?}"/*
 }
 
 run_build() {
@@ -147,6 +146,32 @@ eval_dependency() {
 run_install() {
 	run_build
 	SHELDUCK_LIBRARY_URL=file://$(realpath "$SHELDUCK_BUILD_ROOT/shelduck.sh") sh "$SHELDUCK_BUILD_ROOT/install.sh"
+}
+
+run_ci_build() {
+	run_clean
+	run_build_shelduck
+	go_test_shelduck
+	go_build_installer
+	go_test_installer
+}
+
+run_ci_release() {
+	run_ci_build
+	if ! _shelduck_tag=$(git describe --exact-match); then
+		echo "no tag, skip publish release"
+		exit 1
+	fi
+	if [ -n "${SHELDUCK_GITHUB_TOKEN:-}" ]; then
+		GITHUB_TOKEN="$SHELDUCK_GITHUB_TOKEN"	
+	fi
+	if [ -z "${GITHUB_TOKEN:-}" ]; then
+		echo "no github token, skip publish release"
+		exit 1
+	fi
+
+	export GITHUB_TOKEN
+	hub release create --attach "$SHELDUCK_BUILD_ROOT/shelduck.sh" --attach "$SHELDUCK_BUILD_ROOT/install.sh" --message "Release $_shelduck_tag" "$_shelduck_tag"
 }
 
 main "$@"

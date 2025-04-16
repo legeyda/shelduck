@@ -42,7 +42,7 @@ eof
 
 	#
 	if command_available shelduck; then
-		log 'shelduck_resolve was successfully installed to %s, which seems to be already in the PATH' "$SHELDUCK_INSTALL_BINDIR"
+		log 'shelduck was successfully installed to %s, which seems to be already in the PATH' "$SHELDUCK_INSTALL_BINDIR"
 		return
 	fi
 

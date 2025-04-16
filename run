@@ -45,13 +45,15 @@ run_build() {
 	go_build_installer
 }
 
-additional_imports='misc/awk.sh redirect/input.sh redirect/io.sh redirect/output.sh regex/match.sh result/read.sh result/set.sh'
+
+transitive_imports_before=''
+transitive_imports_after='str/replace.sh str/quote.sh append/val_to_var.sh code/defun.sh misc/defun.sh event/compile.sh event/fire.sh event/listen.sh misc/awk.sh redirect/input.sh redirect/io.sh redirect/output.sh regex/match.sh result/read.sh result/set.sh'
 
 run_build_shelduck() {
 	mkdir -p "$SHELDUCK_BUILD_ROOT"
 	all_imports=$(sed -n "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_URL/\(.*\)$|\1|gp" < shelduck.sh)
 	{
-		for dependency in $all_imports $additional_imports; do
+		for dependency in $transitive_imports_before $all_imports $transitive_imports_after; do
 			fetch_dependency "$dependency"
 			printf '\n%s\n\n' "$fetch_dependency_result"
 		done

@@ -35,9 +35,7 @@ eof
 
 	bobshell_install_put_executable stdin: "${SHELDUCK_INSTALL_NAME}_run" <<eof
 #!/bin/sh
-set -eu
-. '$SHELDUCK_LIBRARY_PATH'
-shelduck_run "\$@"
+${SHELDUCK_RUN_SHELL:-sh} -euc '. '"'"'$SHELDUCK_LIBRARY_PATH'"'"'; shelduck_run "\$0" "\$@"' "\$@"
 eof
 
 	#

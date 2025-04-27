@@ -517,7 +517,7 @@ shelduck_cached_fetch_url() (
 		if shelduck_cached_fetch_url_path=$(bobshell_install_find_cache "$shelduck_cached_fetch_url_key"); then
 			bobshell_file_date --format %s "$shelduck_cached_fetch_url_path"
 			if bobshell_result_check _shelduck_cached_fetch_url__timestamp; then
-				_shelduck_cached_fetch_url__timestamp=$(( _shelduck_cached_fetch_url__timestamp + ${SHELDUCK_CACHE_TIMEOUT:-3600} ))
+				_shelduck_cached_fetch_url__timestamp=$(( _shelduck_cached_fetch_url__timestamp + ${SHELDUCK_CACHE_TIMEOUT:-86400} ))
 				_shelduck_cached_fetch_url__now=$(date '+%s')
 				
 				if [ "$_shelduck_cached_fetch_url__now" -lt "$_shelduck_cached_fetch_url__timestamp" ]; then

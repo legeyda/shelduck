@@ -47,7 +47,19 @@ run_build() {
 
 
 transitive_imports_before=''
-transitive_imports_after='str/replace.sh str/quote.sh append/val_to_var.sh code/defun.sh misc/defun.sh event/compile.sh event/fire.sh event/listen.sh misc/awk.sh redirect/input.sh redirect/io.sh redirect/output.sh regex/match.sh result/read.sh result/set.sh notrace.sh'
+transitive_imports_after='str/replace.sh str/quote.sh 
+append/val_to_var.sh 
+code/defun.sh misc/defun.sh 
+var/get.sh var/set.sh
+event/compile.sh event/fire.sh event/listen.sh
+misc/awk.sh 
+redirect/input.sh redirect/io.sh redirect/output.sh 
+regex/match.sh 
+result/read.sh result/set.sh result/unset.sh 
+notrace.sh 
+cli/default.sh cli/flag.sh cli/param.sh cli/parse.sh
+map/get.sh map/put.sh 
+cache/get.sh'
 
 run_build_shelduck() {
 	mkdir -p "$SHELDUCK_BUILD_ROOT"
@@ -73,6 +85,7 @@ go_build_installer() {
 		printf '%s\n' 'SHELDUCK_INSTALLER_EOF'
 		printf '%s\n\n\n' ')'
 		shelduck resolve "file://install.sh"
+		printf '%s\n\n'
 	} > "$SHELDUCK_BUILD_ROOT/install.sh"
 }
 

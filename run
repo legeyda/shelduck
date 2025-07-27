@@ -192,20 +192,24 @@ run_ci_release() {
 run_version() {
 	_run_docker_build__status=$(git status --porcelain)
 	if [ "$_run_docker_build__status" ]; then
-		printf %s dirty-development
+		_run_docker_build__version=dirty
 	elif ! _run_docker_build__version=$(git describe --exact-match); then
 		_run_docker_build__version=$(git branch --show-current)
 		_run_docker_build__version=$(printf %s "$_run_docker_build__version" | tr / -)
 		_run_docker_build__version="$_run_docker_build__version-SNAPSHOT"
 		_run_docker_build__version=$(printf %s "$_run_docker_build__version" | tr '[:upper:]' '[:lower:]')
-		printf %s "$_run_docker_build__version"
 	fi
-	unset _run_docker_build__status _run_docker_build__version
+	unset _run_docker_build__status 
+	printf %s "$_run_docker_build__version"
+	unset _run_docker_build__version
 }
 
 run_docker_build() {
 	_run_docker_build__version=$(run_version)
 	docker build --tag="legeyda/shelduck:$_run_docker_build__version" --progress=plain .
+	if [ dirty != "$_run_docker_build__version" ]; then
+		docker tag "legeyda/shelduck:$_run_docker_build__version" legeyda/shelduck:latest
+	fi
 	unset _run_docker_build__version
 }
 
@@ -217,7 +221,7 @@ run_docker_push() {
 			exit 1
 	esac
 	run_docker_build 
-	docker image push "legeyda/shelduck:$_run_docker_push__version"
+	docker image push "legeyda/shelduck:$_run_docker_push__version" legeyda/shelduck:latest
 }
 
 main "$@"

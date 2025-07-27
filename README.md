@@ -103,3 +103,11 @@ The only recommendation is to prefix all functions with unique prefix to avoid c
 
 For example of a library of reusable code see https://github.com/legeyda/bobshell/tree/unstable.
 
+
+## Making a release
+
+	git tag --annotated v0.1.0-alphaN
+	git push --tags
+	
+	docker login
+	./run docker_push

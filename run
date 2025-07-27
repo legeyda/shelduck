@@ -189,4 +189,35 @@ run_ci_release() {
 	hub release create --attach "$SHELDUCK_BUILD_ROOT/shelduck.sh" --attach "$SHELDUCK_BUILD_ROOT/install.sh" --message "Release $_shelduck_tag" "$_shelduck_tag"
 }
 
+run_version() {
+	_run_docker_build__status=$(git status --porcelain)
+	if [ "$_run_docker_build__status" ]; then
+		printf %s dirty-development
+	elif ! _run_docker_build__version=$(git describe --exact-match); then
+		_run_docker_build__version=$(git branch --show-current)
+		_run_docker_build__version=$(printf %s "$_run_docker_build__version" | tr / -)
+		_run_docker_build__version="$_run_docker_build__version-SNAPSHOT"
+		_run_docker_build__version=$(printf %s "$_run_docker_build__version" | tr '[:upper:]' '[:lower:]')
+		printf %s "$_run_docker_build__version"
+	fi
+	unset _run_docker_build__status _run_docker_build__version
+}
+
+run_docker_build() {
+	_run_docker_build__version=$(run_version)
+	docker build --tag="legeyda/shelduck:$_run_docker_build__version" --progress=plain .
+	unset _run_docker_build__version
+}
+
+run_docker_push() {
+	_run_docker_push__version=$(run_version)
+	case "$_run_docker_push__version" in
+		(*dirty*) 
+			echo "dirty version, skip push" >&2
+			exit 1
+	esac
+	run_docker_build 
+	docker image push "legeyda/shelduck:$_run_docker_push__version"
+}
+
 main "$@"

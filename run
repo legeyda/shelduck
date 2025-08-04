@@ -50,14 +50,14 @@ transitive_imports_before=''
 transitive_imports_after='str/replace.sh str/quote.sh 
 append/val_to_var.sh 
 code/defun.sh misc/defun.sh 
-var/get.sh var/set.sh
+var/get.sh var/set.sh var/default.sh var/append.sh
 event/compile.sh event/fire.sh event/listen.sh
-misc/awk.sh 
+misc/awk.sh  misc/equals_any.sh
 redirect/input.sh redirect/io.sh redirect/output.sh 
 regex/match.sh 
 result/read.sh result/set.sh result/unset.sh 
 notrace.sh 
-cli/default.sh cli/flag.sh cli/param.sh cli/parse.sh
+cli/setup.sh cli/parse.sh cli/help.sh
 map/get.sh map/put.sh 
 cache/get.sh'
 

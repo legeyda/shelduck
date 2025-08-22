@@ -8,7 +8,7 @@ eval "$shelduck_src"
 
 # declare dependencies
 shelduck import -a die \
-	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh
+	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/base.sh
 
 # use dependencies
 die 'shelduck works!'

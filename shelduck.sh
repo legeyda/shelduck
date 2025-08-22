@@ -1,20 +1,20 @@
 
 
 
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/install.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/is_file.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/is_remote.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/is_stdin.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/is_stdout.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/locator/parse.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/misc/file_date.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/resource/copy.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/result/check.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/scope.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/string.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/url.sh
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/util.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/base.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/install.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/is_file.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/is_remote.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/is_stdin.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/is_stdout.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/parse.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/misc/file_date.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/resource/copy.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/check.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/scope.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/string.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/url.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/util.sh
 
 
 

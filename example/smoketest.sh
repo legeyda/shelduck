@@ -3,10 +3,10 @@ set -eu
 # script used quick testing
 
 shelduck import -a die \
-	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh
+	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/base.sh
 
 shelduck import -a starts_with \
-	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/string.sh
+	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/string.sh
 
 
 shelduck_test_echo() {

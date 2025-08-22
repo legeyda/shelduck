@@ -26,7 +26,7 @@ The core of Shelduck is the `import` command. You add it to your script to decla
 # In your script.sh
 
 # Import functions from another script
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/string.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/string.sh
 
 # Now you can use functions from the imported script, like bobshell_contains
 bobshell_contains "hello world" "world" && echo "✅ It contains world"
@@ -36,7 +36,7 @@ You can also create an alias for imported functions for better readability. Shel
 
 ```sh
 # This creates an alias "contains" for a function ending in "contains"
-shelduck import --alias contains https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/string.sh
+shelduck import --alias contains https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/string.sh
 
 # Use the aliased function
 contains "hello world" "world" && echo "✅ It contains world"
@@ -45,7 +45,7 @@ contains "hello world" "world" && echo "✅ It contains world"
 For more explicit aliasing, use the `new_name=old_function_suffix` syntax:
 ```sh
 # Explicitly alias bobshell_contains to check_substring
-shelduck import --alias check_substring=bobshell_contains https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/string.sh
+shelduck import --alias check_substring=bobshell_contains https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/string.sh
 
 # Use the new, explicit alias
 check_substring "hello world" "world" && echo "Substring found!"
@@ -93,7 +93,7 @@ shelduck_lib_src=$(curl -fsSL https://github.com/legeyda/shelduck/releases/lates
 eval "$shelduck_lib_src"
 
 # Now, 'shelduck import' commands will work
-shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/base.sh
 die "This works!"
 ```
 

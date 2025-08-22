@@ -62,13 +62,13 @@ eof
 
 
 shelduck import -a die   -a command_available   -a log   \
-	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/base.sh
+	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/base.sh
 shelduck import -a fetch_url   \
-	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/url.sh
+	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/url.sh
 shelduck import \
-	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/install.sh
+	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/install.sh
 shelduck import \
-	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable/scope.sh
+	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/scope.sh
 
 
 

@@ -4,7 +4,7 @@ set -eu
 main() {
 	test -n "$1" || run_die 'required argument missing'
 
-	: "${SHELDUCK_BUILD_BOBSHELL_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/unstable}"
+	: "${SHELDUCK_BUILD_BOBSHELL_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main}"
 	: "${SHELDUCK_BUILD_ROOT:=./target}"
 	# shellcheck disable=SC2145
 	run_"$@"

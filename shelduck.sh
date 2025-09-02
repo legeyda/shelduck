@@ -426,7 +426,7 @@ shelduck_print_origin() {
 	bobshell_result_set false
 	bobshell_event_fire shelduck_fetch_url_event "$1"
 	if bobshell_result_check; then
-		printf %s "$bobshell_result_2"
+		bobshell_result_set "$bobshell_result_2"
 		return
 	fi
 	shelduck_cached_fetch_url "$1"

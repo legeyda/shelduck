@@ -11,7 +11,7 @@ install_shelduck() {
 
 
 
-	
+
 	# install
 	bobshell_install_put_data var:shelduck_src shelduck.sh
 
@@ -46,17 +46,17 @@ eof
 
 	log "adding $SHELDUCK_INSTALL_BINDIR to path"
 
-
+	# todo fix this
 	mkdir -p $(dirname "$SHELDUCK_INSTALL_DESTDIR$BOBSHELL_INSTALL_PROFILE")
 	_install_shelduck__line=$(printf 'PATH="%s:$PATH"' "$SHELDUCK_INSTALL_BINDIR")
 	if grep -q -- "$_install_shelduck__line"; then
-		bobshell_die "something wrong: $SHELDUCK_INSTALL_BINDIR already in the PATH, but shelduck is not available" 
+		bobshell_die "something wrong: $SHELDUCK_INSTALL_BINDIR already in the PATH, but shelduck is not available"
 		true
 	else
 		printf '\n%s\n\n' "$_install_shelduck__line" >> "$SHELDUCK_INSTALL_DESTDIR$BOBSHELL_INSTALL_PROFILE"
 	fi
 	unset _install_shelduck__line
-	
+
 
 }
 
@@ -69,6 +69,8 @@ shelduck import \
 	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/install.sh
 shelduck import \
 	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/scope.sh
+shelduck import \
+	https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/misc/log.sh
 
 
 

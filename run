@@ -4,7 +4,7 @@ set -eu
 main() {
 	test -n "$1" || run_die 'required argument missing'
 
-	: "${SHELDUCK_BUILD_BOBSHELL_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main}"
+	: "${SHELDUCK_BUILD_BOBSHELL_IMPORT_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main}"
 	: "${SHELDUCK_BUILD_ROOT:=./target}"
 	# shellcheck disable=SC2145
 	run_"$@"
@@ -46,32 +46,39 @@ run_build() {
 }
 
 
-transitive_imports_before=''
-transitive_imports_after='str/replace.sh str/quote.sh 
-append/val_to_var.sh 
-code/defun.sh misc/defun.sh 
+transitive_imports_before='base.sh
+result/read.sh result/set.sh result/unset.sh
+event/compile.sh event/fire.sh event/listen.sh'
+
+
+transitive_imports_after='str/replace.sh str/quote.sh
+append/val_to_var.sh
+code/defun.sh misc/defun.sh
 var/get.sh var/set.sh var/default.sh var/append.sh
-event/compile.sh event/fire.sh event/listen.sh
 misc/awk.sh  misc/equals_any.sh
-redirect/input.sh redirect/io.sh redirect/output.sh 
-regex/match.sh 
-result/read.sh result/set.sh result/unset.sh 
-notrace.sh 
+redirect/input.sh redirect/io.sh redirect/output.sh
+regex/match.sh
+notrace.sh
 cli/setup.sh cli/parse.sh cli/help.sh
-map/get.sh map/put.sh 
+map/get.sh map/put.sh
 cache/get.sh'
 
 run_build_shelduck() {
 	mkdir -p "$SHELDUCK_BUILD_ROOT"
-	all_imports=$(sed -n "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_URL/\(.*\)$|\1|gp" < shelduck.sh)
+	direct_imports=$(sed -n "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_IMPORT_URL/\(.*\)$|\1|gp" < shelduck.sh)
+	_run_build_shelduck__imports=:
 	{
-		for dependency in $transitive_imports_before $all_imports $transitive_imports_after; do
+		for dependency in $transitive_imports_before $direct_imports $transitive_imports_after; do
+		    case "$_run_build_shelduck__imports" in
+				(*"$dependency"*) continue ;;
+			esac
+			_run_build_shelduck__imports="${_run_build_shelduck__imports}$dependency:"
 			fetch_dependency "$dependency"
 			printf '\n%s\n\n' "$fetch_dependency_result"
 		done
-		sed "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_URL/\(.*\)$||g" < shelduck.sh
+		sed "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_IMPORT_URL/\(.*\)$||g" < shelduck.sh
 	} > "$SHELDUCK_BUILD_ROOT/shelduck.sh"
-	
+
 	unset dependency fetch_dependency_result
 }
 
@@ -79,7 +86,7 @@ go_build_installer() {
 	mkdir -p "$SHELDUCK_BUILD_ROOT"
 	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	{
-		shelduck resolve "$SHELDUCK_BUILD_BOBSHELL_URL/header.sh"
+		shelduck resolve "$SHELDUCK_BUILD_BOBSHELL_IMPORT_URL/header.sh"
 		printf '\n\n%s\n\n\n' 'shelduck_src=$(cat<<\SHELDUCK_INSTALLER_EOF'
 		cat "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 		printf '%s\n' 'SHELDUCK_INSTALLER_EOF'
@@ -105,7 +112,7 @@ fetch_dependency() {
 }
 
 fetch_url() {
-	fetch_url_result="$(curl --fail --silent --show-error --location "$SHELDUCK_BUILD_BOBSHELL_URL/$1")"
+    fetch_url_result="$(curl --fail --silent --show-error --location "${SHELDUCK_BUILD_BOBSHELL_FETCH_URL:-$SHELDUCK_BUILD_BOBSHELL_IMPORT_URL}/$1")"
 }
 
 
@@ -122,7 +129,9 @@ run_test() {
 go_test_shelduck() {
 	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	eval_dependency assert.sh
-	
+
+    go_test_via_bobshell
+
 	shelduck import -a test_echo file://./example/smoketest.sh
 	assert_equals 'ahoi (starts with a)' "$(test_echo ahoi)"
 	echo 'all tests passed'
@@ -136,6 +145,16 @@ shelduck resolve ./test/test.sh" > target/test.sh
 	test 'hello from baz 1 2 3' = "$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/test.sh'; fun 1 2 3")"
 
 	echo 'shelduck tests passed'
+}
+
+go_test_via_bobshell() {
+    x=$(shelduck resolve ./test/test_via_bobshell.sh)
+    x=$(sh -c "$x")
+    y=$(cat<<\EOF
+1 str '1 2' ''"'"'' '"'
+EOF
+)
+    assert_equals "$y" "$x"
 }
 
 go_test_installer() {
@@ -178,7 +197,7 @@ run_ci_release() {
 		exit 1
 	fi
 	if [ -n "${SHELDUCK_GITHUB_TOKEN:-}" ]; then
-		GITHUB_TOKEN="$SHELDUCK_GITHUB_TOKEN"	
+		GITHUB_TOKEN="$SHELDUCK_GITHUB_TOKEN"
 	fi
 	if [ -z "${GITHUB_TOKEN:-}" ]; then
 		echo "no github token, skip publish release"
@@ -199,7 +218,7 @@ run_version() {
 		_run_docker_build__version="$_run_docker_build__version-SNAPSHOT"
 		_run_docker_build__version=$(printf %s "$_run_docker_build__version" | tr '[:upper:]' '[:lower:]')
 	fi
-	unset _run_docker_build__status 
+	unset _run_docker_build__status
 	printf %s "$_run_docker_build__version"
 	unset _run_docker_build__version
 }
@@ -216,11 +235,11 @@ run_docker_build() {
 run_docker_push() {
 	_run_docker_push__version=$(run_version)
 	case "$_run_docker_push__version" in
-		(*dirty*) 
+		(*dirty*)
 			echo "dirty version, skip push" >&2
 			exit 1
 	esac
-	run_docker_build 
+	run_docker_build
 	docker image push "legeyda/shelduck:$_run_docker_push__version" legeyda/shelduck:latest
 }
 

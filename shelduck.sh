@@ -2,6 +2,7 @@
 
 
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/base.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/misc/log.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/install.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/is_file.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/is_remote.sh
@@ -35,8 +36,16 @@ shelduck() {
 				"shelduck_$_shelduck__subcommand" "$@"
 				unset _shelduck__subcommand
 				;;
+		(include)
+		    shift
+		    shelduck_include "$@"
+			;;
 		(*) printf 'unknown subcommand %s, see shelduck usage' "$1"
 	esac
+}
+
+shelduck_include() {
+    bobshell_die 'command not implemented: include'
 }
 
 # api: private
@@ -66,7 +75,7 @@ shelduck_run() {
 
 	# save vars before recursive_call
 	set -- "$shelduck_run_args" # save latest run args, since recursive imports use it # todo needed?
-	
+
 	# delegate to shelduck_exec
 	shelduck_exec '' "$shelduck_run_url" "$shelduck_run_args"
 	unset shelduck_run_url shelduck_run_args
@@ -128,11 +137,11 @@ shelduck_parse_import_cli() {
 		bobshell_die "url expected to be nonempty"
 	fi
 	shelduck_import_url="$1"
-	
+
 	if bobshell_isset_2 "$@"; then
 		bobshell_die "unexpected argument \"$2\""
 	fi
-	
+
 }
 
 
@@ -145,12 +154,12 @@ shelduck_import_cli_alias() {
 
 shelduck_import_usage() {
 	printf %s 'Import library.
-	
+
 Usage: shelduck import [OPTIONS] URL
 
 Options:
 
-   -a, --alias ALIAS    Defina alias for functions      
+   -a, --alias ALIAS    Defina alias for functions
 '
 }
 
@@ -168,7 +177,7 @@ shelduck_apply_rules() {
 			shelduck_apply_rules_rule="$shelduck_apply_rules_rules"
 			shelduck_apply_rules_rules=
 		fi
-		
+
 		shelduck_apply_rules_key=
 		shelduck_apply_rules_value=
 		bobshell_split_first "$shelduck_apply_rules_rule" = shelduck_apply_rules_key shelduck_apply_rules_value
@@ -210,7 +219,7 @@ shelduck_import() {
 		return
 	fi
 	shelduck_import_history="$shelduck_import_history [$shelduck_import_url]"
-	
+
 	# delegate to shelduck_exec
 	shelduck_exec "$shelduck_import_aliases" "$shelduck_import_url" ''
 	unset shelduck_import_aliases shelduck_import_url shelduck_analyze_cli_args
@@ -238,7 +247,7 @@ shelduck_exec() {
 		if [ -n "$4" ]; then
 			eval "set -- \"\$@\" $4"
 		fi
-		
+
 		# recursive call
 		shelduck_update_base_url "$3"
 		shelduck_shift_exec 4 "$@"
@@ -247,7 +256,7 @@ shelduck_exec() {
 		shelduck_base_url="$1"
 		shift
 	fi
-	
+
 }
 
 # fun: shelduck_event_url URL TEXT
@@ -291,7 +300,7 @@ shelduck_resolve() {
 	# set starting parameters
 	shelduck_print_history=
 	shelduck_alias_strategy="${SHELDUCK_ALIAS_STRATEGY:-wrap}"
-	
+
 	# delegate
 	shelduck_print "$@"
 }
@@ -319,7 +328,7 @@ shelduck_print() {
 	shelduck_print_origin "$shelduck_print_url"
 	bobshell_result_read shelduck_print_script
 	shelduck_event_url "$shelduck_print_url" "$shelduck_print_script"
-	
+
 	# save variables to local array before subsequent (possibly recursive) calls
 	set -- "$shelduck_print_script" "$shelduck_print_url" "$shelduck_print_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
 
@@ -373,7 +382,7 @@ shelduck_compile() {
 			shelduck_compile_input="$shelduck_compile_after$bobshell_newline"
 		fi
 
-		
+
 
 		shelduck_compile_command=
 		while true; do
@@ -388,11 +397,11 @@ shelduck_compile() {
 				shelduck_compile_input="$bobshell_newline$shelduck_compile_after"
 				break;
 			fi
-			
+
 			shelduck_compile_command="$shelduck_compile_command${shelduck_compile_before}"
 			shelduck_compile_input="$shelduck_compile_after"
 		done
-		
+
 		# assert shelduck argument command line not empty
 		if [ -z "$shelduck_compile_command" ]; then
 			bobshell_die 'empty shelduck arguments'
@@ -409,7 +418,7 @@ shelduck_compile() {
 		shelduck_compile_input="$1"
 		shift
 	done
-				
+
 
 	# print everything after last found shelduck command
 	shelduck_rewrite "$shelduck_compile_input" "$@"
@@ -468,7 +477,7 @@ shelduck_print_addition() {
 	shelduck_print_addition_function_names="$(printf %s "$1" | sed --silent --regexp-extended "s/$regex/\1/p")"
 	unset regex
 	# todo detect function name collizion and print warning if so
-	
+
 
 	# analyze aliases
 	for arg in $3; do
@@ -479,11 +488,11 @@ shelduck_print_addition() {
 		fi
 		bobshell_require_not_empty "$key"   line "$arg": key   expected not to be empty
 		bobshell_require_not_empty "$value" line "$arg": value expected not to be empty
-		
+
 		shelduck_print_script_function_name="$(printf %s "$shelduck_print_addition_function_names" | grep -E "^.*$value\$" || true)"
 		if [ -n "$shelduck_print_script_function_name" ] && [ "$key" != "$shelduck_print_script_function_name" ]; then
 			printf '\n\n'
-			printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$2" 
+			printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$2"
 			printf '\n%s() {' "$key"
 			printf '\n	%s "$@"' "$shelduck_print_script_function_name"
 			printf '\n}'
@@ -540,7 +549,7 @@ shelduck_cached_fetch_remote() {
 		if bobshell_result_check _shelduck_cached_fetch_url__timestamp; then
 			_shelduck_cached_fetch_url__timestamp=$(( _shelduck_cached_fetch_url__timestamp + ${SHELDUCK_CACHE_TIMEOUT:-86400} ))
 			_shelduck_cached_fetch_url__now=$(date '+%s')
-			
+
 			if [ "$_shelduck_cached_fetch_url__now" -lt "$_shelduck_cached_fetch_url__timestamp" ]; then
 				bobshell_resource_copy_file_to_var "$shelduck_cached_fetch_url_path" _shelduck_cached_fetch_remote__data
 				bobshell_result_set "$_shelduck_cached_fetch_remote__data"
@@ -551,11 +560,9 @@ shelduck_cached_fetch_remote() {
 		fi
 		unset shelduck_cached_fetch_url_path
 	fi
-	
+
 	shelduck_cached_fetch_url_result=$(bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'")
 
 	bobshell_install_put_cache var:shelduck_cached_fetch_url_result "$shelduck_cached_fetch_url_key"
 	bobshell_result_set "$shelduck_cached_fetch_url_result"
 }
-
-

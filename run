@@ -48,16 +48,18 @@ run_build() {
 
 transitive_imports_before='base.sh
 result/read.sh result/set.sh result/unset.sh
-event/compile.sh event/fire.sh event/listen.sh'
+event/compile.sh event/fire.sh event/listen.sh
+misc/defun.sh  code/defun.sh'
 
 
 transitive_imports_after='str/replace.sh str/quote.sh
 append/val_to_var.sh
-code/defun.sh misc/defun.sh
-var/get.sh var/set.sh var/default.sh var/append.sh
+misc/defun.sh
+var/get.sh var/set.sh var/default.sh var/append.sh var/print.sh
 misc/awk.sh  misc/equals_any.sh
 redirect/input.sh redirect/io.sh redirect/output.sh
 regex/match.sh
+result/assert.sh
 notrace.sh
 cli/setup.sh cli/parse.sh cli/help.sh
 map/get.sh map/put.sh

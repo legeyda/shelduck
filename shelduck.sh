@@ -30,22 +30,18 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck() {
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
-		(usage|import|resolve|run)
+		(usage|import|resolve|run|include)
 				_shelduck__subcommand="$1"
 				shift
 				"shelduck_$_shelduck__subcommand" "$@"
 				unset _shelduck__subcommand
 				;;
-		(include)
-		    shift
-		    shelduck_include "$@"
-			;;
 		(*) printf 'unknown subcommand %s, see shelduck usage' "$1"
 	esac
 }
 
 shelduck_include() {
-    bobshell_die 'command not implemented: include'
+	bobshell_die 'command not implemented: include'
 }
 
 # api: private
@@ -92,7 +88,13 @@ shelduck_fix_url() {
 	fi
 
 	shelduck_ensure_base_url
-	if bobshell_locator_is_remote "$1" || bobshell_locator_is_file "$1" || ! bobshell_locator_parse "$1"; then
+
+	if bobshell_starts_with "$1" path://; then
+		shelduck_path_search "$1"
+		bobshell_result_assert _shelduck_fix_url__result -- cannot find resource by url "$1"
+		printf %s "$_shelduck_fix_url__result"
+		unset _shelduck_fix_url__result
+	elif bobshell_locator_is_remote "$1" || bobshell_locator_is_file "$1" || ! bobshell_locator_parse "$1"; then
 		shelduck_fix_url=$(bobshell_resolve_url "$1" "$shelduck_base_url")
 		if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
 			shelduck_fix_url=$(shelduck_apply_rules "$shelduck_fix_url" "$SHELDUCK_URL_RULES")
@@ -102,6 +104,34 @@ shelduck_fix_url() {
 	else
 		printf %s "$1"
 	fi
+}
+
+# fun: shelduck_path_search URL
+shelduck_path_search() {
+	if bobshell_isset SHELDUCK_PATH; then
+		_shelduck_path_search__path="$SHELDUCK_PATH"
+	else
+		_shelduck_path_search__path="${XDG_DATA_HOME:-$HOME/.local/share}/shelduck/lib}"
+	fi
+
+	if ! [ "$_shelduck_path_search__path" ]; then
+		unset _shelduck_path_search__path
+		bobshell_result_set false "file $1 not found in empty path"
+		return
+	fi
+
+	bobshell_str_split_v2 "$SHELDUCK_PATH" :
+	for i in $(seq "$bobshell_result_size"); do
+		x=$(bobshell_var_print bobshell_result_"$i")
+		if [ -f "$x"/"$1" ]; then
+			unset i x _shelduck_path_search__path
+			bobshell_result_set true "$x"/"$1"
+			return
+		fi
+	done
+
+	unset i x _shelduck_path_search__path
+	bobshell_result_set false "file $1 not found in path $_shelduck_path_search__path"
 }
 
 
@@ -193,6 +223,10 @@ shelduck_apply_rules() {
 
 
 
+shelduck_fetch() {
+	bobshell_die not implemented
+}
+
 # shelduck_run and shelduck_import are very similar, but:
 # - import requires url, since it checks for duplicates, whereas run does not requies url
 # - import checks for duplicate urls, run not
@@ -213,9 +247,16 @@ shelduck_import() {
 		# todo maybe base url is needed
 		shelduck_print_origin "$shelduck_import_url"
 		bobshell_result_read shelduck_import_origin
-		shelduck_import_addition=$(shelduck_print_addition "$shelduck_import_origin" "$shelduck_import_url" "$shelduck_import_aliases")
+
+		shelduck_transform "$shelduck_import_origin" "$shelduck_import_url"
+		unset shelduck_import_origin
+		bobshell_result_assert shelduck_import_moduletext -- apply transformation to module "$shelduck_import_url" failed
+
+
+
+		shelduck_import_addition=$(shelduck_print_addition "$shelduck_import_moduletext" "$shelduck_import_url" "$shelduck_import_aliases")
 		eval "$shelduck_import_addition"
-		unset shelduck_import_origin shelduck_import_addition
+		unset shelduck_import_moduletext shelduck_import_addition
 		return
 	fi
 	shelduck_import_history="$shelduck_import_history [$shelduck_import_url]"
@@ -226,7 +267,18 @@ shelduck_import() {
 
 }
 
+# fun: shelduck_transform MODULETEXT ABSURL
+shelduck_transform() {
+	local in="$1"
 
+	# todo
+	# shelduck apply replace %res_ bobshell_result_
+	# shelduck apply replace %% bobshell_
+
+
+
+	bobshell_result_set true "$1"
+}
 
 
 # fun: shelduck_exec ALIASES ABSURL ARGS

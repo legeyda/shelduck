@@ -285,29 +285,25 @@ shelduck_transform() {
 shelduck_exec() {
 	shelduck_ensure_base_url
 
+	shelduck_alias_strategy=wrap
+	shelduck_print_origin "$2"
+	bobshell_result_read shelduck_exec_origin
+	shelduck_event_url "$2" "$shelduck_exec_origin"
+	shelduck_exec_additions=$(shelduck_print_addition "$shelduck_exec_origin" "$2" "$1")
 
-	# exec absurl ABSURL
-	if [ -n "$2" ]; then
-		shelduck_alias_strategy=wrap
-		shelduck_print_origin "$2"
-		bobshell_result_read shelduck_exec_origin
-		shelduck_event_url "$2" "$shelduck_exec_origin"
-		shelduck_exec_additions=$(shelduck_print_addition "$shelduck_exec_origin" "$2" "$1")
-
-		# save state before recursive call
-		set -- "$shelduck_base_url" "$1" "$2" "$3" shelduck_eval_with_args "$shelduck_exec_origin$shelduck_exec_additions"
-		if [ -n "$4" ]; then
-			eval "set -- \"\$@\" $4"
-		fi
-
-		# recursive call
-		shelduck_update_base_url "$3"
-		shelduck_shift_exec 4 "$@"
-
-		# restore state after recursive call
-		shelduck_base_url="$1"
-		shift
+	# save state before recursive call
+	set -- "$shelduck_base_url" "$1" "$2" "$3" shelduck_eval_with_args "$shelduck_exec_origin$shelduck_exec_additions"
+	if [ -n "$4" ]; then
+		eval "set -- \"\$@\" $4"
 	fi
+
+	# recursive call
+	shelduck_update_base_url "$3"
+	shelduck_shift_exec 4 "$@"
+
+	# restore state after recursive call
+	shelduck_base_url="$1"
+	shift
 
 }
 

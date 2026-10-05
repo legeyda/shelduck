@@ -223,9 +223,6 @@ shelduck_apply_rules() {
 
 
 
-shelduck_fetch() {
-	bobshell_die not implemented
-}
 
 # shelduck_run and shelduck_import are very similar, but:
 # - import requires url, since it checks for duplicates, whereas run does not requies url
@@ -245,8 +242,8 @@ shelduck_import() {
 	: "${shelduck_import_history:=}"
 	if bobshell_contains "$shelduck_import_history" "[$shelduck_import_url]"; then
 		# todo maybe base url is needed
-		shelduck_print_origin "$shelduck_import_url"
-		bobshell_result_read shelduck_import_origin
+		shelduck_fetch "$shelduck_import_url"
+		bobshell_result_assert shelduck_import_origin -- fetch failed
 
 		shelduck_transform "$shelduck_import_origin" "$shelduck_import_url"
 		unset shelduck_import_origin
@@ -286,8 +283,9 @@ shelduck_exec() {
 	shelduck_ensure_base_url
 
 	shelduck_alias_strategy=wrap
-	shelduck_print_origin "$2"
-	bobshell_result_read shelduck_exec_origin
+	shelduck_fetch "$2"
+	bobshell_result_assert shelduck_exec_origin -- fetch failed
+
 	shelduck_event_url "$2" "$shelduck_exec_origin"
 	shelduck_exec_additions=$(shelduck_print_addition "$shelduck_exec_origin" "$2" "$1")
 
@@ -373,8 +371,9 @@ shelduck_print() {
 
 
 	# load script
-	shelduck_print_origin "$shelduck_print_url"
-	bobshell_result_read shelduck_print_script
+	shelduck_fetch "$shelduck_print_url"
+	bobshell_result_assert shelduck_print_script -- fetch failed
+
 	shelduck_event_url "$shelduck_print_url" "$shelduck_print_script"
 
 	# save variables to local array before subsequent (possibly recursive) calls
@@ -479,14 +478,15 @@ shelduck_compile() {
 # fun: shelduck_print_origin ABSURL
 # txt: prints original script without modification
 # api: private
-shelduck_print_origin() {
+shelduck_fetch() {
 	bobshell_result_set false
 	bobshell_event_fire shelduck_fetch_url_event "$1"
 	if bobshell_result_check; then
-		bobshell_result_set "$bobshell_result_2"
+		bobshell_result_set true "$bobshell_result_2"
 		return
 	fi
 	shelduck_cached_fetch_url "$1"
+	bobshell_result_set true "$bobshell_result_1"
 }
 
 

@@ -52,7 +52,7 @@ event/compile.sh event/fire.sh event/listen.sh
 misc/defun.sh  code/defun.sh'
 
 
-transitive_imports_after='str/replace.sh str/quote.sh
+transitive_imports_after='str/replace.sh str/quote.sh str/split_v2.sh
 append/val_to_var.sh
 misc/defun.sh
 var/get.sh var/set.sh var/default.sh var/append.sh var/print.sh
@@ -120,11 +120,16 @@ fetch_url() {
 
 
 
+run_bobtest() {
+	. target/shelduck.sh
+	shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/bobtest.sh
+	bobtest "$@"
+}
 
 
 run_test() {
 	run_build
-	go_test_shelduck
+	go_test_shelduck "$@"
 	go_test_installer
 }
 

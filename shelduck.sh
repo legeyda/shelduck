@@ -538,10 +538,6 @@ shelduck_process_imports() {
 		set -- "$_shelduck_process_imports__result" "$_shelduck_process_imports__input" "$_shelduck_process_imports__command" "$@"
 		unset    _shelduck_process_imports__result    _shelduck_process_imports__input
 
-		# todo call recursive imports
-		# todo call shelduck_print
-		# todo !!!!!!
-		# bobshell_result_set 'shelduck import '"$_shelduck_process_imports__command"
 		shelduck_compile $_shelduck_process_imports__command
 
 		# restore state after recursive all

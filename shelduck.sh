@@ -517,14 +517,26 @@ shelduck_parse_commands() {
 	# iterate over all shelduck imports in input script
 	_shelduck_parse_commands__result=
 	while [ -n "$_shelduck_parse_commands__input" ]; do
-		bobshell_str_split_v2 "$_shelduck_parse_commands__input" 'shelduck import ' 2
+		bobshell_str_split_v2 "$_shelduck_parse_commands__input" 'shelduck ' 2
 		if [ "$bobshell_result_size" -lt 2 ]; then
 			break
 		fi
 		_shelduck_parse_commands__input="$bobshell_result_2"
 
+		# check for supported subcommands
+		if bobshell_starts_with "$_shelduck_parse_commands__input" 'import '; then
+			: # ok, continue
+		elif bobshell_starts_with "$_shelduck_parse_commands__input" 'fetch '; then
+			: # ok, continue
+		else # unsupported command, skip
+			bobshell_var_append _shelduck_parse_commands__result "$bobshell_result_1"'shelduck '
+			continue
+		fi
+
+		# check for indentation
 		if [ -n "$bobshell_result_1" ] && ! bobshell_ends_with "$bobshell_result_1" "$bobshell_newline"; then
-			bobshell_var_append _shelduck_parse_commands__result "$bobshell_result_1"'shelduck import '
+			# command is indentated, skip
+			bobshell_var_append _shelduck_parse_commands__result "$bobshell_result_1"'shelduck '
 			continue
 		fi
 
@@ -560,7 +572,7 @@ shelduck_parse_commands() {
 		set -- "$_shelduck_parse_commands__result" "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__command" "$@"
 		unset    _shelduck_parse_commands__result    _shelduck_parse_commands__input
 
-		shelduck_compile $_shelduck_parse_commands__command
+		shelduck_process_command $_shelduck_parse_commands__command
 
 		# restore state after recursive all
 		_shelduck_parse_commands__result="$1"
@@ -583,6 +595,27 @@ shelduck_parse_commands() {
 	bobshell_result_set true "$_shelduck_parse_commands__result"
 	unset _shelduck_parse_commands__result
 }
+
+
+
+
+shelduck_process_command() {
+	case "$1" in
+		(import)
+			shift
+			shelduck_compile "$@"
+			;;
+
+		(fetch)
+			bobshell_result_set false fetch not implemented yet
+			;;
+
+		(*)
+			bobshell_result_set false unsupported command "$1"
+			;;
+	esac
+}
+
 
 # fun: shelduck_event_url URL TEXT
 # txt: event listener to extend shelduck core

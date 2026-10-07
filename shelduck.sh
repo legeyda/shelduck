@@ -143,10 +143,12 @@ shelduck_build() {
 	_shelduck_compile_history=
 	shelduck_shift_exec 2 "$@"
 
-	#
+	# restore state
+	unset shelduck_compile_history
 	if [ -n "$1" ]; then
 		shelduck_compile_history="$1"
 	fi
+	unset shelduck_base_url
 	if [ -n "$2" ]; then
 		shelduck_base_url="$2"
 	fi
@@ -418,14 +420,7 @@ shelduck_compile() {
 	_shelduck_compile_aliases="$shelduck_import_aliases"
 	unset shelduck_import_aliases
 
-# 	shelduck_fetch "$1"
-#
-# 	shelduck_transform "$bobshell_result_1"
-# 	bobshell_result_assert -- transform failed: "$1"
-#
-# 	process_imports "$bobshell_result_1"
-
-	#_shelduck_compile_initial_base_url="$shelduck_base_url" # todo is _shelduck_compile_initial_base_url needed?
+	# # todo is _shelduck_compile_initial_base_url needed?
 
 
 
@@ -569,39 +564,6 @@ shelduck_process_imports() {
 	unset _shelduck_process_imports__result
 }
 
-
-# fun: shelduck_exec ALIASES ABSURL ARGS
-shelduck_exec() {
-	shelduck_ensure_base_url
-
-	shelduck_alias_strategy=wrap
-	shelduck_fetch "$2"
-	bobshell_result_assert shelduck_exec_origin -- fetch failed
-
-	shelduck_transform "$shelduck_exec_origin" "$2"
-	bobshell_result_assert shelduck_exec_origin -- fetch failed
-
-	shelduck_event_url "$2" "$shelduck_exec_origin"
-
-	shelduck_print_addition "$shelduck_exec_origin" "$2" "$1"
-	bobshell_result_assert shelduck_exec_additions -- print addition failed
-
-	# save state before recursive call
-	set -- "$shelduck_base_url" "$1" "$2" "$3" shelduck_eval_with_args "$shelduck_exec_origin$shelduck_exec_additions"
-	if [ -n "$4" ]; then
-		eval "set -- \"\$@\" $4"
-	fi
-
-	# recursive call
-	shelduck_update_base_url "$3"
-	shelduck_shift_exec 4 "$@"
-
-	# restore state after recursive call
-	shelduck_base_url="$1"
-	shift
-
-}
-
 # fun: shelduck_event_url URL TEXT
 # txt: event listener to extend shelduck core
 shelduck_event_url() {
@@ -624,9 +586,9 @@ shelduck_update_base_url() {
 
 
 
-
-# fun: shelduck_resolve CLIARGS...
-# api: private
+# DEPRECATED
+# fun: shelduck_resolve URL [ ARGS ... ]
+# api: public
 shelduck_resolve() {
 	bobshell_log_warn 'shelduck: resolve is deprecated, use build instead'
 	shelduck_build "$@"

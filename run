@@ -27,15 +27,10 @@ run_init() {
 }
 
 run_debug() {
+	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	reset
-
-	sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
-shelduck build ./test/test.sh
-" > target/test.sh
-
-# 	x="$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
-# shelduck import ./test/test.sh
-# fun 1 2 3")"
+	shelduck import -a test_echo file://./example/smoketest.sh
+	test_echo x
 }
 
 run_die() {
@@ -64,7 +59,7 @@ event/compile.sh event/fire.sh event/listen.sh
 misc/defun.sh  code/defun.sh'
 
 
-transitive_imports_after='str/replace.sh str/quote.sh str/split_v2.sh
+transitive_imports_after='str/replace.sh str/quote.sh str/split_v2.sh str/prefix.sh str/suffix.sh
 append/val_to_var.sh
 misc/defun.sh
 var/set.sh var/append.sh var/increment.sh var/default.sh var/get.sh var/print.sh
@@ -151,7 +146,7 @@ go_test_shelduck() {
 	eval_dependency assert.sh
 
     go_test_via_bobshell
-
+    reset
 	shelduck import -a test_echo file://./example/smoketest.sh
 	assert_equals 'ahoi (starts with a)' "$(test_echo ahoi)"
 	echo 'all tests passed'

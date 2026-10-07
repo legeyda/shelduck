@@ -37,6 +37,7 @@ shelduck() {
 			;;
 	esac
 
+	shelduck_alias_strategy=wrap
 	_shelduck__subcommand="$1"
 	shift
 	set -- shelduck_"$_shelduck__subcommand" "$@"
@@ -457,7 +458,6 @@ shelduck_process_imports() {
 		fi
 
 		bobshell_var_append _shelduck_process_imports__result "$bobshell_result_1"
-
 		_shelduck_process_imports__command=
 		while true; do
 			bobshell_str_split_v2 "$_shelduck_process_imports__input" "${bobshell_newline}" 2
@@ -467,13 +467,19 @@ shelduck_process_imports() {
 				break
 			fi
 
-			_shelduck_process_imports__input="${bobshell_newline}""$bobshell_result_2"
-			if bobshell_ends_with "$bobshell_result_1" '\'; then
-				bobshell_var_append _shelduck_process_imports__command "$bobshell_result_1""${bobshell_newline}"
+			_shelduck_process_imports__candidate="$bobshell_result_1"
+			_shelduck_process_imports__input="$bobshell_result_2"
+
+			bobshell_str_suffix "$_shelduck_process_imports__candidate" '\'
+			if bobshell_result_check; then
+				bobshell_var_append _shelduck_process_imports__command "$bobshell_result_2 "
 			else
-				bobshell_var_append _shelduck_process_imports__command "$bobshell_result_1"
+				_shelduck_process_imports__input="$bobshell_newline$_shelduck_process_imports__input"
+				bobshell_var_append _shelduck_process_imports__command "$_shelduck_process_imports__candidate"
 				break
 			fi
+			unset _shelduck_process_imports__candidate
+
 		done
 		if [ -z "$_shelduck_process_imports__command" ]; then
 			bobshell_die empty command
@@ -580,14 +586,8 @@ shelduck_usage() {
 # fun: shelduck_resolve CLIARGS...
 # api: private
 shelduck_resolve() {
-	shelduck_ensure_base_url
-
-	# set starting parameters
-	shelduck_print_history=
-	shelduck_alias_strategy="${SHELDUCK_ALIAS_STRATEGY:-wrap}"
-
-	# delegate
-	shelduck_print "$@"
+	bobshell_log_warn 'shelduck: resolve is deprecated, use build instead'
+	shelduck_build "$@"
 }
 
 

@@ -76,6 +76,26 @@ shelduck_usage() {
 
 shelduck_include() {
 	bobshell_die 'command not implemented: include'
+
+
+shelduck fetch ./file.ini
+bobshell_result_assert file_content -- fetch file failed # in compile mode always keeps
+
+shelduck fetch ./otherfile.txt
+x="$shelduck_fetch_result"
+
+
+	x=$(cat <EOF
+shelduck print ./file.txt
+EOF
+)
+
+	y='
+shelduck print ./file2.txt
+'
+
+
+
 }
 
 
@@ -467,7 +487,7 @@ $_shelduck_compile_add_script"
 
 	# recursive calls
 	shelduck_update_base_url "$_shelduck_compile_url"
-	shelduck_process_imports "$_shelduck_compile_script" "$_shelduck_compile_url"
+	shelduck_parse_commands "$_shelduck_compile_script" "$_shelduck_compile_url"
 	bobshell_result_assert _shelduck_compile_script -- process_imports failed
 
 	# restore state
@@ -490,78 +510,78 @@ $_shelduck_compile_add_script"
 # fun: shelduck_apply_imports CODESCRIPT URL
 # res: true  REWRITTENSCRIPT
 # res: false error message
-shelduck_process_imports() {
-	_shelduck_process_imports__input="$1"
+shelduck_parse_commands() {
+	_shelduck_parse_commands__input="$1"
 	shift
 
 	# iterate over all shelduck imports in input script
-	_shelduck_process_imports__result=
-	while [ -n "$_shelduck_process_imports__input" ]; do
-		bobshell_str_split_v2 "$_shelduck_process_imports__input" 'shelduck import ' 2
+	_shelduck_parse_commands__result=
+	while [ -n "$_shelduck_parse_commands__input" ]; do
+		bobshell_str_split_v2 "$_shelduck_parse_commands__input" 'shelduck import ' 2
 		if [ "$bobshell_result_size" -lt 2 ]; then
 			break
 		fi
-		_shelduck_process_imports__input="$bobshell_result_2"
+		_shelduck_parse_commands__input="$bobshell_result_2"
 
 		if [ -n "$bobshell_result_1" ] && ! bobshell_ends_with "$bobshell_result_1" "$bobshell_newline"; then
-			bobshell_var_append _shelduck_process_imports__result "$bobshell_result_1"'shelduck import '
+			bobshell_var_append _shelduck_parse_commands__result "$bobshell_result_1"'shelduck import '
 			continue
 		fi
 
-		bobshell_var_append _shelduck_process_imports__result "$bobshell_result_1"
-		_shelduck_process_imports__command=
+		bobshell_var_append _shelduck_parse_commands__result "$bobshell_result_1"
+		_shelduck_parse_commands__command=
 		while true; do
-			bobshell_str_split_v2 "$_shelduck_process_imports__input" "${bobshell_newline}" 2
+			bobshell_str_split_v2 "$_shelduck_parse_commands__input" "${bobshell_newline}" 2
 			if [ "$bobshell_result_size" -lt 2 ]; then
-				bobshell_var_append _shelduck_process_imports__command "$bobshell_result_1"
-				_shelduck_process_imports__input=
+				bobshell_var_append _shelduck_parse_commands__command "$bobshell_result_1"
+				_shelduck_parse_commands__input=
 				break
 			fi
 
-			_shelduck_process_imports__candidate="$bobshell_result_1"
-			_shelduck_process_imports__input="$bobshell_result_2"
+			_shelduck_parse_commands__candidate="$bobshell_result_1"
+			_shelduck_parse_commands__input="$bobshell_result_2"
 
-			bobshell_str_suffix "$_shelduck_process_imports__candidate" '\'
+			bobshell_str_suffix "$_shelduck_parse_commands__candidate" '\'
 			if bobshell_result_check; then
-				bobshell_var_append _shelduck_process_imports__command "$bobshell_result_2 "
+				bobshell_var_append _shelduck_parse_commands__command "$bobshell_result_2 "
 			else
-				_shelduck_process_imports__input="$bobshell_newline$_shelduck_process_imports__input"
-				bobshell_var_append _shelduck_process_imports__command "$_shelduck_process_imports__candidate"
+				_shelduck_parse_commands__input="$bobshell_newline$_shelduck_parse_commands__input"
+				bobshell_var_append _shelduck_parse_commands__command "$_shelduck_parse_commands__candidate"
 				break
 			fi
-			unset _shelduck_process_imports__candidate
+			unset _shelduck_parse_commands__candidate
 
 		done
-		if [ -z "$_shelduck_process_imports__command" ]; then
+		if [ -z "$_shelduck_parse_commands__command" ]; then
 			bobshell_die empty command
 		fi
 
 		# save state before recursive call
-		set -- "$_shelduck_process_imports__result" "$_shelduck_process_imports__input" "$_shelduck_process_imports__command" "$@"
-		unset    _shelduck_process_imports__result    _shelduck_process_imports__input
+		set -- "$_shelduck_parse_commands__result" "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__command" "$@"
+		unset    _shelduck_parse_commands__result    _shelduck_parse_commands__input
 
-		shelduck_compile $_shelduck_process_imports__command
+		shelduck_compile $_shelduck_parse_commands__command
 
 		# restore state after recursive all
-		_shelduck_process_imports__result="$1"
-		_shelduck_process_imports__input="$2"
-		_shelduck_process_imports__command="$3"
+		_shelduck_parse_commands__result="$1"
+		_shelduck_parse_commands__input="$2"
+		_shelduck_parse_commands__command="$3"
 		shift 3
 
 		# accumulate result of recursive call
-		bobshell_result_assert -- error processing "$_shelduck_process_imports__command"
-		bobshell_var_append _shelduck_process_imports__result "$bobshell_result_2"
+		bobshell_result_assert -- error processing "$_shelduck_parse_commands__command"
+		bobshell_var_append _shelduck_parse_commands__result "$bobshell_result_2"
 
-		unset _shelduck_process_imports__command
+		unset _shelduck_parse_commands__command
 	done
 
 	# accumulate the rest of script after last shelcuk import
-	bobshell_var_append _shelduck_process_imports__result "$_shelduck_process_imports__input"
-	unset _shelduck_process_imports__input
+	bobshell_var_append _shelduck_parse_commands__result "$_shelduck_parse_commands__input"
+	unset _shelduck_parse_commands__input
 
 	# return result
-	bobshell_result_set true "$_shelduck_process_imports__result"
-	unset _shelduck_process_imports__result
+	bobshell_result_set true "$_shelduck_parse_commands__result"
+	unset _shelduck_parse_commands__result
 }
 
 # fun: shelduck_event_url URL TEXT

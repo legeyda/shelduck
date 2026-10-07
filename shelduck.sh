@@ -22,6 +22,13 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 # see https://github.com/ajdiaz/bashdoc
 
 
+# global vars:
+# shelduck_base_url
+# shelduck_import_history
+#
+#
+#
+
 # fun: shelduck CLIARGS...
 # api: public
 # env: SHELDUCK_BASE_URL
@@ -112,8 +119,8 @@ shelduck_run() {
 
 	# restore state after recursive call
 	unset shelduck_base_url
-	if [ -n "$1" ]; then
-		shelduck_base_url="$1"
+	if [ -n "$_shelduck_run__orig_base_url" ]; then
+		shelduck_base_url="$_shelduck_run__orig_base_url"
 	fi
 
 	bobshell_result_set true ''

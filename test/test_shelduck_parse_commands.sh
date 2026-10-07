@@ -5,14 +5,14 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 
 . target/shelduck.sh
 
-test_process_imports_1() {
-	shelduck_process_imports 'hello'
-	bobshell_result_assert output -- error calling shelduck_process_import
+test_parse_commands_1() {
+	shelduck_parse_commands 'hello'
+	bobshell_result_assert output -- error calling shelduck_parse_commands
 	assert_equals hello "$output"
 }
 
-test_process_imports_2() {
-	shelduck_process_imports 'hello'
-	bobshell_result_assert output -- error calling shelduck_process_import
+test_parse_commands_2() {
+	shelduck_parse_commands 'hello'
+	bobshell_result_assert output -- error calling shelduck_parse_commands
 	assert_equals hello "$output"
 }

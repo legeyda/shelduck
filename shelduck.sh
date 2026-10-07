@@ -30,18 +30,54 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck() {
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
-		(usage|import|resolve|run|include)
-				_shelduck__subcommand="$1"
-				shift
-				"shelduck_$_shelduck__subcommand" "$@"
-				unset _shelduck__subcommand
-				;;
-		(*) printf 'unknown subcommand %s, see shelduck usage' "$1"
+		(usage|run|build|import|resolve) ;;
+		(*)
+			printf 'unknown subcommand %s, see shelduck usage' "$1"
+			return 1
+			;;
 	esac
+
+	_shelduck__subcommand="$1"
+	shift
+	set -- shelduck_"$_shelduck__subcommand" "$@"
+	"$@"
+	bobshell_result_assert -- "error calling $_shelduck__subcommand"
+	printf %s "$bobshell_result_2"
 }
+
+# global variables
+# shelduck_base_url
+# shelduck_compile_history ?
+# shelduck_import_history ?
 
 shelduck_include() {
 	bobshell_die 'command not implemented: include'
+}
+
+# shelduck_build URL
+# api: public
+# build -> compile -> process_imports -> compile ...
+shelduck_build() {
+	shelduck_ensure_base_url
+
+
+	# save state
+	set -- "${shelduck_compile2_history:-}" "${shelduck_base_url:-}" shelduck_compile2 "$@"
+
+	# recursive call
+	_shelduck_compile2_history=
+	shelduck_shift_exec 2 "$@"
+
+	#
+	if [ -n "$1" ]; then
+		shelduck_compile2_history="$1"
+	fi
+	if [ -n "$2" ]; then
+		shelduck_base_url="$2"
+	fi
+
+
+	# shift 2
 }
 
 # api: private
@@ -114,7 +150,7 @@ shelduck_path_search() {
 		_shelduck_path_search__path="${XDG_DATA_HOME:-$HOME/.local/share}/shelduck/lib}"
 	fi
 
-	if ! [ "$_shelduck_path_search__path" ]; then
+	if [ -z "$_shelduck_path_search__path" ]; then
 		unset _shelduck_path_search__path
 		bobshell_result_set false "file $1 not found in empty path"
 		return
@@ -231,50 +267,248 @@ shelduck_apply_rules() {
 # - run takes args from command, and restores
 
 
-# fun: shelduck_resolve CLIARGS...
-# api: private
+# fun: shelduck_import CLIARGS...
+# api: public
 # env: shelduck_base_url
 shelduck_import() {
+	shelduck_ensure_base_url
+
 	shelduck_parse_import_cli "$@"
-	shelduck_import_url=$(shelduck_fix_url "$shelduck_import_url")
+	shelduck_import_url=$(shelduck_fix_url "$shelduck_import_url") # todo shelduck_fix_url does not update base_url in subshell
+
+	shelduck_fetch "$shelduck_import_url"
+	bobshell_result_assert _shelduck_import__script -- fetch failed
+
+	shelduck_transform "$_shelduck_import__script" "$shelduck_import_url"
+	bobshell_result_assert _shelduck_import__script -- apply transformation to module "$shelduck_import_url" failed
+
+	#
+	shelduck_print_addition  "$_shelduck_import__script" "$shelduck_import_url" "$shelduck_import_aliases"
+	bobshell_result_assert _shelduck_import__add_script -- print addition failed
+	if [ -n "$_shelduck_import__add_script" ]; then
+		_shelduck_import__add_script="
+$_shelduck_import__add_script
+"
+	fi
 
 	# check for duplicates
 	: "${shelduck_import_history:=}"
 	if bobshell_contains "$shelduck_import_history" "[$shelduck_import_url]"; then
-		# todo maybe base url is needed
-		shelduck_fetch "$shelduck_import_url"
-		bobshell_result_assert shelduck_import_origin -- fetch failed
-
-		shelduck_transform "$shelduck_import_origin" "$shelduck_import_url"
-		unset shelduck_import_origin
-		bobshell_result_assert shelduck_import_moduletext -- apply transformation to module "$shelduck_import_url" failed
-
+		_shelduck_import__script="$_shelduck_import__add_script"
+	else
+		shelduck_import_history="$shelduck_import_history [$shelduck_import_url]"
+		_shelduck_import__script="$_shelduck_import__script$_shelduck_import__add_script"
+	fi
+	unset _shelduck_import__add_script
 
 
-		shelduck_import_addition=$(shelduck_print_addition "$shelduck_import_moduletext" "$shelduck_import_url" "$shelduck_import_aliases")
-		eval "$shelduck_import_addition"
-		unset shelduck_import_moduletext shelduck_import_addition
+	if [ -z "$_shelduck_import__script" ]; then
 		return
 	fi
-	shelduck_import_history="$shelduck_import_history [$shelduck_import_url]"
 
-	# delegate to shelduck_exec
-	shelduck_exec "$shelduck_import_aliases" "$shelduck_import_url" ''
-	unset shelduck_import_aliases shelduck_import_url shelduck_analyze_cli_args
+
+	# save state before recursive call
+	set -- "$shelduck_base_url" eval "$_shelduck_import__script"
+
+	# recursive call
+	shelduck_update_base_url "$shelduck_import_url"
+	shelduck_eval_with_args "$_shelduck_import__script"
+
+	# restore state after recursive call
+	shelduck_base_url="$1"
+	shift
 
 }
 
-# fun: shelduck_transform MODULETEXT ABSURL
+# fun: shelduck_transform SCRIPTTEXT [ ABSURL ]
+# txt: make transformation of module src regardless of context, the result of transform can be cached
 shelduck_transform() {
-	local in="$1"
+	_shelduck_transform__script="$1"
+	shift
 
-	# todo
-	# shelduck apply replace %res_ bobshell_result_
-	# shelduck apply replace %% bobshell_
+	# maybe write comment at the beginning of result
+	if bobshell_starts_with "${1:-}" file:// https:// http:// stdin:; then
+		if bobshell_starts_with "$_shelduck_transform__script" "$bobshell_newline"; then
+			_shelduck_transform__script='
 
+# shelduck: script '"$1"'
+'"$_shelduck_transform__script"'
+# shelduck: end of script '"$1"'
 
+'
+		fi
+	fi
+
+	set -- "$_shelduck_transform__script" "$@"
+	unset _shelduck_transform__script
+
+	bobshell_event_fire shelduck_transform_event "$@"
 
 	bobshell_result_set true "$1"
+}
+
+# fun: shelduck_compile URL
+# api: private
+# env: shelduck_base_url
+# env: shelduck_compile2_history
+# txt: exported with build
+shelduck_compile2() {
+
+	shelduck_parse_import_cli "$@"
+	_shelduck_compile2_url=$(shelduck_fix_url "$shelduck_import_url")
+	unset shelduck_import_url
+
+	_shelduck_compile2_aliases="$shelduck_import_aliases"
+	unset shelduck_import_aliases
+
+# 	shelduck_fetch "$1"
+#
+# 	shelduck_transform "$bobshell_result_1"
+# 	bobshell_result_assert -- transform failed: "$1"
+#
+# 	process_imports "$bobshell_result_1"
+
+	#_shelduck_compile2_initial_base_url="$shelduck_base_url" # todo is _shelduck_compile2_initial_base_url needed?
+
+
+
+
+	# load script
+	shelduck_fetch "$_shelduck_compile2_url"
+	bobshell_result_assert _shelduck_compile2_script -- shelduck_fetch failed
+
+	shelduck_transform "$_shelduck_compile2_script" "$_shelduck_compile2_url"
+	bobshell_result_assert _shelduck_compile2_script -- shelduck_transform failed
+
+	shelduck_event_url "$_shelduck_compile2_url" "$_shelduck_compile2_script"
+
+	shelduck_print_addition  "$_shelduck_compile2_script" "$_shelduck_compile2_url" "$_shelduck_compile2_aliases"
+	bobshell_result_assert _shelduck_compile2_add_script -- print addition failed
+
+	if [ -n "$_shelduck_compile2_add_script" ]; then
+		_shelduck_import__add_script="
+# additions for $_shelduck_compile2_url ($_shelduck_compile2_aliases)
+$_shelduck_compile2_add_script
+# end of additions for $_shelduck_compile2_url
+
+"
+fi
+
+
+	if bobshell_contains "$_shelduck_compile2_history" "[$_shelduck_compile2_url]"; then
+		_shelduck_compile2_script="
+# skip script $_shelduck_compile2_url (already compiled)
+$_shelduck_compile2_add_script"
+	else
+		_shelduck_compile2_history="$_shelduck_compile2_history [$_shelduck_compile2_url]"
+		_shelduck_compile2_script="$_shelduck_compile2_script$_shelduck_compile2_add_script"
+	fi
+	unset _shelduck_compile2_add_script
+
+	if [ -z "$_shelduck_compile2_script" ]; then
+		bobshell_result_set true "$_shelduck_compile2_script"
+		return
+	fi
+
+	# save state before recursive call
+	set -- "$shelduck_base_url" "$@"
+
+	# recursive calls
+	shelduck_update_base_url "$_shelduck_compile2_url"
+	shelduck_process_imports "$_shelduck_compile2_script" "$_shelduck_compile2_url"
+	bobshell_result_assert _shelduck_compile2_script -- process_imports failed
+
+	# restore state
+	unset shelduck_base_url
+	if [ -n "$1" ]; then
+		shelduck_base_url="$1"
+	fi
+	# shift
+
+	bobshell_result_set true "$_shelduck_compile2_script"
+	unset _shelduck_compile2_script
+
+}
+
+
+
+
+
+
+# fun: shelduck_apply_imports CODESCRIPT URL
+# res: true  REWRITTENSCRIPT
+# res: false error message
+shelduck_process_imports() {
+	_shelduck_process_imports__input="$1"
+	shift
+
+	# iterate over all shelduck imports in input script
+	_shelduck_process_imports__result=
+	while [ -n "$_shelduck_process_imports__input" ]; do
+		bobshell_str_split_v2 "$_shelduck_process_imports__input" 'shelduck import ' 2
+		if [ "$bobshell_result_size" -lt 2 ]; then
+			break
+		fi
+		_shelduck_process_imports__input="$bobshell_result_2"
+
+		if [ -n "$bobshell_result_1" ] && ! bobshell_ends_with "$bobshell_result_1" "$bobshell_newline"; then
+			bobshell_var_append _shelduck_process_imports__result "$bobshell_result_1"'shelduck import '
+			continue
+		fi
+
+		bobshell_var_append _shelduck_process_imports__result "$bobshell_result_1"
+
+		_shelduck_process_imports__command=
+		while true; do
+			bobshell_str_split_v2 "$_shelduck_process_imports__input" "${bobshell_newline}" 2
+			if [ "$bobshell_result_size" -lt 2 ]; then
+				bobshell_var_append _shelduck_process_imports__command "$bobshell_result_1"
+				_shelduck_process_imports__input=
+				break
+			fi
+
+			_shelduck_process_imports__input="${bobshell_newline}""$bobshell_result_2"
+			if bobshell_ends_with "$bobshell_result_1" '\'; then
+				bobshell_var_append _shelduck_process_imports__command "$bobshell_result_1""${bobshell_newline}"
+			else
+				bobshell_var_append _shelduck_process_imports__command "$bobshell_result_1"
+				break
+			fi
+		done
+		if [ -z "$_shelduck_process_imports__command" ]; then
+			bobshell_die empty command
+		fi
+
+		# save state before recursive call
+		set -- "$_shelduck_process_imports__result" "$_shelduck_process_imports__input" "$_shelduck_process_imports__command" "$@"
+		unset    _shelduck_process_imports__result    _shelduck_process_imports__input
+
+		# todo call recursive imports
+		# todo call shelduck_print
+		# todo !!!!!!
+		# bobshell_result_set 'shelduck import '"$_shelduck_process_imports__command"
+		shelduck_compile2 $_shelduck_process_imports__command
+
+		# restore state after recursive all
+		_shelduck_process_imports__result="$1"
+		_shelduck_process_imports__input="$2"
+		_shelduck_process_imports__command="$3"
+		shift 3
+
+		# accumulate result of recursive call
+		bobshell_result_assert -- error processing "$_shelduck_process_imports__command"
+		bobshell_var_append _shelduck_process_imports__result "$bobshell_result_2"
+
+		unset _shelduck_process_imports__command
+	done
+
+	# accumulate the rest of script after last shelcuk import
+	bobshell_var_append _shelduck_process_imports__result "$_shelduck_process_imports__input"
+	unset _shelduck_process_imports__input
+
+	# return result
+	bobshell_result_set true "$_shelduck_process_imports__result"
+	unset _shelduck_process_imports__result
 }
 
 
@@ -286,8 +520,13 @@ shelduck_exec() {
 	shelduck_fetch "$2"
 	bobshell_result_assert shelduck_exec_origin -- fetch failed
 
+	shelduck_transform "$shelduck_exec_origin" "$2"
+	bobshell_result_assert shelduck_exec_origin -- fetch failed
+
 	shelduck_event_url "$2" "$shelduck_exec_origin"
-	shelduck_exec_additions=$(shelduck_print_addition "$shelduck_exec_origin" "$2" "$1")
+
+	shelduck_print_addition "$shelduck_exec_origin" "$2" "$1"
+	bobshell_result_assert shelduck_exec_additions -- print addition failed
 
 	# save state before recursive call
 	set -- "$shelduck_base_url" "$1" "$2" "$3" shelduck_eval_with_args "$shelduck_exec_origin$shelduck_exec_additions"
@@ -372,7 +611,11 @@ shelduck_print() {
 
 	# load script
 	shelduck_fetch "$shelduck_print_url"
-	bobshell_result_assert shelduck_print_script -- fetch failed
+	bobshell_result_assert shelduck_print_script -- shelduck_fetch failed
+
+	shelduck_transform "$shelduck_print_script"
+	bobshell_result_assert shelduck_print_script -- shelduck_transform failed
+
 
 	shelduck_event_url "$shelduck_print_url" "$shelduck_print_script"
 
@@ -397,6 +640,9 @@ shelduck_print() {
 
 	# print additions, if needed
 	shelduck_print_addition "$@"
+	bobshell_result_assert -- print addition failed
+	printf '%s\n' "$bobshell_result_2"
+
 
 	shelduck_base_url="$shelduck_print_initial_base_url"
 }
@@ -428,7 +674,6 @@ shelduck_compile() {
 			shelduck_rewrite "$shelduck_compile_before$bobshell_newline" "$@"
 			shelduck_compile_input="$shelduck_compile_after$bobshell_newline"
 		fi
-
 
 
 		shelduck_compile_command=
@@ -475,7 +720,8 @@ shelduck_compile() {
 
 
 
-# fun: shelduck_print_origin ABSURL
+
+# fun: shelduck_fetch ABSURL
 # txt: prints original script without modification
 # api: private
 shelduck_fetch() {
@@ -517,6 +763,7 @@ shelduck_print_addition() {
 
 	if [ wrap != "${shelduck_alias_strategy:-}" ]; then
 		# nothing to do, wrap was the only supported customization
+		bobshell_result_set true ''
 		return
 	fi
 
@@ -528,6 +775,7 @@ shelduck_print_addition() {
 
 
 	# analyze aliases
+	_shelduck_print_addition=
 	for arg in $3; do
 		# todo assert $arg not empty
 		if ! bobshell_split_first "$arg" = key value; then
@@ -539,19 +787,39 @@ shelduck_print_addition() {
 
 		shelduck_print_script_function_name="$(printf %s "$shelduck_print_addition_function_names" | grep -E "^.*$value\$" || true)"
 		if [ -n "$shelduck_print_script_function_name" ] && [ "$key" != "$shelduck_print_script_function_name" ]; then
-			printf '\n\n'
-			printf '\n # shelduck: alias for %s (from %s)' "$shelduck_print_script_function_name" "$2"
-			printf '\n%s() {' "$key"
-			printf '\n	%s "$@"' "$shelduck_print_script_function_name"
-			printf '\n}'
-			printf '\n'
+			_shelduck_print_addition="$_shelduck_print_addition"'
+
+# shelduck: alias for '"$shelduck_print_script_function_name"' (from '"$2"')
+'"$key"'() {
+	'"$shelduck_print_script_function_name"' "$@"
+}
+'
 		fi
 		unset key value shelduck_print_script_function_name
 	done
 	unset shelduck_print_addition_function_names
+
+	bobshell_result_set true "$_shelduck_print_addition"
+	unset _shelduck_print_addition
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+########################
+######### FETCH ########
+########################
 
 # fun: shelduck_cached_fetch_url ABSURL
 # txt: download dependency given url and save to cache

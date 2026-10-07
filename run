@@ -26,6 +26,18 @@ run_init() {
 	unset jqscript file tempfile
 }
 
+run_debug() {
+	reset
+
+	sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
+shelduck build ./test/test.sh
+" > target/test.sh
+
+# 	x="$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
+# shelduck import ./test/test.sh
+# fun 1 2 3")"
+}
+
 run_die() {
   # https://github.com/biox/pa/blob/main/pa
   printf '%s: %s.\n' "$(basename "$0")" "${*:-error}" >&2
@@ -47,7 +59,7 @@ run_build() {
 
 
 transitive_imports_before='base.sh
-result/read.sh result/set.sh result/unset.sh
+result/set.sh result/append.sh result/check.sh result/read.sh result/unset.sh
 event/compile.sh event/fire.sh event/listen.sh
 misc/defun.sh  code/defun.sh'
 
@@ -55,8 +67,8 @@ misc/defun.sh  code/defun.sh'
 transitive_imports_after='str/replace.sh str/quote.sh str/split_v2.sh
 append/val_to_var.sh
 misc/defun.sh
-var/get.sh var/set.sh var/default.sh var/append.sh var/print.sh
-misc/awk.sh  misc/equals_any.sh
+var/set.sh var/append.sh var/increment.sh var/default.sh var/get.sh var/print.sh
+misc/awk.sh misc/equals_any.sh
 redirect/input.sh redirect/io.sh redirect/output.sh
 regex/match.sh
 result/assert.sh
@@ -85,6 +97,7 @@ run_build_shelduck() {
 }
 
 go_build_installer() {
+	set -x
 	mkdir -p "$SHELDUCK_BUILD_ROOT"
 	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	{
@@ -143,26 +156,44 @@ go_test_shelduck() {
 	assert_equals 'ahoi (starts with a)' "$(test_echo ahoi)"
 	echo 'all tests passed'
 
-	test 'hello from baz 1 2 3' = "$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
+
+	x="$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
 shelduck import ./test/test.sh
 fun 1 2 3")"
+	test 'hello from baz 1 2 3' = "$x"
+
 
 	sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
-shelduck resolve ./test/test.sh" > target/test.sh
-	test 'hello from baz 1 2 3' = "$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/test.sh'; fun 1 2 3")"
+shelduck build ./test/test.sh" > target/test.sh
+	x=$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/test.sh'; fun 1 2 3")
+	test 'hello from baz 1 2 3' = "$x"
 
 	echo 'shelduck tests passed'
 }
 
 go_test_via_bobshell() {
-    x=$(shelduck resolve ./test/test_via_bobshell.sh)
-    x=$(sh -c "$x")
-    y=$(cat<<\EOF
+    x=$(shelduck build ./test/test_via_bobshell.sh)
+    x=$(go_sh_c "$x")
+    expected=$(cat<<\EOF
 1 str '1 2' ''"'"'' '"'
 EOF
 )
-    assert_equals "$y" "$x"
+    assert_equals "$expected" "$x"
 }
+
+go_sh_c() {
+	if [ "${#1}" -lt $(( 4096 * 16 )) ]; then
+		sh -c "$@"
+	else
+		local tmp=$(mktemp)
+		printf  %s "$1" > "$tmp"
+		run_die "$tmp"
+		shift
+		sh "$tmp" "$@"
+		rm -f "$tmp"
+	fi
+}
+
 
 go_test_installer() {
 	SHELDUCK_INSTALL_ROOT="$SHELDUCK_BUILD_ROOT/test-installer" sh "$SHELDUCK_BUILD_ROOT/install.sh"

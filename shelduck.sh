@@ -63,15 +63,15 @@ shelduck_build() {
 
 
 	# save state
-	set -- "${shelduck_compile2_history:-}" "${shelduck_base_url:-}" shelduck_compile2 "$@"
+	set -- "${shelduck_compile_history:-}" "${shelduck_base_url:-}" shelduck_compile "$@"
 
 	# recursive call
-	_shelduck_compile2_history=
+	_shelduck_compile_history=
 	shelduck_shift_exec 2 "$@"
 
 	#
 	if [ -n "$1" ]; then
-		shelduck_compile2_history="$1"
+		shelduck_compile_history="$1"
 	fi
 	if [ -n "$2" ]; then
 		shelduck_base_url="$2"
@@ -351,15 +351,15 @@ shelduck_transform() {
 # fun: shelduck_compile URL
 # api: private
 # env: shelduck_base_url
-# env: shelduck_compile2_history
+# env: shelduck_compile_history
 # txt: exported with build
-shelduck_compile2() {
+shelduck_compile() {
 
 	shelduck_parse_import_cli "$@"
-	_shelduck_compile2_url=$(shelduck_fix_url "$shelduck_import_url")
+	_shelduck_compile_url=$(shelduck_fix_url "$shelduck_import_url")
 	unset shelduck_import_url
 
-	_shelduck_compile2_aliases="$shelduck_import_aliases"
+	_shelduck_compile_aliases="$shelduck_import_aliases"
 	unset shelduck_import_aliases
 
 # 	shelduck_fetch "$1"
@@ -369,45 +369,45 @@ shelduck_compile2() {
 #
 # 	process_imports "$bobshell_result_1"
 
-	#_shelduck_compile2_initial_base_url="$shelduck_base_url" # todo is _shelduck_compile2_initial_base_url needed?
+	#_shelduck_compile_initial_base_url="$shelduck_base_url" # todo is _shelduck_compile_initial_base_url needed?
 
 
 
 
 	# load script
-	shelduck_fetch "$_shelduck_compile2_url"
-	bobshell_result_assert _shelduck_compile2_script -- shelduck_fetch failed
+	shelduck_fetch "$_shelduck_compile_url"
+	bobshell_result_assert _shelduck_compile_script -- shelduck_fetch failed
 
-	shelduck_transform "$_shelduck_compile2_script" "$_shelduck_compile2_url"
-	bobshell_result_assert _shelduck_compile2_script -- shelduck_transform failed
+	shelduck_transform "$_shelduck_compile_script" "$_shelduck_compile_url"
+	bobshell_result_assert _shelduck_compile_script -- shelduck_transform failed
 
-	shelduck_event_url "$_shelduck_compile2_url" "$_shelduck_compile2_script"
+	shelduck_event_url "$_shelduck_compile_url" "$_shelduck_compile_script"
 
-	shelduck_print_addition  "$_shelduck_compile2_script" "$_shelduck_compile2_url" "$_shelduck_compile2_aliases"
-	bobshell_result_assert _shelduck_compile2_add_script -- print addition failed
+	shelduck_print_addition  "$_shelduck_compile_script" "$_shelduck_compile_url" "$_shelduck_compile_aliases"
+	bobshell_result_assert _shelduck_compile_add_script -- print addition failed
 
-	if [ -n "$_shelduck_compile2_add_script" ]; then
+	if [ -n "$_shelduck_compile_add_script" ]; then
 		_shelduck_import__add_script="
-# additions for $_shelduck_compile2_url ($_shelduck_compile2_aliases)
-$_shelduck_compile2_add_script
-# end of additions for $_shelduck_compile2_url
+# additions for $_shelduck_compile_url ($_shelduck_compile_aliases)
+$_shelduck_compile_add_script
+# end of additions for $_shelduck_compile_url
 
 "
 fi
 
 
-	if bobshell_contains "$_shelduck_compile2_history" "[$_shelduck_compile2_url]"; then
-		_shelduck_compile2_script="
-# skip script $_shelduck_compile2_url (already compiled)
-$_shelduck_compile2_add_script"
+	if bobshell_contains "$_shelduck_compile_history" "[$_shelduck_compile_url]"; then
+		_shelduck_compile_script="
+# skip script $_shelduck_compile_url (already compiled)
+$_shelduck_compile_add_script"
 	else
-		_shelduck_compile2_history="$_shelduck_compile2_history [$_shelduck_compile2_url]"
-		_shelduck_compile2_script="$_shelduck_compile2_script$_shelduck_compile2_add_script"
+		_shelduck_compile_history="$_shelduck_compile_history [$_shelduck_compile_url]"
+		_shelduck_compile_script="$_shelduck_compile_script$_shelduck_compile_add_script"
 	fi
-	unset _shelduck_compile2_add_script
+	unset _shelduck_compile_add_script
 
-	if [ -z "$_shelduck_compile2_script" ]; then
-		bobshell_result_set true "$_shelduck_compile2_script"
+	if [ -z "$_shelduck_compile_script" ]; then
+		bobshell_result_set true "$_shelduck_compile_script"
 		return
 	fi
 
@@ -415,9 +415,9 @@ $_shelduck_compile2_add_script"
 	set -- "$shelduck_base_url" "$@"
 
 	# recursive calls
-	shelduck_update_base_url "$_shelduck_compile2_url"
-	shelduck_process_imports "$_shelduck_compile2_script" "$_shelduck_compile2_url"
-	bobshell_result_assert _shelduck_compile2_script -- process_imports failed
+	shelduck_update_base_url "$_shelduck_compile_url"
+	shelduck_process_imports "$_shelduck_compile_script" "$_shelduck_compile_url"
+	bobshell_result_assert _shelduck_compile_script -- process_imports failed
 
 	# restore state
 	unset shelduck_base_url
@@ -426,8 +426,8 @@ $_shelduck_compile2_add_script"
 	fi
 	# shift
 
-	bobshell_result_set true "$_shelduck_compile2_script"
-	unset _shelduck_compile2_script
+	bobshell_result_set true "$_shelduck_compile_script"
+	unset _shelduck_compile_script
 
 }
 
@@ -493,7 +493,7 @@ shelduck_process_imports() {
 		# todo call shelduck_print
 		# todo !!!!!!
 		# bobshell_result_set 'shelduck import '"$_shelduck_process_imports__command"
-		shelduck_compile2 $_shelduck_process_imports__command
+		shelduck_compile $_shelduck_process_imports__command
 
 		# restore state after recursive all
 		_shelduck_process_imports__result="$1"
@@ -592,132 +592,6 @@ shelduck_resolve() {
 
 
 
-# fun: shelduck_print CLIARGS...
-# env: shelduck_print_history
-#      shelduck_alias_strategy
-# txt: parse cli and delegate to shelduck_print_tree
-# api: private
-shelduck_print() {
-
-	shelduck_print_initial_base_url="$shelduck_base_url" # todo is shelduck_print_initial_base_url needed?
-
-	# parse cli
-	shelduck_parse_import_cli "$@"
-	shelduck_print_url=$(shelduck_fix_url "$shelduck_import_url")
-	unset shelduck_import_url
-	shelduck_print_aliases="$shelduck_import_aliases"
-	unset shelduck_import_aliases
-
-
-	# load script
-	shelduck_fetch "$shelduck_print_url"
-	bobshell_result_assert shelduck_print_script -- shelduck_fetch failed
-
-	shelduck_transform "$shelduck_print_script"
-	bobshell_result_assert shelduck_print_script -- shelduck_transform failed
-
-
-	shelduck_event_url "$shelduck_print_url" "$shelduck_print_script"
-
-	# save variables to local array before subsequent (possibly recursive) calls
-	set -- "$shelduck_print_script" "$shelduck_print_url" "$shelduck_print_aliases" "$shelduck_base_url" "$shelduck_print_initial_base_url"
-
-	# check if dependency was already compiled
-	if ! bobshell_contains "$shelduck_print_history" "[$2]"; then
-		shelduck_print_history="$shelduck_print_history [$2]"
-
-		shelduck_update_base_url "$shelduck_print_url"
-
-		# recursive call
-		#shelduck_print_compile_args=$(bobshell_quote "$@")
-		shelduck_compile "$@"
-
-		# restore variables from local array after recursive call
-		shelduck_base_url="$4"
-		shelduck_print_initial_base_url="$5"
-
-	fi
-
-	# print additions, if needed
-	shelduck_print_addition "$@"
-	bobshell_result_assert -- print addition failed
-	printf '%s\n' "$bobshell_result_2"
-
-
-	shelduck_base_url="$shelduck_print_initial_base_url"
-}
-
-
-
-
-# fun: shelduck_compile SCRIPT URL
-# txt: print recusively expanded shelduck commands, and print rewritten rest of script
-# api: private
-shelduck_compile() {
-	shelduck_compile_input="$1"
-	shift
-	if bobshell_starts_with "$shelduck_compile_input" "$bobshell_newline"; then
-		if bobshell_starts_with "$1" file:// https:// http:// stdin:; then
-			printf '%s\n' "# shelduck: source for $1"
-		fi
-	fi
-
-	shelduck_compile_before=
-	shelduck_compile_after=
-	while true; do
-		if bobshell_remove_prefix "$shelduck_compile_input" 'shelduck import ' shelduck_compile_after; then
-			shelduck_compile_input="$shelduck_compile_after"
-		elif ! bobshell_split_first "$shelduck_compile_input" "${bobshell_newline}shelduck import " shelduck_compile_before shelduck_compile_after; then
-			break
-		else
-			# print everything before the first found shelduck command
-			shelduck_rewrite "$shelduck_compile_before$bobshell_newline" "$@"
-			shelduck_compile_input="$shelduck_compile_after$bobshell_newline"
-		fi
-
-
-		shelduck_compile_command=
-		while true; do
-			if ! bobshell_split_first "$shelduck_compile_input" "${bobshell_newline}" shelduck_compile_before shelduck_compile_after; then
-				shelduck_compile_command="$shelduck_compile_input"
-				shelduck_compile_input=
-				break
-			fi
-
-			if ! bobshell_remove_suffix "$shelduck_compile_before" '\' shelduck_compile_before; then
-				shelduck_compile_command="$shelduck_compile_command$shelduck_compile_before"
-				shelduck_compile_input="$bobshell_newline$shelduck_compile_after"
-				break;
-			fi
-
-			shelduck_compile_command="$shelduck_compile_command${shelduck_compile_before}"
-			shelduck_compile_input="$shelduck_compile_after"
-		done
-
-		# assert shelduck argument command line not empty
-		if [ -z "$shelduck_compile_command" ]; then
-			bobshell_die 'empty shelduck arguments'
-		fi
-
-		# before recursive call, save variables to local array
-		set -- "$shelduck_compile_input" "$@"
-
-		# recursive call, concously not double qouting
-		# shellcheck disable=SC2086
-		shelduck_print $shelduck_compile_command
-
-		# after recursive call, restore variables from local array
-		shelduck_compile_input="$1"
-		shift
-	done
-
-
-	# print everything after last found shelduck command
-	shelduck_rewrite "$shelduck_compile_input" "$@"
-}
-
-
-
 
 
 
@@ -733,24 +607,6 @@ shelduck_fetch() {
 	fi
 	shelduck_cached_fetch_url "$1"
 	bobshell_result_set true "$bobshell_result_1"
-}
-
-
-
-
-# fun: shelduck_rewrite ORIGCONTENT URL
-# txt: rewrite original script (e.g. rename functions)
-# api: private
-shelduck_rewrite() {
-	if [ rename = "${shelduck_alias_strategy:-}" ]; then
-		bobshell_die "shelduck_alias_strategy: value $shelduck_alias_strategy not supported"
-	fi
-	shelduck_rewrite_data="$1"
-	if bobshell_remove_prefix "$shelduck_rewrite_data" "#!/usr/bin/env shelduck_run$bobshell_newline" shelduck_rewrite_suffix; then
-		shelduck_rewrite_data="#!/bin/sh$bobshell_newline$shelduck_rewrite_suffix"
-	fi
-	printf %s "$shelduck_rewrite_data"
-	unset shelduck_rewrite_data shelduck_rewrite_suffix
 }
 
 

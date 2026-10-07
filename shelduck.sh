@@ -36,15 +36,31 @@ shelduck() {
 			return 1
 			;;
 	esac
-
 	shelduck_alias_strategy=wrap
+
 	_shelduck__subcommand="$1"
 	shift
-	set -- shelduck_"$_shelduck__subcommand" "$@"
-	"$@"
-	bobshell_result_assert -- "error calling $_shelduck__subcommand"
-	printf %s "$bobshell_result_2"
+	set -- "$_shelduck__subcommand" shelduck_"$_shelduck__subcommand" "$@"
+	unset "$1"
+	bobshell_shift_exec 1 "$@"
+	bobshell_result_assert -- "error calling $1"
+	if [ "$bobshell_result_size" -gt 1 ]; then
+		printf %s "$bobshell_result_2"
+	fi
 }
+
+
+# api: private
+shelduck_usage() {
+	printf 'Usage: shelduck SUBCOMMAND [ARGS...]\n'
+	printf 'Commands:\n'
+	printf '    usage\n'
+	printf '    import\n'
+	printf '    resolve\n'
+	printf '    run\n'
+}
+
+
 
 # global variables
 # shelduck_base_url
@@ -54,6 +70,57 @@ shelduck() {
 shelduck_include() {
 	bobshell_die 'command not implemented: include'
 }
+
+
+
+# fun: shelduck_run URL [ARGS...]
+# api: private
+# env: shelduck_run_args
+shelduck_run() {
+	# parse cli
+	if ! [ $# -ge 1 ]; then
+		bobshell_die '"shelduck run" requires at least 1 argument'
+	fi
+
+	shelduck_ensure_base_url
+	_shelduck_run__orig_base_url="$shelduck_base_url"
+
+	_shelduck_run__url="$1"
+	shift
+
+	bobshell_str_quote "$@"
+	shelduck_run_args="$bobshell_result_1"
+
+	# load script
+	shelduck_fetch "$_shelduck_run__url"
+	bobshell_result_assert _shelduck_run__script -- shelduck_fetch failed
+
+	shelduck_transform "$_shelduck_run__script" "$_shelduck_run__url"
+	bobshell_result_assert _shelduck_run__script -- shelduck_transform failed
+
+	set -- shelduck_eval_with_args "$_shelduck_run__script" "$@"
+	unset _shelduck_run__script
+
+	# save state before recursive call
+	set -- "$_shelduck_run__orig_base_url" "$@"
+
+
+	# recursive call (no need to save state)
+	shelduck_update_base_url "$3"
+	unset _shelduck_run__url
+	bobshell_shift_exec 1 "$@"
+
+	# restore state after recursive call
+	unset shelduck_base_url
+	if [ -n "$1" ]; then
+		shelduck_base_url="$1"
+	fi
+
+	bobshell_result_set true ''
+}
+
+
+
 
 # shelduck_build URL
 # api: public
@@ -95,28 +162,6 @@ shelduck_ensure_base_url() {
 }
 
 
-
-# fun: shelduck_run URL [ARGS...]
-# api: private
-shelduck_run() {
-	# parse cli
-	bobshell_isset_1 "$@" || bobshell_die '"shelduck run" requires at least 1 argument'
-	shelduck_run_url=$(shelduck_fix_url "$1")
-	shift
-	shelduck_run_args="$(bobshell_quote "$@")"
-
-
-	# save vars before recursive_call
-	set -- "$shelduck_run_args" # save latest run args, since recursive imports use it # todo needed?
-
-	# delegate to shelduck_exec
-	shelduck_exec '' "$shelduck_run_url" "$shelduck_run_args"
-	unset shelduck_run_url shelduck_run_args
-
-	# restore state after recursive call
-	shelduck_run_args="$1"
-
-}
 
 
 shelduck_fix_url() {
@@ -571,16 +616,6 @@ shelduck_update_base_url() {
 }
 
 
-
-# api: private
-shelduck_usage() {
-	printf 'Usage: shelduck SUBCOMMAND [ARGS...]\n'
-	printf 'Commands:\n'
-	printf '    usage\n'
-	printf '    import\n'
-	printf '    resolve\n'
-	printf '    run\n'
-}
 
 
 # fun: shelduck_resolve CLIARGS...

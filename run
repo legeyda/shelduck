@@ -162,6 +162,18 @@ shelduck build ./test/test.sh" > target/test.sh
 	x=$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/test.sh'; fun 1 2 3")
 	test 'hello from baz 1 2 3' = "$x"
 
+
+	##############
+	#
+	x=$(shelduck run 'val:
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/quote.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/assert.sh
+bobshell_str_quote "1 2 3"
+printf %s "$bobshell_result_1"
+')
+	assert_equals "$x" "'1 2 3'"
+
+
 	echo 'shelduck tests passed'
 }
 

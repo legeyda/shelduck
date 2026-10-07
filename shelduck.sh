@@ -174,17 +174,18 @@ shelduck_fix_url() {
 	if bobshell_starts_with "$1" path://; then
 		shelduck_path_search "$1"
 		bobshell_result_assert _shelduck_fix_url__result -- cannot find resource by url "$1"
-		printf %s "$_shelduck_fix_url__result"
+		bobshell_result_set "$_shelduck_fix_url__result"
 		unset _shelduck_fix_url__result
 	elif bobshell_locator_is_remote "$1" || bobshell_locator_is_file "$1" || ! bobshell_locator_parse "$1"; then
 		shelduck_fix_url=$(bobshell_resolve_url "$1" "$shelduck_base_url")
 		if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
 			shelduck_fix_url=$(shelduck_apply_rules "$shelduck_fix_url" "$SHELDUCK_URL_RULES")
 		fi
-		printf %s "$shelduck_fix_url"
+
+		bobshell_result_set "$shelduck_fix_url"
 		unset shelduck_fix_url
 	else
-		printf %s "$1"
+		bobshell_result_set "$1"
 	fi
 }
 
@@ -320,7 +321,9 @@ shelduck_import() {
 	shelduck_ensure_base_url
 
 	shelduck_parse_import_cli "$@"
-	shelduck_import_url=$(shelduck_fix_url "$shelduck_import_url") # todo shelduck_fix_url does not update base_url in subshell
+
+	shelduck_fix_url "$shelduck_import_url"
+	shelduck_import_url="$bobshell_result_1"
 
 	shelduck_fetch "$shelduck_import_url"
 	bobshell_result_assert _shelduck_import__script -- fetch failed
@@ -401,7 +404,8 @@ shelduck_transform() {
 shelduck_compile() {
 
 	shelduck_parse_import_cli "$@"
-	_shelduck_compile_url=$(shelduck_fix_url "$shelduck_import_url")
+	shelduck_fix_url "$shelduck_import_url"
+	_shelduck_compile_url="$bobshell_result_1"
 	unset shelduck_import_url
 
 	_shelduck_compile_aliases="$shelduck_import_aliases"

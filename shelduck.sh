@@ -37,23 +37,21 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck() {
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
-		(usage|run|build|import|resolve) ;;
+		(usage|run|build|resolve|import|fetch)
+			: # ok run subcommand
+			;;
+
 		(*)
 			printf 'unknown subcommand %s, see shelduck usage' "$1"
 			return 1
 			;;
 	esac
-	shelduck_alias_strategy=wrap
 
+	shelduck_alias_strategy=wrap
 	_shelduck__subcommand="$1"
 	shift
-	set -- "$_shelduck__subcommand" shelduck_"$_shelduck__subcommand" "$@"
-	unset "$1"
-	bobshell_shift_exec 1 "$@"
-	bobshell_result_assert -- "error calling $1"
-	if [ "$bobshell_result_size" -gt 1 ]; then
-		printf %s "$bobshell_result_2"
-	fi
+	"shelduck_$_shelduck__subcommand" "$@"
+
 }
 
 
@@ -73,30 +71,6 @@ shelduck_usage() {
 # shelduck_base_url
 # shelduck_compile_history ?
 # shelduck_import_history ?
-
-shelduck_include() {
-	bobshell_die 'command not implemented: include'
-
-
-shelduck fetch ./file.ini
-bobshell_result_assert file_content -- fetch file failed # in compile mode always keeps
-
-shelduck fetch ./otherfile.txt
-x="$shelduck_fetch_result"
-
-
-	x=$(cat <EOF
-shelduck print ./file.txt
-EOF
-)
-
-	y='
-shelduck print ./file2.txt
-'
-
-
-
-}
 
 
 
@@ -119,8 +93,8 @@ shelduck_run() {
 	shelduck_run_args="$bobshell_result_1"
 
 	# load script
-	shelduck_fetch "$_shelduck_run__url"
-	bobshell_result_assert _shelduck_run__script -- shelduck_fetch failed
+	shelduck_do_fetch "$_shelduck_run__url"
+	bobshell_result_assert _shelduck_run__script -- shelduck_do_fetch failed
 
 	shelduck_transform "$_shelduck_run__script" "$_shelduck_run__url"
 	bobshell_result_assert _shelduck_run__script -- shelduck_transform failed
@@ -142,8 +116,6 @@ shelduck_run() {
 	if [ -n "$_shelduck_run__orig_base_url" ]; then
 		shelduck_base_url="$_shelduck_run__orig_base_url"
 	fi
-
-	bobshell_result_set true ''
 }
 
 
@@ -173,7 +145,8 @@ shelduck_build() {
 		shelduck_base_url="$2"
 	fi
 
-
+	bobshell_result_assert -- 'shelduck build failed'
+	printf %s "$bobshell_result_2"
 	# shift 2
 }
 
@@ -354,7 +327,7 @@ shelduck_import() {
 	shelduck_fix_url "$shelduck_import_url"
 	shelduck_import_url="$bobshell_result_1"
 
-	shelduck_fetch "$shelduck_import_url"
+	shelduck_do_fetch "$shelduck_import_url"
 	bobshell_result_assert _shelduck_import__script -- fetch failed
 
 	shelduck_transform "$_shelduck_import__script" "$shelduck_import_url"
@@ -446,8 +419,8 @@ shelduck_compile() {
 
 
 	# load script
-	shelduck_fetch "$_shelduck_compile_url"
-	bobshell_result_assert _shelduck_compile_script -- shelduck_fetch failed
+	shelduck_do_fetch "$_shelduck_compile_url"
+	bobshell_result_assert _shelduck_compile_script -- shelduck_do_fetch failed
 
 	shelduck_transform "$_shelduck_compile_script" "$_shelduck_compile_url"
 	bobshell_result_assert _shelduck_compile_script -- shelduck_transform failed
@@ -607,7 +580,8 @@ shelduck_process_command() {
 			;;
 
 		(fetch)
-			bobshell_result_set false fetch not implemented yet
+			shift
+			shelduck_fetch "$@"
 			;;
 
 		(*)
@@ -650,14 +624,20 @@ shelduck_resolve() {
 
 
 
+shelduck_fetch() {
+	if [ $# != 1 ]; then
+		bobshell_die shelduck_fetch: exactly one argument expected
+	fi
+	shelduck_fix_url "$1"
+	shelduck_do_fetch "$bobshell_result_1"
+}
 
-
-# fun: shelduck_fetch ABSURL
+# fun: shelduck_do_fetch ABSURL
 # txt: prints original script without modification
 # api: private
-shelduck_fetch() {
+shelduck_do_fetch() {
 	bobshell_result_set false
-	bobshell_event_fire shelduck_fetch_url_event "$1"
+	bobshell_event_fire shelduck_do_fetch_url_event "$1"
 	if bobshell_result_check; then
 		bobshell_result_set true "$bobshell_result_2"
 		return

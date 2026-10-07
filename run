@@ -6,6 +6,9 @@ main() {
 
 	: "${SHELDUCK_BUILD_BOBSHELL_IMPORT_URL:=https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main}"
 	: "${SHELDUCK_BUILD_ROOT:=./target}"
+
+	. ./test/lib.sh
+
 	# shellcheck disable=SC2145
 	run_"$@"
 }
@@ -28,9 +31,7 @@ run_init() {
 
 run_debug() {
 	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
-	reset
-	shelduck import -a test_echo file://./example/smoketest.sh
-	test_echo x
+	go_test_via_bobshell
 }
 
 run_die() {
@@ -173,8 +174,21 @@ printf %s "$bobshell_result_1"
 ')
 	assert_equals "$x" "'1 2 3'"
 
+	go_test_fetch
 
 	echo 'shelduck tests passed'
+}
+
+go_test_fetch() {
+	x='. "'"$SHELDUCK_BUILD_ROOT"'"/shelduck.sh
+shelduck import ./test/test_fetch/test.sh'
+	x="$(sh -euc "$x")"
+
+	assert_equals "'hello
+hi
+hello
+'" "$x"
+
 }
 
 go_test_via_bobshell() {

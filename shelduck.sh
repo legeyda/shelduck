@@ -16,6 +16,8 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/string.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/url.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/util.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/prefix.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/suffix.sh
 
 
 
@@ -474,6 +476,208 @@ $_shelduck_compile_add_script"
 	unset _shelduck_compile_script
 
 }
+
+shelduck_compile_command_listener() {
+
+	# shelduck preprocess replace %%_ com_legeyda_bobshell_
+
+	bobshell_str_prefix "$_shelduck_parse_commands__command" 'import '
+	if bobshell_result_check _shelduck_parse_commands__command; then
+		shelduck_compile "$_shelduck_parse_commands__command"
+		bobshell_result_assert
+		bobshell_result_set true apply "$bobshell_result_2"
+	fi
+
+	bobshell_str_prefix "$_shelduck_parse_commands__command" 'fetch '
+	if bobshell_result_check _shelduck_parse_commands__command; then
+		shelduck_fetch "$_shelduck_parse_commands__command"
+		break # todo
+	fi
+
+	bobshell_str_prefix "$_shelduck_parse_commands__command" 'transform '
+	if bobshell_result_check _shelduck_parse_commands__command; then
+		bobshell_die transform unsupported in compile mode
+	fi
+
+
+	bobshel_result_set true skip
+	_shelduck_parse_commands__result="$_shelduck_parse_commands__result$_shelduck_parse_commands__command"
+	unset _shelduck_parse_commands__command
+	break
+
+
+}
+
+shelduck_process_compile_commands() {
+	_shelduck_parse_commands__input="$1"
+	shift
+	_shelduck_parse_commands__result=
+	while true; do
+		shelduck_next_command "$_shelduck_parse_commands__input"
+		if bobshell_result_check; then
+			_shelduck_parse_commands__result="$_shelduck_parse_commands__result$bobshell_result_2"
+			_shelduck_parse_commands__command="$bobshell_result_3"
+			_shelduck_parse_commands__input="$bobshell_result_4"
+
+			bobshell_str_prefix "$_shelduck_parse_commands__command" 'shelduck '
+			bobshell_result_assert _shelduck_parse_commands__command -- command parse failed
+
+			bobshell_str_replace "$_shelduck_parse_commands__command" '\'"$bobshell_newline" ' '
+			bobshell_result_assert - _shelduck_parse_commands__command
+
+			"$@" "$_shelduck_parse_commands__result" "$_shelduck_parse_commands__command" "$_shelduck_parse_commands__input"
+
+			bobshell_result_assert  -- parse failed
+			if [ apply = "$bobshell_result_2" ]; then
+				_shelduck_parse_commands__result="$_shelduck_parse_commands__result$bobshell_result_3"
+			elif [ skip = "$bobshell_result_2" ]; then
+				_shelduck_parse_commands__result="$_shelduck_parse_commands__result$_shelduck_parse_commands__command"
+			else
+				bobshell_die 'shelduck_parse_commands: unsupported result from listener ('"$bobshell_result_2"')'
+			fi
+
+
+			while true; do
+				bobshell_str_prefix "$_shelduck_parse_commands__command" 'import '
+				if bobshell_result_check _shelduck_parse_commands__command; then
+					shelduck_compile "$_shelduck_parse_commands__command"
+				fi
+
+				bobshell_str_prefix "$_shelduck_parse_commands__command" 'fetch '
+				if bobshell_result_check _shelduck_parse_commands__command; then
+					shelduck_fetch "$_shelduck_parse_commands__command"
+					break # todo
+				fi
+
+				bobshell_str_prefix "$_shelduck_parse_commands__command" 'transform '
+				if bobshell_result_check _shelduck_parse_commands__command; then
+					bobshell_die transform unsupported in compile mode
+				fi
+
+				_shelduck_parse_commands__result="$_shelduck_parse_commands__result$_shelduck_parse_commands__command"
+				unset _shelduck_parse_commands__command
+				break
+			done
+		else
+			_shelduck_parse_commands__result="$_shelduck_parse_commands__result$_shelduck_parse_commands__input"
+			break
+		fi
+	done
+
+	unset _shelduck_parse_commands__input
+	bobshell_result_set true "$_shelduck_parse_commands__result"
+	unset _shelduck_parse_commands__result
+}
+
+# fun: shelduck_preprocess INPUT
+# res: true RESULTTEXT
+# res: false error message
+shelduck_preprocess() {
+	_shelduck_preprocess__input="$1"
+	shift
+	_shelduck_preprocess__result=
+	while [ -n "$_shelduck_preprocess__input" ]; do
+		shelduck_next_command "$_shelduck_preprocess__input"
+		if ! bobshell_result_check; then
+			_shelduck_preprocess__result="$_shelduck_preprocess__result$_shelduck_preprocess__input"
+			_shelduck_preprocess__input=
+			break
+		fi
+
+		_shelduck_preprocess__result="$_shelduck_preprocess__result$bobshell_result_2"
+		_shelduck_preprocess__command="$bobshell_result_3"
+		_shelduck_preprocess__input="$bobshell_result_4"
+
+		bobshell_str_prefix "$_shelduck_preprocess__command" 'shelduck preprocess '
+		if ! bobshell_result_check _shelduck_preprocess__command; then
+			# skip
+			_shelduck_preprocess__result="$_shelduck_preprocess__result$_shelduck_preprocess__command"
+			unset _shelduck_preprocess__command
+			continue
+		fi
+
+		eval 'shelduck_preprocess_item '"$_shelduck_preprocess__command" # todo fix shell injection
+		bobshell_result_assert -- preprocess failed
+		unset _shelduck_preprocess__command
+	done
+
+	unset _shelduck_preprocess__input
+	bobshell_result_set true "$_shelduck_preprocess__result"
+	unset _shelduck_preprocess__result
+}
+
+shelduck_preprocess_item() {
+	if [ replace != "$1" ]; then
+		bobshell_result_set false shelduck preprocess: command "$1" not supported
+		return
+	fi
+	bobshell_str_replace "$_shelduck_preprocess__input" "$2" "$3"
+	bobshell_result_check _shelduck_preprocess__input || true
+}
+
+
+# fun: shelduck_next_command INPUT
+# res: true SKIP COMMAND REST
+# res: false
+shelduck_next_command() {
+	if [ -z "$1" ]; then
+		bobshell_result_set false
+		return
+	fi
+
+	_shelduck_next_command__rest="$1"
+	shift
+
+	# search for next unindented shelduck command
+	_shelduck_next_command__skip=
+	while true; do
+		bobshell_str_split_v2 "$_shelduck_next_command__rest" 'shelduck ' 2
+		if [ "$bobshell_result_size" -lt 2 ]; then
+			unset _shelduck_next_command__rest _shelduck_next_command__skip
+			bobshell_result_set false
+			return
+		fi
+		_shelduck_next_command__rest="$bobshell_result_2"
+
+		# check for indentation
+		if [ -n "$bobshell_result_1" ] && ! bobshell_ends_with "$bobshell_result_1" "$bobshell_newline"; then
+			# command is indentated, skip
+			bobshell_var_append _shelduck_next_command__skip "$bobshell_result_1"'shelduck '
+			continue
+		fi
+
+		bobshell_var_append _shelduck_next_command__skip "$bobshell_result_1"
+		break
+	done
+
+	# trace command to multiple lines
+	_shelduck_next_command__command='shelduck '
+	while true; do
+		bobshell_str_split_v2 "$_shelduck_next_command__rest" "${bobshell_newline}" 2
+		if [ "$bobshell_result_size" -lt 2 ]; then
+			bobshell_var_append _shelduck_next_command__command "$bobshell_result_1"
+			bobshell_result_set true "$_shelduck_next_command__skip" "$_shelduck_next_command__command" ''
+			break
+		fi
+
+		_shelduck_next_command__candidate="$bobshell_result_1"
+		_shelduck_next_command__rest="$bobshell_result_2"
+
+		bobshell_str_suffix "$_shelduck_next_command__candidate" '\'
+		if bobshell_result_check; then
+			unset _shelduck_next_command__candidate
+			bobshell_var_append _shelduck_next_command__command "$bobshell_result_2"'\'"$bobshell_newline"
+			continue
+		else
+			_shelduck_next_command__rest="$bobshell_newline$_shelduck_next_command__rest"
+			bobshell_var_append _shelduck_next_command__command "$_shelduck_next_command__candidate"
+			bobshell_result_set true "$_shelduck_next_command__skip" "$_shelduck_next_command__command" "$_shelduck_next_command__rest"
+			break
+		fi
+	done
+	unset _shelduck_next_command__skip _shelduck_next_command__command _shelduck_next_command__rest
+}
+
 
 
 

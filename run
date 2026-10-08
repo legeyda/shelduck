@@ -60,7 +60,7 @@ event/compile.sh event/fire.sh event/listen.sh
 misc/defun.sh  code/defun.sh'
 
 
-transitive_imports_after='str/replace.sh str/quote.sh str/split_v2.sh str/prefix.sh str/suffix.sh
+transitive_imports_after='str/replace.sh str/quote.sh str/split_v2.sh
 append/val_to_var.sh
 misc/defun.sh
 var/set.sh var/append.sh var/increment.sh var/default.sh var/get.sh var/print.sh
@@ -130,11 +130,32 @@ fetch_url() {
 
 
 run_bobtest() {
-	. target/shelduck.sh
+	init_previous_shelduck_release
 	shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/bobtest.sh
-	bobtest "$@"
+	bobtest "${@:-test}"
 }
 
+init_previous_shelduck_release() {
+	: "${BOBSHELL_BUILD_ROOT:=./target}"
+	mkdir -p "$BOBSHELL_BUILD_ROOT"
+	if ! [ -f "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh" ]; then
+		curl --fail --silent --show-error --location https://github.com/legeyda/shelduck/releases/latest/download/shelduck.sh \
+				> "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh"
+
+		sed_i '' "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh"
+		bobshell_die MAKE REPLACEMENTS IN "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh"
+		# bobshell_result_set "$_bobshell_replace__result"
+		# _bobshell_str_quote__result="$_bobshell_str_quote__result$_bobshell_str_quote__separator'$bobshell_result_1'"
+		# printf %s "$bobshell_result_1"
+	fi
+	. "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh"
+}
+
+sed_i() {
+	sed "$1" "$2" > "$2".tmp &&
+	mv "$2".tmp
+
+}
 
 run_test() {
 	run_build

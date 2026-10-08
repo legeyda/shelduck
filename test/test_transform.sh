@@ -21,5 +21,15 @@ foo
 bbz
 # shelduck: end of script http://url
 
-' "$res" "$res"
+' "$res"
+
+}
+
+test_2() {
+	x='
+'"shelduck preprocess replace 'shelduck import bsh://' 'shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/'
+""shelduck import bsh://str/quote.sh
+"
+	x=$(shelduck build "val:$x")
+	assert_contains "$x" 'bobshell_str_split_v2()'
 }

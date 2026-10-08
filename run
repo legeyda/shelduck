@@ -70,8 +70,7 @@ regex/match.sh
 result/assert.sh
 notrace.sh
 cli/setup.sh cli/parse.sh cli/help.sh
-map/get.sh map/put.sh
-cache/get.sh'
+map/get.sh map/put.sh'
 
 run_build_shelduck() {
 	mkdir -p "$SHELDUCK_BUILD_ROOT"

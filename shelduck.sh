@@ -43,6 +43,9 @@ shelduck() {
 			: # ok run subcommand
 			;;
 
+		(preprocess)
+			bobshell_die "shelduck $1 is available only in compile-time, not runtime"
+
 		(*)
 			printf 'unknown subcommand %s, see shelduck usage' "$1"
 			return 1
@@ -391,6 +394,9 @@ shelduck_transform() {
 '
 		fi
 	fi
+
+	shelduck_preprocess "$_shelduck_transform__script"
+	bobshell_result_assert _shelduck_transform__script -- shelduck_transform: shelduck_preprocess failed
 
 	set -- "$_shelduck_transform__script" "$@"
 	unset _shelduck_transform__script

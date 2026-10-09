@@ -57,19 +57,21 @@ run_build() {
 transitive_imports_before='base.sh
 result/set.sh result/append.sh result/check.sh result/read.sh result/unset.sh
 event/compile.sh event/fire.sh event/listen.sh
-misc/defun.sh  code/defun.sh'
+misc/defun.sh  code/defun.sh
+var/set.sh var/append.sh var/increment.sh var/default.sh var/get.sh var/print.sh
+misc/equals_any.sh
+regex/match.sh
+cli/setup.sh cli/parse.sh cli/help.sh'
 
 
-transitive_imports_after='str/replace.sh str/quote.sh str/split_v2.sh
+transitive_imports_after='str/replace.sh str/split_v2.sh
 append/val_to_var.sh
 misc/defun.sh
-var/set.sh var/append.sh var/increment.sh var/default.sh var/get.sh var/print.sh
+
 misc/awk.sh misc/equals_any.sh
 redirect/input.sh redirect/io.sh redirect/output.sh
 regex/match.sh
-result/assert.sh
 notrace.sh
-cli/setup.sh cli/parse.sh cli/help.sh
 map/get.sh map/put.sh'
 
 run_build_shelduck() {

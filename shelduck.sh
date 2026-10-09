@@ -11,9 +11,11 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/parse.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/misc/file_date.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/resource/copy.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/assert.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/check.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/scope.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/string.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/quote.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/url.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/util.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/prefix.sh
@@ -92,7 +94,9 @@ shelduck_run() {
 	shelduck_ensure_base_url
 	_shelduck_run__orig_base_url="$shelduck_base_url"
 
-	_shelduck_run__url="$1"
+
+	shelduck_fix_url "$1"
+	_shelduck_run__url="$bobshell_result_1"
 	shift
 
 	bobshell_str_quote "$@"

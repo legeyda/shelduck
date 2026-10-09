@@ -155,8 +155,14 @@ shelduck_build() {
 		shelduck_base_url="$2"
 	fi
 
-	bobshell_result_assert -- 'shelduck build failed'
-	printf %s "$bobshell_result_2"
+	bobshell_result_assert _shelduck_build__result -- 'shelduck build failed'
+
+	bobshell_str_prefix "$_shelduck_build__result" '#!/usr/bin/env shelduck_run'"$bobshell_newline"
+	if bobshell_result_check; then
+		_shelduck_build__result='#!/bin/sh'"$bobshell_newline$bobshell_result_2"
+	fi
+
+	printf %s "$_shelduck_build__result"
 	# shift 2
 }
 

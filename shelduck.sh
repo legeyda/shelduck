@@ -40,13 +40,21 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 #      SHELDUCK_LIBRARY_PATH
 #      SHELDUCK_URL_RULES
 shelduck() {
+	shelduck_alias_strategy=wrap # todo fix
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
-		(usage|run|build|resolve|import|fetch)
-			: # ok run subcommand
+
+		(import|fetch) # only at runtime within scripts
+			shelduck_log_start
+			shelduck_subcommand "$@"
+			shelduck_log_end
 			;;
 
-		(preprocess)
+		(usage|run|build|resolve) # compile time
+			shelduck_subcommand "$@"
+			;;
+
+		(preprocess) # not a command rather a compiler directive
 			bobshell_die "shelduck $1 is available only in compile-time, not runtime"
 
 		(*)
@@ -54,23 +62,47 @@ shelduck() {
 			return 1
 			;;
 	esac
-
-	shelduck_alias_strategy=wrap
-	_shelduck__subcommand="$1"
-	shift
-	"shelduck_$_shelduck__subcommand" "$@"
-
 }
 
+shelduck_subcommand() {
+	_shelduck_subcommand="$1"
+	shift
+	set -- "shelduck_$_shelduck_subcommand" "$@"
+	unset _shelduck_subcommand
+	"$@"
+}
+
+shelduck_log_start() {
+	_shelduck_log_level="${SHELDUCK_LOG_LEVEL:-3}"
+	case "$_shelduck_log_level" in
+		(0|1|2|3|4|5|6|7|8)
+			if ! bobshell_isset _shelduck_orig_bobshell_log_level; then
+				_shelduck_orig_bobshell_log_level="$bobshell_log_level"
+			fi
+			bobshell_log_level "$_shelduck_log_level"
+			unset
+			;;
+		(*)
+			;;
+	esac
+}
+
+shelduck_log_end() {
+	if bobshell_isset _shelduck_orig_bobshell_log_level; then
+		bobshell_log_level "$_shelduck_orig_bobshell_log_level"
+		unset _shelduck_orig_bobshell_log_level
+	fi
+}
 
 # api: private
 shelduck_usage() {
-	printf 'Usage: shelduck SUBCOMMAND [ARGS...]\n'
-	printf 'Commands:\n'
-	printf '    usage\n'
-	printf '    import\n'
-	printf '    resolve\n'
-	printf '    run\n'
+	printf %s 'Usage: shelduck SUBCOMMAND [ARGS...]
+Commands:
+    usage
+    import
+    resolve
+    run
+'
 }
 
 

@@ -1,5 +1,9 @@
 
 
+
+shelduck preprocess replace %%% hello
+# %%%
+
 # shelduck_src
 # env: PREFIX?
 #      DESTDIR
@@ -20,12 +24,12 @@ install_shelduck() {
 	bobshell_install_put_executable stdin: "$SHELDUCK_INSTALL_NAME" <<eof
 #!/bin/sh
 set -eu
-if [ import = "\${1:-}" ]; then
+if [ import = "\${1:-}" ] || [ fetch = "\${1:-}" ]; then
 	shift
-	printf 'import subcommand not available when run from installed script %s\n' "\$0"
+	printf "$1"' subcommand not available when run from installed script %s\n' "\$0"
 	printf "Instead source library:\n"
 	printf '. "%s"\n' '$SHELDUCK_LIBRARY_PATH'
-	printf 'shelduck import'
+	printf 'shelduck '"$1"
 	printf ' %s' "\$@"
 	exit 1
 fi

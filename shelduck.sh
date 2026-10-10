@@ -370,8 +370,13 @@ shelduck_apply_rules() {
 shelduck_import() {
 	shelduck_ensure_base_url
 
-	shelduck_parse_import_cli "$@"
+	# если нет допаргументов и уже импортировали (что скорее всего), можно пропустить вообще и даже не парсить
+	: "${shelduck_import_history:=}"
+	if [ "$#" = 1 ] && bobshell_contains "$shelduck_import_history" "[$1]"; then
+		return
+	fi
 
+	shelduck_parse_import_cli "$@"
 	shelduck_fix_url "$shelduck_import_url"
 	shelduck_import_url="$bobshell_result_1"
 
@@ -388,7 +393,6 @@ $_shelduck_import__add_script
 	fi
 
 	# check for duplicates
-	: "${shelduck_import_history:=}"
 	if bobshell_contains "$shelduck_import_history" "[$shelduck_import_url]"; then
 		_shelduck_import__script="$_shelduck_import__add_script"
 	else

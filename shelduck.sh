@@ -3,6 +3,9 @@
 
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/base.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/misc/log.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/event/fire.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/event/listen.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/event/stop.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/install.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/is_file.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/locator/is_remote.sh
@@ -135,11 +138,8 @@ shelduck_run() {
 	shelduck_run_args="$bobshell_result_1"
 
 	# load script
-	shelduck_do_fetch "$_shelduck_run__url"
-	bobshell_result_assert _shelduck_run__script -- shelduck_do_fetch failed
-
-	shelduck_transform "$_shelduck_run__script" "$_shelduck_run__url"
-	bobshell_result_assert _shelduck_run__script -- shelduck_transform failed
+	shelduck_prepare "$_shelduck_run__url"
+	bobshell_result_assert _shelduck_run__script -- shelduck_run: shelduck_prepare failed
 
 	set -- shelduck_eval_with_args "$_shelduck_run__script" "$@"
 	unset _shelduck_run__script
@@ -375,11 +375,8 @@ shelduck_import() {
 	shelduck_fix_url "$shelduck_import_url"
 	shelduck_import_url="$bobshell_result_1"
 
-	shelduck_do_fetch "$shelduck_import_url"
-	bobshell_result_assert _shelduck_import__script -- fetch failed
-
-	shelduck_transform "$_shelduck_import__script" "$shelduck_import_url"
-	bobshell_result_assert _shelduck_import__script -- apply transformation to module "$shelduck_import_url" failed
+	shelduck_prepare "$shelduck_import_url"
+	bobshell_result_assert _shelduck_import__script -- shelduck_import: prepare failed: "$1"
 
 	#
 	shelduck_print_addition  "$_shelduck_import__script" "$shelduck_import_url" "$shelduck_import_aliases"
@@ -417,6 +414,57 @@ $_shelduck_import__add_script
 	shelduck_base_url="$1"
 	shift
 
+}
+
+# fun: shelduck_prepare ABSURL
+shelduck_prepare() {
+	shelduck_cache_get shelduck_prepare "$1"
+	if bobshell_result_check; then
+		return
+	fi
+
+	shelduck_do_fetch "$1"
+	bobshell_result_assert -- shelduck_prepare: do_fetch failed
+
+	shelduck_transform "$bobshell_result_2" "$1"
+	if bobshell_result_check _shelduck_prepare__result; then
+		shelduck_cache_put shelduck_prepare "$1" "$_shelduck_prepare__result"
+	fi
+}
+
+# fun: shelduck_cache_get CACHENAME KEY
+shelduck_cache_get() {
+	_shelduck_cache_get="$1"
+	shift
+	set -- "${_shelduck_cache_get}_search_event" "$@"
+	unset _shelduck_cache_get
+
+	bobshell_result_set_1 false
+	bobshell_event_fire "$@"
+}
+
+# fun: shelduck_cache_add CACHENAME KEY VALUE
+shelduck_cache_put() {
+	_shelduck_cache_put="$1"
+	shift
+	set -- "${_shelduck_cache_put}_search_event" "$@"
+	unset _shelduck_cache_put
+
+	bobshell_str_quote "$2"
+	_shelduck_cache_put__quoted_key="$bobshell_result_1"
+
+	bobshell_str_quote "$3"
+	_shelduck_cache_put__quoted_value="$bobshell_result_1"
+
+	bobshell_event_listen $1 eval '
+if [ "$1" = '"$_shelduck_cache_put__quoted_key"' ]; then
+bobshell_result_set_2 true '"$_shelduck_cache_put__quoted_value"'
+bobshell_event_stop
+fi
+'
+	unset _shelduck_cache_put__quoted_key _shelduck_cache_put__quoted_value
+
+	bobshell_result_set true "$3"
 }
 
 # fun: shelduck_transform SCRIPTTEXT [ ABSURL ]
@@ -466,15 +514,9 @@ shelduck_compile() {
 
 	# # todo is _shelduck_compile_initial_base_url needed?
 
-
-
-
 	# load script
-	shelduck_do_fetch "$_shelduck_compile_url"
-	bobshell_result_assert _shelduck_compile_script -- shelduck_do_fetch failed
-
-	shelduck_transform "$_shelduck_compile_script" "$_shelduck_compile_url"
-	bobshell_result_assert _shelduck_compile_script -- shelduck_transform failed
+	shelduck_prepare "$_shelduck_compile_url"
+	bobshell_result_assert _shelduck_compile_script -- shelduck_compile: prepare failed
 
 	shelduck_event_url "$_shelduck_compile_url" "$_shelduck_compile_script"
 

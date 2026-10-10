@@ -25,11 +25,10 @@ install_shelduck() {
 #!/bin/sh
 set -eu
 if [ import = "\${1:-}" ] || [ fetch = "\${1:-}" ]; then
-	shift
-	printf "$1"' subcommand not available when run from installed script %s\n' "\$0"
+	printf "\$1"' subcommand not available when run from installed script %s\n' "\$0"
 	printf "Instead source library:\n"
 	printf '. "%s"\n' '$SHELDUCK_LIBRARY_PATH'
-	printf 'shelduck '"$1"
+	printf 'shelduck '
 	printf ' %s' "\$@"
 	exit 1
 fi

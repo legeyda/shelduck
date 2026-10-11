@@ -436,11 +436,31 @@ $_shelduck_import__add_script
 
 }
 
+
+shelduck_str_equals() {
+	case "$1" in
+		("$2") return ;;
+		(*)    return 1 ;;
+	esac
+}
+
+
 # fun: shelduck_prepare ABSURL
 shelduck_prepare() {
-	shelduck_cache_get transform "$1"
-	if bobshell_result_check; then
-		return
+	if bobshell_locator_is_remote "$1"; then
+		shelduck_cache_get transform "$1"
+		if bobshell_result_check; then
+			return
+		fi
+		_shelduck_prepare__cached=true
+	elif bobshell_locator_is_file "$1"; then
+		shelduck_fcache_fget transform "$1"
+		if bobshell_result_check; then
+			return
+		fi
+		_shelduck_prepare__cached=true
+	else
+		_shelduck_prepare__cached=false
 	fi
 
 	shelduck_do_fetch "$1"
@@ -448,7 +468,12 @@ shelduck_prepare() {
 
 	shelduck_transform "$bobshell_result_2" "$1"
 	if bobshell_result_check _shelduck_prepare__result; then
-		shelduck_cache_put transform "$1" "$_shelduck_prepare__result"
+		if shelduck_str_equals cached "$_shelduck_prepare__cached"; then
+			shelduck_cache_put transform "$1" "$_shelduck_prepare__result"
+		fi
+		unset _shelduck_prepare__cached
+		bobshell_result_set_2 true "$_shelduck_prepare__result"
+		unset _shelduck_prepare__result
 	fi
 }
 
@@ -650,6 +675,13 @@ shelduck_process_compile_commands() {
 # res: true RESULTTEXT
 # res: false error message
 shelduck_preprocess() {
+	if ! bobshell_contains "$1" 'shelduck preprocess '; then
+		if ! bobshell_contains "$1" 'shelduck preprocess replace ' && ! bobshell_contains "$1" 'shelduck preprocess sed '; then
+			bobshell_result_set_2 true "$1"
+			return
+		fi
+	fi
+
 	_shelduck_preprocess__input="$1"
 	shift
 	_shelduck_preprocess__result=
@@ -673,8 +705,8 @@ shelduck_preprocess() {
 			continue
 		fi
 
-		eval 'shelduck_preprocess_item '"$_shelduck_preprocess__command" # todo fix shell injection
-		bobshell_result_assert -- preprocess failed
+		eval 'shelduck_preprocess_item "$_shelduck_preprocess__input" '"$_shelduck_preprocess__command" # todo fix shell injection
+		bobshell_result_assert _shelduck_preprocess__input -- preprocess failed
 		unset _shelduck_preprocess__command
 	done
 
@@ -684,12 +716,27 @@ shelduck_preprocess() {
 }
 
 shelduck_preprocess_item() {
-	if [ replace != "$1" ]; then
+	if [ replace = "$2" ]; then
+		if [ $# -lt 4 ]; then
+			bobshell_result_set_2 false '2 arguments expected
+			return'
+		fi
+		bobshell_str_replace "$1" "$3" "$4"
+	elif [ sed = "$2" ]; then
+		if ! _shelduck_preprocess_item__result=$(printf %s "$1" | bobshell_shift_exec 1 "$@"); then
+			unset _shelduck_preprocess_item__result
+			_shelduck_preprocess__msg='error getting error message'
+			_shelduck_preprocess__msg=$(printf %s "$_shelduck_preprocess__input" | "$@" 1>/dev/null 2>&1) || true
+			bobshell_result_set_2 false "sed invocation error: $_shelduck_preprocess__msg"
+			unset _shelduck_preprocess__msg
+			return
+		fi
+		bobshell_result_set_2 true "$_shelduck_preprocess_item__result"
+		unset _shelduck_preprocess_item__result
+	else
 		bobshell_result_set false shelduck preprocess: command "$1" not supported
 		return
 	fi
-	bobshell_str_replace "$_shelduck_preprocess__input" "$2" "$3"
-	bobshell_result_check _shelduck_preprocess__input || true
 }
 
 
@@ -941,7 +988,9 @@ shelduck_do_fetch() {
 	else
 		bobshell_resource_copy "$1" var:_shelduck_do_fetch__result
 	fi
+
 	bobshell_result_set_2 true "$_shelduck_do_fetch__result"
+	unset _shelduck_do_fetch__result
 }
 
 
@@ -1104,10 +1153,30 @@ EOF_shelduck_fcache_key
 	esac
 }
 
+# fun: shelduck_fcache_fget CACHENAME FILEPATH
+shelduck_fcache_fget() {
+	shelduck_fcache_key "$2"
+	_shelduck_fcache_fget__file="$shelduck_cache_dir/$1/$_shelduck_fcache_hash"
+
+	if ! [ -f "$_shelduck_fcache_fget__file" ]; then
+		bobshell_result_set_2 false "file not found: $_shelduck_fcache_fget__file"
+		unset _shelduck_fcache_fget__file
+		return
+	fi
+
+	if ! [ "$_shelduck_fcache_fget__file" -nt "$2" ]; then
+		bobshell_result_set_2 false "file "$_shelduck_fcache_fget__file" is not newer than $2"
+		unset _shelduck_fcache_fget__file
+		return
+	fi
+	unset _shelduck_fcache_fget__file
+
+	shelduck_fcache_get
+}
+
 # fun: shelduck_fcache_put CACHENAME KEY VALUE
 shelduck_fcache_put() {
 	shelduck_fcache_key "$2"
-	_shelduck_fcache_put__file=$(printf %s "$2" | sed 's/[\/<>:\\|?*]/-/g')
 	_shelduck_fcache_put__file="$shelduck_cache_dir/$1/$_shelduck_fcache_hash"
 	{
 		_shelduck_fcache_put__now="$(date +%s)"
@@ -1117,6 +1186,7 @@ shelduck_fcache_put() {
 	} > "$_shelduck_fcache_put__file"
 	unset _shelduck_fcache_put__file
 }
+
 
 # fun: shelduck_fcache_get CACHENAME KEY
 # res: true VALUE

@@ -1086,11 +1086,28 @@ fi
 ################ shelduck file cache ####################
 
 
+: "${_shelduck_fcache_key:=undefined}"
+
+# env: _shelduck_fcache_key
+# env: _shelduck_fcache_hash
+shelduck_fcache_key() {
+	case "$1" in
+		("$_shelduck_fcache_key") ;;
+		(*)
+			_shelduck_fcache_key="$1"
+			_shelduck_fcache_hash=$(sed 's/[\/<>:\\|?*]/-/g' <<EOF_shelduck_fcache_key
+$_shelduck_fcache_key
+EOF_shelduck_fcache_key
+)
+			;;
+	esac
+}
 
 # fun: shelduck_fcache_put CACHENAME KEY VALUE
 shelduck_fcache_put() {
+	shelduck_fcache_key "$2"
 	_shelduck_fcache_put__file=$(printf %s "$2" | sed 's/[\/<>:\\|?*]/-/g')
-	_shelduck_fcache_put__file="$shelduck_cache_dir/$1/$_shelduck_fcache_put__file"
+	_shelduck_fcache_put__file="$shelduck_cache_dir/$1/$_shelduck_fcache_hash"
 	{
 		_shelduck_fcache_put__now="$(date +%s)"
 		printf '# timestamp: %s\n' "$_shelduck_fcache_put__now"
@@ -1104,8 +1121,8 @@ shelduck_fcache_put() {
 # res: true VALUE
 # res: false
 shelduck_fcache_get() {
-	_shelduck_fcache_get__file=$(printf %s "$2" | sed 's/[\/<>:\\|?*]/-/g')
-	_shelduck_fcache_get__file="$shelduck_cache_dir/$1/$_shelduck_fcache_get__file"
+	shelduck_fcache_key "$2"
+	_shelduck_fcache_get__file="$shelduck_cache_dir/$1/$_shelduck_fcache_hash"
 
 	if ! [ -f "$_shelduck_fcache_get__file" ]; then
 		bobshell_result_set_2 false "file not found: $_shelduck_fcache_get__file"

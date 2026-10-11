@@ -932,12 +932,12 @@ shelduck_do_fetch() {
 		_shelduck_do_fetch__result=$(bobshell_fetch_url "$1")
 		shelduck_cache_put remote "$1" "$_shelduck_do_fetch__result"
 	elif bobshell_locator_is_file "$1"; then
-		shelduck_mcache_get remote "$1"
+		shelduck_mcache_get file "$1"
 		if bobshell_result_check; then
 			return
 		fi
 		bobshell_resource_copy "$1" var:_shelduck_do_fetch__result
-		shelduck_cache_put remote "$1" "$_shelduck_do_fetch__result"
+		shelduck_mcache_put file "$1" "$_shelduck_do_fetch__result"
 	else
 		bobshell_resource_copy "$1" var:_shelduck_do_fetch__result
 	fi
@@ -1095,7 +1095,8 @@ shelduck_fcache_key() {
 		("$_shelduck_fcache_key") ;;
 		(*)
 			_shelduck_fcache_key="$1"
-			_shelduck_fcache_hash=$(sed 's/[\/<>:\\|?*]/-/g' <<EOF_shelduck_fcache_key
+			_shelduck_fcache_hash=$(sed 's|^https://raw.githubusercontent.com/\(.*\)/\(.*\)/refs/heads/\(.*\)|github_\1_\2_\3|g;
+s/[\/<>:\\|?*]/-/g' <<EOF_shelduck_fcache_key
 $_shelduck_fcache_key
 EOF_shelduck_fcache_key
 )

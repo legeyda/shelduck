@@ -48,9 +48,9 @@ shelduck() {
 	case "$1" in
 
 		(import|fetch) # only at runtime within scripts
-			shelduck_log_start
+			#shelduck_log_start
 			shelduck_subcommand "$@"
-			shelduck_log_end
+			#shelduck_log_end
 			;;
 
 		(usage|run|build|resolve) # compile time
@@ -66,6 +66,15 @@ shelduck() {
 			;;
 	esac
 }
+
+shelduck_init() {
+	shelduck_cache_ttl="${SHELDUCK_FILE_CACHE_TTL:-3600}"
+
+	shelduck_cache_dir="${SHELDUCK_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/shelduck}"
+	mkdir -p "$shelduck_cache_dir/remote" "$shelduck_cache_dir/transform"
+}
+
+shelduck_init
 
 shelduck_subcommand() {
 	_shelduck_subcommand="$1"
@@ -372,13 +381,20 @@ shelduck_import() {
 
 	# если нет допаргументов и уже импортировали (что скорее всего), можно пропустить вообще и даже не парсить
 	: "${shelduck_import_history:=}"
-	if [ "$#" = 1 ] && bobshell_contains "$shelduck_import_history" "[$1]"; then
-		return
+	if [ "$#" = 1 ]; then
+		shelduck_fix_url "$1"
+		shelduck_import_url="$bobshell_result_1"
+		shelduck_import_aliases=
+		if bobshell_contains "$shelduck_import_history" "[$shelduck_import_url]"; then
+			return
+		fi
+	else
+		shelduck_parse_import_cli "$@"
+		shelduck_fix_url "$shelduck_import_url"
+		shelduck_import_url="$bobshell_result_1"
 	fi
 
-	shelduck_parse_import_cli "$@"
-	shelduck_fix_url "$shelduck_import_url"
-	shelduck_import_url="$bobshell_result_1"
+
 
 	shelduck_prepare "$shelduck_import_url"
 	bobshell_result_assert _shelduck_import__script -- shelduck_import: prepare failed: "$1"
@@ -422,54 +438,20 @@ $_shelduck_import__add_script
 
 # fun: shelduck_prepare ABSURL
 shelduck_prepare() {
-	shelduck_cache_get shelduck_prepare "$1"
+	shelduck_cache_get transform "$1"
 	if bobshell_result_check; then
 		return
 	fi
 
 	shelduck_do_fetch "$1"
-	bobshell_result_assert -- shelduck_prepare: do_fetch failed
+	bobshell_result_assert -- shelduck_prepare: fetch failed
 
 	shelduck_transform "$bobshell_result_2" "$1"
 	if bobshell_result_check _shelduck_prepare__result; then
-		shelduck_cache_put shelduck_prepare "$1" "$_shelduck_prepare__result"
+		shelduck_cache_put transform "$1" "$_shelduck_prepare__result"
 	fi
 }
 
-# fun: shelduck_cache_get CACHENAME KEY
-shelduck_cache_get() {
-	_shelduck_cache_get="$1"
-	shift
-	set -- "${_shelduck_cache_get}_search_event" "$@"
-	unset _shelduck_cache_get
-
-	bobshell_result_set_1 false
-	bobshell_event_fire "$@"
-}
-
-# fun: shelduck_cache_add CACHENAME KEY VALUE
-shelduck_cache_put() {
-	_shelduck_cache_put="$1"
-	shift
-	set -- "${_shelduck_cache_put}_search_event" "$@"
-	unset _shelduck_cache_put
-
-	bobshell_str_quote "$2"
-	_shelduck_cache_put__quoted_key="$bobshell_result_1"
-
-	bobshell_str_quote "$3"
-	_shelduck_cache_put__quoted_value="$bobshell_result_1"
-
-	bobshell_event_listen $1 eval '
-if [ "$1" = '"$_shelduck_cache_put__quoted_key"' ]; then
-bobshell_result_set_2 true '"$_shelduck_cache_put__quoted_value"'
-bobshell_event_stop
-fi
-'
-	unset _shelduck_cache_put__quoted_key _shelduck_cache_put__quoted_value
-
-	bobshell_result_set true "$3"
-}
 
 # fun: shelduck_transform SCRIPTTEXT [ ABSURL ]
 # txt: make transformation of module src regardless of context, the result of transform can be cached
@@ -941,8 +923,25 @@ shelduck_do_fetch() {
 		bobshell_result_set true "$bobshell_result_2"
 		return
 	fi
-	shelduck_cached_fetch_url "$1"
-	bobshell_result_set true "$bobshell_result_1"
+
+	if bobshell_locator_is_remote "$1"; then
+		shelduck_cache_get remote "$1"
+		if bobshell_result_check; then
+			return
+		fi
+		_shelduck_do_fetch__result=$(bobshell_fetch_url "$1")
+		shelduck_cache_put remote "$1" "$_shelduck_do_fetch__result"
+	elif bobshell_locator_is_file "$1"; then
+		shelduck_mcache_get remote "$1"
+		if bobshell_result_check; then
+			return
+		fi
+		bobshell_resource_copy "$1" var:_shelduck_do_fetch__result
+		shelduck_cache_put remote "$1" "$_shelduck_do_fetch__result"
+	else
+		bobshell_resource_copy "$1" var:_shelduck_do_fetch__result
+	fi
+	bobshell_result_set_2 true "$_shelduck_do_fetch__result"
 }
 
 
@@ -1003,74 +1002,142 @@ shelduck_print_addition() {
 
 
 
+################ CACHING ####################
 
+# fun: shelduck_cache_get CACHENAME KEY
+shelduck_cache_get() {
+	shelduck_mcache_get "$@"
+	if bobshell_result_check; then
+		return
+	fi
 
-
-
-
-
-########################
-######### FETCH ########
-########################
-
-# fun: shelduck_cached_fetch_url ABSURL
-# txt: download dependency given url and save to cache
-# api: private
-shelduck_cached_fetch_url() {
-	# bypass cache if local file
-	if bobshell_locator_is_file "$1" shelduck_cached_fetch_url_path; then
-		bobshell_cache_get --ttl=60 "shelduck_cached_fetch_url/$1" shelduck_cached_fetch_file "$shelduck_cached_fetch_url_path"
-		unset shelduck_cached_fetch_url_path
-	elif bobshell_locator_is_remote "$1"; then
-		bobshell_cache_get --ttl=60 "shelduck_cached_fetch_url/$1" shelduck_cached_fetch_remote "$1"
-	else
-		bobshell_resource_copy "$1" var:_shelduck_cached_fetch_url
-		bobshell_result_set "$_shelduck_cached_fetch_url"
-		unset _shelduck_cached_fetch_url
+	shelduck_fcache_get "$@"
+	if bobshell_result_check _shelduck_cache_get; then
+		shelduck_mcache_put "$@" "$_shelduck_cache_get"
+		bobshell_result_set_2 true "$_shelduck_cache_get"
+		unset _shelduck_cache_get
+		return
 	fi
 }
 
-# fun: shelduck_cached_fetch_file FILEPATH
-shelduck_cached_fetch_file() {
-	if ! [ -f "$1" ]; then
-		bobshell_die "shelduck: fetch error '$1': file '$1' not found"
-	fi
-	bobshell_resource_copy_file_to_var "$1" _shelduck_cached_fetch_file
-	bobshell_result_set "$_shelduck_cached_fetch_file"
-	unset _shelduck_cached_fetch_file
+shelduck_cache_put() {
+	shelduck_mcache_put "$@"
+	shelduck_fcache_put "$@"
 }
 
-# fun: shelduck_cached_fetch_remote FILEPATH
-shelduck_cached_fetch_remote() {
-	# init bobshell_install_* library
-	: "${SHELDUCK_INSTALL_NAME:=shelduck}"
-	bobshell_scope_mirror SHELDUCK_INSTALL_ BOBSHELL_INSTALL_
-	bobshell_install_init
-
-	# key
-	shelduck_cached_fetch_url_key=$(printf %s "$1" | sed 's/[\/<>:\\|?*]/-/g')
 
 
-	shelduck_cached_fetch_url_path=
-	if shelduck_cached_fetch_url_path=$(bobshell_install_find_cache "$shelduck_cached_fetch_url_key"); then
-		bobshell_file_date --format %s "$shelduck_cached_fetch_url_path"
-		if bobshell_result_check _shelduck_cached_fetch_url__timestamp; then
-			_shelduck_cached_fetch_url__timestamp=$(( _shelduck_cached_fetch_url__timestamp + ${SHELDUCK_CACHE_TIMEOUT:-86400} ))
-			_shelduck_cached_fetch_url__now=$(date '+%s')
+################ shelduck memory cache ####################
 
-			if [ "$_shelduck_cached_fetch_url__now" -lt "$_shelduck_cached_fetch_url__timestamp" ]; then
-				bobshell_resource_copy_file_to_var "$shelduck_cached_fetch_url_path" _shelduck_cached_fetch_remote__data
-				bobshell_result_set "$_shelduck_cached_fetch_remote__data"
-				unset shelduck_cached_fetch_url_path _shelduck_cached_fetch_url__timestamp _shelduck_cached_fetch_url__now _shelduck_cached_fetch_remote__data
-				return
-			fi
-			unset _shelduck_cached_fetch_url__timestamp _shelduck_cached_fetch_url__now
+: "${_shelduck_mcache_key:=undefined}"
+#: "${_shelduck_mcache_hash:=undefined}"
+
+# env: _shelduck_mcache_key
+# env: _shelduck_mcache_hash
+shelduck_mcache_key() {
+	case "$1" in
+		("$_shelduck_mcache_key") ;;
+		(*)
+			_shelduck_mcache_key="$1"
+			_shelduck_mcache_hash=$(cksum <<EOF_shelduck_mcache_key
+$_shelduck_mcache_key
+EOF_shelduck_mcache_key
+)
+			for _shelduck_mcache_hash in $_shelduck_mcache_hash; do
+				break
+			done
+			;;
+	esac
+}
+
+# fun: shelduck_mcache_get CACHENAME KEY
+shelduck_mcache_get() {
+	shelduck_mcache_key "$2"
+
+	_shelduck_mcache_get="$1"
+	shift
+	set -- "${_shelduck_mcache_get}_search_${_shelduck_mcache_hash}_event" "$@"
+	unset _shelduck_mcache_get
+
+	bobshell_result_set_1 false
+	bobshell_event_fire "$@"
+}
+
+# fun: shelduck_mcache_add CACHENAME KEY VALUE
+shelduck_mcache_put() {
+	shelduck_mcache_key "$2"
+
+	bobshell_str_quote "$3"
+	_shelduck_mcache_put__quoted_value="$bobshell_result_1"
+
+	bobshell_event_listen "${1}_search_${_shelduck_mcache_hash}_event" eval '
+if [ "$1" = '"$_shelduck_mcache_hash"' ]; then
+bobshell_result_set_2 true '"$_shelduck_mcache_put__quoted_value"'
+bobshell_event_stop
+fi
+'
+	unset _shelduck_mcache_put__quoted_value
+
+	bobshell_result_set true "$3"
+}
+
+
+
+################ shelduck file cache ####################
+
+
+
+# fun: shelduck_fcache_put CACHENAME KEY VALUE
+shelduck_fcache_put() {
+	_shelduck_fcache_put__file=$(printf %s "$2" | sed 's/[\/<>:\\|?*]/-/g')
+	_shelduck_fcache_put__file="$shelduck_cache_dir/$1/$_shelduck_fcache_put__file"
+	{
+		_shelduck_fcache_put__now="$(date +%s)"
+		printf '# timestamp: %s\n' "$_shelduck_fcache_put__now"
+		unset _shelduck_fcache_put__now
+		printf %s "$3"
+	} > "$_shelduck_fcache_put__file"
+	unset _shelduck_fcache_put__file
+}
+
+# fun: shelduck_fcache_get CACHENAME KEY
+# res: true VALUE
+# res: false
+shelduck_fcache_get() {
+	_shelduck_fcache_get__file=$(printf %s "$2" | sed 's/[\/<>:\\|?*]/-/g')
+	_shelduck_fcache_get__file="$shelduck_cache_dir/$1/$_shelduck_fcache_get__file"
+
+	if ! [ -f "$_shelduck_fcache_get__file" ]; then
+		bobshell_result_set_2 false "file not found: $_shelduck_fcache_get__file"
+		unset _shelduck_fcache_get__file
+		return
+	fi
+
+	{
+		unset _shelduck_fcache_get__file
+		if ! read -r _shelduck_fcache_get__fts; then
+			bobshell_result_set_2 false 'file is not readable or empty'
+			return
 		fi
-		unset shelduck_cached_fetch_url_path
-	fi
 
-	shelduck_cached_fetch_url_result=$(bobshell_fetch_url "$1" || bobshell_die "shelduck: fetch error '$1': error downloading '$1'")
+		bobshell_str_prefix "$_shelduck_fcache_get__fts" '# timestamp: '
+		if ! bobshell_result_check _shelduck_fcache_get__fts; then
+			unset _shelduck_fcache_get__fts
+			bobshell_result_set_2 false 'wrong timestamp format'
+			return
+		fi
 
-	bobshell_install_put_cache var:shelduck_cached_fetch_url_result "$shelduck_cached_fetch_url_key"
-	bobshell_result_set "$shelduck_cached_fetch_url_result"
+		_shelduck_fcache_get__deadline="$(date +%s)"
+		_shelduck_fcache_get__deadline=$(( _shelduck_fcache_get__deadline - shelduck_cache_ttl ))
+		if ! [ "$_shelduck_fcache_get__fts" -gt "$_shelduck_fcache_get__deadline" ]; then
+			unset _shelduck_fcache_get__fts _shelduck_fcache_get__deadline
+			bobshell_result_set_2 false 'file expired'
+			return
+		fi
+		unset _shelduck_fcache_get__fts _shelduck_fcache_get__deadline
+
+		_shelduck_fcache_get__result=$(cat)
+		bobshell_result_set_2 true "$_shelduck_fcache_get__result"
+
+	} < "$_shelduck_fcache_get__file"
 }

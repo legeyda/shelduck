@@ -1088,13 +1088,28 @@ shelduck_mcache_key() {
 		("$_shelduck_mcache_key") ;;
 		(*)
 			_shelduck_mcache_key="$1"
-			_shelduck_mcache_hash=$(cksum <<EOF_shelduck_mcache_key
-$_shelduck_mcache_key
+			_shelduck_mcache_hash="${#1}"
+			if [ "$_shelduck_mcache_hash" -lt 10 ]; then
+				_shelduck_mcache_key__tmp="${_shelduck_mcache_key#${_shelduck_mcache_key%???????????????}}" # 15
+				_shelduck_mcache_hash=$(( 31 * _shelduck_mcache_hash + $(printf %d "'$_shelduck_mcache_key__tmp") ))
+
+				_shelduck_mcache_key__tmp="${_shelduck_mcache_key__tmp#?????}"
+				_shelduck_mcache_hash=$(( 31 * _shelduck_mcache_hash + $(printf %d "'$_shelduck_mcache_key__tmp") ))
+
+				_shelduck_mcache_key__tmp="${_shelduck_mcache_key__tmp#?????}"
+				_shelduck_mcache_hash=$(( 31 * _shelduck_mcache_hash + $(printf %d "'$_shelduck_mcache_key__tmp") ))
+
+				unset _shelduck_mcache_key__tmp
+			else
+				_shelduck_mcache_hash=$(cksum <<EOF_shelduck_mcache_key
+$1
 EOF_shelduck_mcache_key
 )
-			for _shelduck_mcache_hash in $_shelduck_mcache_hash; do
-				break
-			done
+				for _shelduck_mcache_hash in $_shelduck_mcache_hash; do
+					break
+				done
+
+			fi
 			;;
 	esac
 }

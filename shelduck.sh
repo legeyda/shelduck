@@ -453,8 +453,9 @@ shelduck_prepare() {
 			return
 		fi
 		_shelduck_prepare__cached=true
-	elif bobshell_locator_is_file "$1"; then
-		shelduck_fcache_fget transform "$1"
+	elif bobshell_locator_is_file "$1" _shelduck_prepare__file; then
+		shelduck_cache_fget transform "$_shelduck_prepare__file"
+		unset _shelduck_prepare__file
 		if bobshell_result_check; then
 			return
 		fi
@@ -1053,6 +1054,22 @@ shelduck_print_addition() {
 
 ################ CACHING ####################
 
+# fun: shelduck_cache_get CACHENAME FILEPATH
+shelduck_cache_fget() {
+	shelduck_mcache_get "$@"
+	if bobshell_result_check; then
+		return
+	fi
+
+	shelduck_fcache_fget "$@"
+	if bobshell_result_check _shelduck_cache_fget; then
+		shelduck_mcache_put "$@" "$_shelduck_cache_fget"
+		bobshell_result_set_2 true "$_shelduck_cache_fget"
+		unset _shelduck_cache_fget
+		return
+	fi
+}
+
 # fun: shelduck_cache_get CACHENAME KEY
 shelduck_cache_get() {
 	shelduck_mcache_get "$@"
@@ -1159,8 +1176,11 @@ shelduck_fcache_key() {
 		("$_shelduck_fcache_key") ;;
 		(*)
 			_shelduck_fcache_key="$1"
-			_shelduck_fcache_hash=$(sed 's|^https://raw.githubusercontent.com/\(.*\)/\(.*\)/refs/heads/\(.*\)|github_\1_\2_\3|g;
-s/[\/<>:\\|?*]/-/g' <<EOF_shelduck_fcache_key
+			bobshell_str_match "$_shelduck_fcache_key" 'https://raw.githubusercontent.com/*'
+			if [ true = "$bobshell_result_1" ]; then
+				: # todo s|^https://raw.githubusercontent.com/\(.*\)/\(.*\)/refs/heads/\(.*\)|github_\1_\2_\3|g;
+			fi
+			_shelduck_fcache_hash=$(sed 's/[\/<>:\\|?*]/-/g' <<EOF_shelduck_fcache_key
 $_shelduck_fcache_key
 EOF_shelduck_fcache_key
 )

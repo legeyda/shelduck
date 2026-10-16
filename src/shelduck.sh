@@ -26,6 +26,8 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/cache/get.sh
 
 shelduck import ./cache.sh
+shelduck import ./url.sh
+shelduck import ./import.sh
 
 # see https://github.com/ajdiaz/bashdoc
 
@@ -184,47 +186,6 @@ shelduck_build() {
 	# shift 2
 }
 
-# api: private
-shelduck_ensure_base_url() {
-	# guess base url
-	if [ -z "${shelduck_base_url:-}" ]; then
-		if [ -n "${SHELDUCK_BASE_URL:-}" ]; then
-			shelduck_base_url="$SHELDUCK_BASE_URL"
-		else
-			shelduck_base_url=$(pwd)
-			shelduck_base_url="file://$shelduck_base_url"
-		fi
-	fi
-}
-
-
-
-
-shelduck_fix_url() {
-	if [ -z "$1" ]; then
-		bobshell_die "shelduck: invalid url"
-	fi
-
-	shelduck_ensure_base_url
-
-	if bobshell_starts_with "$1" path://; then
-		shelduck_path_search "$1"
-		bobshell_result_assert _shelduck_fix_url__result -- cannot find resource by url "$1"
-		bobshell_result_set "$_shelduck_fix_url__result"
-		unset _shelduck_fix_url__result
-	elif bobshell_locator_is_remote "$1" || bobshell_locator_is_file "$1" || ! bobshell_locator_parse "$1"; then
-		shelduck_fix_url=$(bobshell_resolve_url "$1" "$shelduck_base_url")
-		if [ -n "${SHELDUCK_URL_RULES:-}" ]; then
-			shelduck_fix_url=$(shelduck_apply_rules "$shelduck_fix_url" "$SHELDUCK_URL_RULES")
-		fi
-
-		bobshell_result_set "$shelduck_fix_url"
-		unset shelduck_fix_url
-	else
-		bobshell_result_set "$1"
-	fi
-}
-
 # fun: shelduck_path_search URL
 shelduck_path_search() {
 	if bobshell_isset SHELDUCK_PATH; then
@@ -255,171 +216,12 @@ shelduck_path_search() {
 
 
 
-shelduck_parse_import_cli() {
-	bobshell_require_not_empty "${1:-}" '"shelduck import" requires at least 1 argument.'
-	shelduck_import_aliases=
-	shelduck_import_url=
-	while bobshell_isset_1 "$@"; do
-		case "$1" in
-			(-a|--alias)
-				if ! bobshell_isset_2 "$@"; then
-					bobshell_die "option '$1' (alias) requires argument"
-				fi
-				shift
-				shelduck_import_cli_alias "$1"
-				shift
-				;;
-
-			(--alias=*)
-				bobshell_remove_prefix "$1" --alias= shelduck_analyze_cli_alias
-				shift
-				shelduck_import_cli_alias "$shelduck_analyze_cli_alias"
-				;;
-
-			(*)
-				break
-				;;
-		esac
-	done
-
-	if [ -z "${1:-}" ]; then
-		bobshell_die "url expected to be nonempty"
-	fi
-	shelduck_import_url="$1"
-
-	if bobshell_isset_2 "$@"; then
-		bobshell_die "unexpected argument \"$2\""
-	fi
-
-}
-
-
-shelduck_import_cli_alias() {
-	if [ -z "$1" ]; then
-		bobshell_die 'alias cannot be empty'
-	fi
-	shelduck_import_aliases="$shelduck_import_aliases $1"
-}
-
-shelduck_import_usage() {
-	printf %s 'Import library.
-
-Usage: shelduck import [OPTIONS] URL
-
-Options:
-
-   -a, --alias ALIAS    Defina alias for functions
-'
-}
 
 
 
 
 
-# fun: shelduck_apply_rules VALUE RULES
-shelduck_apply_rules() {
-	shelduck_apply_rules_result="$1"
-	shelduck_apply_rules_rules="${2:-}"
 
-	while [ -n "$shelduck_apply_rules_rules" ]; do
-		if ! bobshell_split_first "$shelduck_apply_rules_rules" ',' shelduck_apply_rules_rule shelduck_apply_rules_rules; then
-			shelduck_apply_rules_rule="$shelduck_apply_rules_rules"
-			shelduck_apply_rules_rules=
-		fi
-
-		shelduck_apply_rules_key=
-		shelduck_apply_rules_value=
-		bobshell_split_first "$shelduck_apply_rules_rule" = shelduck_apply_rules_key shelduck_apply_rules_value
-		shelduck_apply_rules_result=$(bobshell_replace "$shelduck_apply_rules_result" "$shelduck_apply_rules_key" "$shelduck_apply_rules_value")
-	done
-	printf %s "$shelduck_apply_rules_result"
-
-	unset shelduck_apply_rules_result
-	unset shelduck_apply_rules_rules shelduck_apply_rules_rule
-	unset shelduck_apply_rules_key shelduck_apply_rules_value
-}
-
-
-
-
-
-# shelduck_run and shelduck_import are very similar, but:
-# - import requires url, since it checks for duplicates, whereas run does not requies url
-# - import checks for duplicate urls, run not
-# - import takes args from run_args
-# - run takes args from command, and restores
-
-
-# fun: shelduck_import CLIARGS...
-# api: public
-# env: shelduck_base_url
-shelduck_import() {
-	shelduck_ensure_base_url
-
-	# если нет допаргументов и уже импортировали (что скорее всего), можно пропустить вообще и даже не парсить
-	: "${shelduck_import_history:=}"
-	if [ "$#" = 1 ]; then
-		shelduck_fix_url "$1"
-		shelduck_import_url="$bobshell_result_1"
-		shelduck_import_aliases=
-		if bobshell_contains "$shelduck_import_history" "[$shelduck_import_url]"; then
-			return
-		fi
-	else
-		shelduck_parse_import_cli "$@"
-		shelduck_fix_url "$shelduck_import_url"
-		shelduck_import_url="$bobshell_result_1"
-	fi
-
-
-
-	shelduck_prepare "$shelduck_import_url"
-	bobshell_result_assert _shelduck_import__script -- shelduck_import: prepare failed: "$1"
-
-	#
-	shelduck_print_addition  "$_shelduck_import__script" "$shelduck_import_url" "$shelduck_import_aliases"
-	bobshell_result_assert _shelduck_import__add_script -- print addition failed
-	if [ -n "$_shelduck_import__add_script" ]; then
-		_shelduck_import__add_script="
-$_shelduck_import__add_script
-"
-	fi
-
-	# check for duplicates
-	if bobshell_contains "$shelduck_import_history" "[$shelduck_import_url]"; then
-		_shelduck_import__script="$_shelduck_import__add_script"
-	else
-		shelduck_import_history="$shelduck_import_history [$shelduck_import_url]"
-		_shelduck_import__script="$_shelduck_import__script$_shelduck_import__add_script"
-	fi
-	unset _shelduck_import__add_script
-
-
-	if [ -z "$_shelduck_import__script" ]; then
-		return
-	fi
-
-
-	# save state before recursive call
-	set -- "$shelduck_base_url" eval "$_shelduck_import__script"
-
-	# recursive call
-	shelduck_update_base_url "$shelduck_import_url"
-	shelduck_eval_with_args "$_shelduck_import__script"
-
-	# restore state after recursive call
-	shelduck_base_url="$1"
-	shift
-
-}
-
-
-shelduck_str_equals() {
-	case "$1" in
-		("$2") return ;;
-		(*)    return 1 ;;
-	esac
-}
 
 
 # fun: shelduck_prepare ABSURL
@@ -912,24 +714,6 @@ shelduck_shift_exec() {
 	shift
 	"$@"
 }
-
-# fun: shelduck_update_base_url URL
-shelduck_update_base_url() {
-	if bobshell_locator_is_file "$1" || bobshell_locator_is_remote "$1"; then
-		shelduck_base_url=$(bobshell_base_url "$1")
-	fi
-}
-
-
-
-# DEPRECATED
-# fun: shelduck_resolve URL [ ARGS ... ]
-# api: public
-shelduck_resolve() {
-	bobshell_log_warn 'shelduck: resolve is deprecated, use build instead'
-	shelduck_build "$@"
-}
-
 
 
 

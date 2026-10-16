@@ -25,6 +25,35 @@ shelduck_fix_url() {
 	fi
 }
 
+# fun: shelduck_path_search URL
+shelduck_path_search() {
+	if bobshell_isset SHELDUCK_PATH; then
+		_shelduck_path_search__path="$SHELDUCK_PATH"
+	else
+		_shelduck_path_search__path="${XDG_DATA_HOME:-$HOME/.local/share}/shelduck/lib}"
+	fi
+
+	if [ -z "$_shelduck_path_search__path" ]; then
+		unset _shelduck_path_search__path
+		bobshell_result_set false "file $1 not found in empty path"
+		return
+	fi
+
+	bobshell_str_split_v2 "$SHELDUCK_PATH" :
+	for i in $(seq "$bobshell_result_size"); do
+		x=$(bobshell_var_print bobshell_result_"$i")
+		if [ -f "$x"/"$1" ]; then
+			unset i x _shelduck_path_search__path
+			bobshell_result_set true "$x"/"$1"
+			return
+		fi
+	done
+
+	unset i x _shelduck_path_search__path
+	bobshell_result_set false "file $1 not found in path $_shelduck_path_search__path"
+}
+
+
 
 # fun: shelduck_apply_rules VALUE RULES
 shelduck_apply_rules() {

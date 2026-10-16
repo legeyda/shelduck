@@ -64,7 +64,7 @@ shelduck() {
 			shelduck_subcommand "$@"
 			;;
 
-		(preprocess) # not a command rather a compiler directive
+		(transform) # not a command rather a compiler directive
 			bobshell_die "shelduck $1 is available only in compile-time, not runtime"
 			;;
 
@@ -224,7 +224,7 @@ shelduck_prepare() {
 	shelduck_do_fetch "$1"
 	bobshell_result_assert -- shelduck_prepare: fetch failed
 
-	shelduck_transform "$bobshell_result_2" "$1"
+	shelduck_transform "$bobshell_result_2"
 	if bobshell_result_check _shelduck_prepare__result; then
 		if shelduck_str_equals cached "$_shelduck_prepare__cached"; then
 			shelduck_cache_put transform "$1" "$_shelduck_prepare__result"

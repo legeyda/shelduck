@@ -1,7 +1,7 @@
 
 
 
-shelduck preprocess replace %%% hello
+shelduck transform replace %%% hello
 # %%%
 
 # shelduck_src

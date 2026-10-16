@@ -26,7 +26,7 @@ shelduck_compile() {
 	bobshell_result_assert _shelduck_compile_add_script -- print addition failed
 
 	if [ -n "$_shelduck_compile_add_script" ]; then
-		_shelduck_import__add_script="
+		_shelduck_compile_add_script="
 # additions for $_shelduck_compile_url ($_shelduck_compile_aliases)
 $_shelduck_compile_add_script
 # end of additions for $_shelduck_compile_url
@@ -41,6 +41,8 @@ fi
 $_shelduck_compile_add_script"
 	else
 		_shelduck_compile_history="$_shelduck_compile_history [$_shelduck_compile_url]"
+
+		if bobshell_locator_is_remote "$_shelduck_compile_url" || bobshell_locator_is_file "$_shelduck_compile_url"; then
 		_shelduck_compile_script='
 
 # shelduck: script '"$1"'
@@ -48,7 +50,7 @@ $_shelduck_compile_add_script"
 # shelduck: end of script '"$1"'
 
 '
-
+		fi
 		_shelduck_compile_script="$_shelduck_compile_script$_shelduck_compile_add_script"
 	fi
 	unset _shelduck_compile_add_script
@@ -198,7 +200,7 @@ shelduck_process_command() {
 
 shelduck_compile_command_listener() {
 
-	# shelduck preprocess replace %%_ com_legeyda_bobshell_
+	# shelduck transform replace %%_ com_legeyda_bobshell_
 
 	bobshell_str_prefix "$_shelduck_parse_commands__command" 'import '
 	if bobshell_result_check _shelduck_parse_commands__command; then

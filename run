@@ -90,14 +90,14 @@ run_build_shelduck() {
 			fetch_dependency "$dependency"
 			printf '\n%s\n\n' "$fetch_dependency_result"
 		done
-		cat_src_files | sed "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_IMPORT_URL/\(.*\)$||g"
+		cat_src_files | sed "/^shelduck import /d"
 	} > "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 
 	unset dependency fetch_dependency_result
 }
 
 #src_files=$(ls ./src)
-src_files=./src/shelduck.sh
+src_files='./src/shelduck.sh ./src/cache.sh'
 
 extract_direct_imports() {
 	result=$(cat_src_files)

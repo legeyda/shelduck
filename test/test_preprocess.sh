@@ -3,8 +3,7 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/assert.sh
 
 
-shelduck import ../shelduck.sh
-
+shelduck import ../src/shelduck.sh
 test_1() {
 	x='foo
 shelduck blabla replace a b

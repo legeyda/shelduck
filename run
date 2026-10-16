@@ -76,7 +76,10 @@ map/get.sh map/put.sh'
 
 run_build_shelduck() {
 	mkdir -p "$SHELDUCK_BUILD_ROOT"
-	direct_imports=$(sed -n "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_IMPORT_URL/\(.*\)$|\1|gp" < shelduck.sh)
+
+	extract_direct_imports
+	direct_imports="$result"
+
 	_run_build_shelduck__imports=:
 	{
 		for dependency in $transitive_imports_before $direct_imports $transitive_imports_after; do
@@ -87,10 +90,31 @@ run_build_shelduck() {
 			fetch_dependency "$dependency"
 			printf '\n%s\n\n' "$fetch_dependency_result"
 		done
-		sed "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_IMPORT_URL/\(.*\)$||g" < shelduck.sh
+		cat_src_files | sed "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_IMPORT_URL/\(.*\)$||g"
 	} > "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 
 	unset dependency fetch_dependency_result
+}
+
+#src_files=$(ls ./src)
+src_files=./src/shelduck.sh
+
+extract_direct_imports() {
+	result=$(cat_src_files)
+	result=$(sed -n "s|^shelduck import $SHELDUCK_BUILD_BOBSHELL_IMPORT_URL/\(.*\)$|\1|gp" <<EOF
+$result
+EOF
+)
+}
+
+
+cat_src_files() {
+	for src_file in $src_files; do
+		cat "$src_file"
+		echo
+		echo
+		echo
+	done
 }
 
 go_build_installer() {

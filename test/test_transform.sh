@@ -50,3 +50,15 @@ baz'
 bbz' "$res"
 
 }
+
+
+test_sed() {
+	shelduck_transform 'foo
+shelduck transform sed "s/a/b/g"
+baz'
+	bobshell_result_assert res
+	assert_equals 'foo
+
+bbz' "$res"
+
+}

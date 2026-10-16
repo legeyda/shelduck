@@ -97,7 +97,7 @@ run_build_shelduck() {
 }
 
 #src_files=$(ls ./src)
-src_files='./src/util.sh ./src/url.sh ./src/cache.sh ./src/import.sh ./src/deprecated.sh ./src/shelduck.sh'
+src_files='./src/util.sh ./src/url.sh ./src/cache.sh ./src/import.sh ./src/transform.sh ./src/deprecated.sh ./src/shelduck.sh'
 
 extract_direct_imports() {
 	result=$(cat_src_files)

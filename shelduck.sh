@@ -59,10 +59,10 @@ shelduck() {
 
 		(preprocess) # not a command rather a compiler directive
 			bobshell_die "shelduck $1 is available only in compile-time, not runtime"
+			;;
 
 		(*)
-			printf 'unknown subcommand %s, see shelduck usage' "$1"
-			return 1
+			bobshell_die 'unknown subcommand %s, see shelduck usage' "$1"
 			;;
 	esac
 }
@@ -472,10 +472,10 @@ shelduck_prepare() {
 		if shelduck_str_equals cached "$_shelduck_prepare__cached"; then
 			shelduck_cache_put transform "$1" "$_shelduck_prepare__result"
 		fi
-		unset _shelduck_prepare__cached
 		bobshell_result_set_2 true "$_shelduck_prepare__result"
 		unset _shelduck_prepare__result
 	fi
+	unset _shelduck_prepare__cached
 }
 
 
@@ -826,6 +826,9 @@ shelduck_parse_commands() {
 		_shelduck_parse_commands__input="$bobshell_result_2"
 
 		# check for supported subcommands
+		# todo
+		# bobshell_str_math "$_shelduck_parse_commands__input" '"import "*'
+		# if bobshell_result_check
 		if bobshell_starts_with "$_shelduck_parse_commands__input" 'import '; then
 			: # ok, continue
 		elif bobshell_starts_with "$_shelduck_parse_commands__input" 'fetch '; then

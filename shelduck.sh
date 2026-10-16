@@ -48,9 +48,7 @@ shelduck() {
 	case "$1" in
 
 		(import|fetch) # only at runtime within scripts
-			#shelduck_log_start
 			shelduck_subcommand "$@"
-			#shelduck_log_end
 			;;
 
 		(usage|run|build|resolve) # compile time
@@ -84,27 +82,6 @@ shelduck_subcommand() {
 	"$@"
 }
 
-shelduck_log_start() {
-	_shelduck_log_level="${SHELDUCK_LOG_LEVEL:-3}"
-	case "$_shelduck_log_level" in
-		(0|1|2|3|4|5|6|7|8)
-			if ! bobshell_isset _shelduck_orig_bobshell_log_level; then
-				_shelduck_orig_bobshell_log_level="$bobshell_log_level"
-			fi
-			bobshell_log_level "$_shelduck_log_level"
-			unset
-			;;
-		(*)
-			;;
-	esac
-}
-
-shelduck_log_end() {
-	if bobshell_isset _shelduck_orig_bobshell_log_level; then
-		bobshell_log_level "$_shelduck_orig_bobshell_log_level"
-		unset _shelduck_orig_bobshell_log_level
-	fi
-}
 
 # api: private
 shelduck_usage() {

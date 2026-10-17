@@ -92,7 +92,7 @@ shelduck_parse_commands() {
 	# iterate over all shelduck imports in input script
 	_shelduck_parse_commands__result=
 	while [ -n "$_shelduck_parse_commands__input" ]; do
-		bobshell_str_split_v2 "$_shelduck_parse_commands__input" 'shelduck ' 2
+		bobshell_str_split_v2 "$_shelduck_parse_commands__input" 'shelduck ' 2 # todo split "${newline}"shelduck' '
 		if [ "$bobshell_result_size" -lt 2 ]; then
 			break
 		fi
@@ -148,9 +148,9 @@ shelduck_parse_commands() {
 
 		# save state before recursive call
 		set -- "$_shelduck_parse_commands__result" "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__command" "$@"
-		unset    _shelduck_parse_commands__result    _shelduck_parse_commands__input
+		unset    _shelduck_parse_commands__result    _shelduck_parse_commands__input    _shelduck_parse_commands__command
 
-		shelduck_process_command $_shelduck_parse_commands__command
+		shelduck_process_command $3
 
 		# restore state after recursive all
 		_shelduck_parse_commands__result="$1"
@@ -186,8 +186,7 @@ shelduck_process_command() {
 
 		(fetch)
 			shift
-			shelduck_fetch "$@"
-			# todo print
+			shelduck_compile_fetch "$@"
 			;;
 
 		(*)
@@ -196,6 +195,41 @@ shelduck_process_command() {
 	esac
 }
 
+# fun: shelduck_compile_fetch ABSURL
+shelduck_compile_fetch() {
+	bobshell_log_trace "shelduck_compile_fetch: $*"
+	if [ $# != 1 ]; then
+		bobshell_log_error          'shelduck_compile_fetch: exactly one argument expected'
+		bobshell_result_set_2 false 'shelduck_compile_fetch: exactly one argument expected'
+		return
+	fi
+
+	shelduck_fix_url "$1" # todo shelduck_fix_url does not return boolean as first result
+	shelduck_do_fetch "$bobshell_result_1"
+	if ! bobshell_result_check _shelduck_compile_fetch; then
+		bobshell_log_error "shelduck_compile_fetch: fetch failed"
+		return
+	fi
+
+	# todo? bobshell_str_quote "$_shelduck_compile_fetch"
+	bobshell_str_match "$_shelduck_compile_fetch" "*${bobshell_newline}EOF_shelduck_compile_fetch*"
+	if bobshell_result_check; then
+		bobshell_log_error          "shelduck_compile_fetch: fetch result contains eof-string EOF_shelduck_compile_fetch"
+		bobshell_result_set_2 false "shelduck_compile_fetch: fetch result contains eof-string EOF_shelduck_compile_fetch"
+		return
+	fi
+
+	_shelduck_compile_fetch='
+bobshell_result_size=2
+bobshell_result_1=true
+bobshell_result_2=$(cat <<\EOF_shelduck_compile_fetch
+'"$_shelduck_compile_fetch"'
+EOF_shelduck_compile_fetch
+)
+'
+	bobshell_result_set_2 true "$_shelduck_compile_fetch"
+	unset _shelduck_compile_fetch
+}
 
 
 shelduck_compile_command_listener() {

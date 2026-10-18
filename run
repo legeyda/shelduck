@@ -84,7 +84,7 @@ run_build_shelduck() {
 	{
 		for dependency in $transitive_imports_before $direct_imports $transitive_imports_after; do
 		    case "$_run_build_shelduck__imports" in
-				(*"$dependency"*) continue ;;
+				(*:"$dependency":*) continue ;;
 			esac
 			_run_build_shelduck__imports="${_run_build_shelduck__imports}$dependency:"
 			fetch_dependency "$dependency"

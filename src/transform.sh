@@ -5,11 +5,10 @@
 # res: true RESULTTEXT
 # res: false error message
 shelduck_transform() {
-	if ! bobshell_contains "$1" 'shelduck transform '; then
-		if ! bobshell_contains "$1" 'shelduck transform replace ' && ! bobshell_contains "$1" 'shelduck transform sed '; then
-			bobshell_result_set_2 true "$1"
-			return
-		fi
+	shelduck_quick_check "$1" 'transform replace' 'transform sed'
+	if ! bobshell_result_check; then
+		bobshell_result_set_2 true "$1"
+		return
 	fi
 
 	_shelduck_transform__input="$1"

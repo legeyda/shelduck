@@ -1,5 +1,29 @@
 
 
+
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/contains.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/set.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/check.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/split_v2.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/var/append.sh
+
+# fun: shelduck_quick_check INPUT [SUBCOMMAND ... ]
+shelduck_quick_check() {
+	_shelduck_quick_check="$1"
+	while [ $# -gt 1 ]; do
+		shift
+		bobshell_str_contains "$_shelduck_quick_check" "shelduck $1"
+		if bobshell_result_check; then
+			unset _shelduck_quick_check
+			bobshell_result_set_1 true
+			return
+		fi
+	done
+	unset _shelduck_quick_check
+	bobshell_result_set_1 false
+}
+
+
 # fun: shelduck_next_command INPUT
 # res: true SKIP COMMAND REST
 # res: false

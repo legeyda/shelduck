@@ -65,7 +65,7 @@ $_shelduck_compile_add_script"
 
 	# recursive calls
 	shelduck_update_base_url "$_shelduck_compile_url"
-	shelduck_parse_commands "$_shelduck_compile_script" "$_shelduck_compile_url"
+	shelduck_parse_commands "$_shelduck_compile_script"
 	bobshell_result_assert _shelduck_compile_script -- process_imports failed
 
 	# restore state
@@ -82,16 +82,21 @@ $_shelduck_compile_add_script"
 
 
 
-# fun: shelduck_apply_imports CODESCRIPT URL
+# fun: shelduck_apply_imports CODESCRIPT
 # res: true  REWRITTENSCRIPT
 # res: false error message
 shelduck_parse_commands() {
-	_shelduck_parse_commands__input="$1"
-	shift
+	shelduck_quick_check "$1" import fetch include then
+	if ! bobshell_result_check; then
+		bobshell_result_set_2 true "$1"
+		return
+	fi
 
-	# iterate over all shelduck imports in input script
+
+	_shelduck_parse_commands__input="$1"
 	_shelduck_parse_commands__result=
 	while [ -n "$_shelduck_parse_commands__input" ]; do
+
 		bobshell_str_split_v2 "$_shelduck_parse_commands__input" 'shelduck ' 2 # todo split "${newline}"shelduck' '
 		if [ "$bobshell_result_size" -lt 2 ]; then
 			break
@@ -231,37 +236,6 @@ EOF_shelduck_compile_fetch
 	unset _shelduck_compile_fetch
 }
 
-
-shelduck_compile_command_listener() {
-
-	# shelduck transform replace %%_ com_legeyda_bobshell_
-
-	bobshell_str_prefix "$_shelduck_parse_commands__command" 'import '
-	if bobshell_result_check _shelduck_parse_commands__command; then
-		shelduck_compile "$_shelduck_parse_commands__command"
-		bobshell_result_assert
-		bobshell_result_set true apply "$bobshell_result_2"
-	fi
-
-	bobshell_str_prefix "$_shelduck_parse_commands__command" 'fetch '
-	if bobshell_result_check _shelduck_parse_commands__command; then
-		shelduck_fetch "$_shelduck_parse_commands__command"
-		break # todo
-	fi
-
-	bobshell_str_prefix "$_shelduck_parse_commands__command" 'transform '
-	if bobshell_result_check _shelduck_parse_commands__command; then
-		bobshell_die transform unsupported in compile mode
-	fi
-
-
-	bobshel_result_set true skip
-	_shelduck_parse_commands__result="$_shelduck_parse_commands__result$_shelduck_parse_commands__command"
-	unset _shelduck_parse_commands__command
-	break
-
-
-}
 
 shelduck_process_compile_commands() {
 	_shelduck_parse_commands__input="$1"

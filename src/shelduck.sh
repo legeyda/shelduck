@@ -29,8 +29,9 @@ shelduck import ./util.sh
 shelduck import ./url.sh
 shelduck import ./cache.sh
 
+shelduck import ./prepare.sh
+
 shelduck import ./import.sh
-shelduck import ./transform.sh
 shelduck import ./compile.sh
 shelduck import ./parse.sh
 
@@ -52,6 +53,8 @@ shelduck import ./deprecated.sh
 #      SHELDUCK_LIBRARY_PATH
 #      SHELDUCK_URL_RULES
 shelduck() {
+	bobshell_log_trace shelduck: "$@"
+
 	shelduck_alias_strategy=wrap # todo fix
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
@@ -162,6 +165,8 @@ shelduck_run() {
 # api: public
 # build -> compile -> process_imports -> compile ...
 shelduck_build() {
+	bobshell_log_debug shelduck_build: "$@"
+
 	shelduck_ensure_base_url
 
 
@@ -189,8 +194,10 @@ shelduck_build() {
 		_shelduck_build__result='#!/bin/sh'"$bobshell_newline$bobshell_result_2"
 	fi
 
+	bobshell_log_debug shelduck_build: result for "$1": "$_shelduck_build__result"
+
 	printf %s "$_shelduck_build__result"
-	# shift 2
+	unset _shelduck_build__result
 }
 
 
@@ -200,40 +207,6 @@ shelduck_build() {
 
 
 
-
-
-# fun: shelduck_prepare ABSURL
-shelduck_prepare() {
-	if bobshell_locator_is_remote "$1"; then
-		shelduck_cache_get transform "$1"
-		if bobshell_result_check; then
-			return
-		fi
-		_shelduck_prepare__cached=true
-	elif bobshell_locator_is_file "$1" _shelduck_prepare__file; then
-		shelduck_cache_fget transform "$_shelduck_prepare__file"
-		unset _shelduck_prepare__file
-		if bobshell_result_check; then
-			return
-		fi
-		_shelduck_prepare__cached=true
-	else
-		_shelduck_prepare__cached=false
-	fi
-
-	shelduck_do_fetch "$1"
-	bobshell_result_assert -- shelduck_prepare: fetch failed
-
-	shelduck_transform "$bobshell_result_2"
-	if bobshell_result_check _shelduck_prepare__result; then
-		if shelduck_str_equals cached "$_shelduck_prepare__cached"; then
-			shelduck_cache_put transform "$1" "$_shelduck_prepare__result"
-		fi
-		bobshell_result_set_2 true "$_shelduck_prepare__result"
-		unset _shelduck_prepare__result
-	fi
-	unset _shelduck_prepare__cached
-}
 
 
 

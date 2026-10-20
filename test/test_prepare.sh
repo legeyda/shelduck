@@ -10,7 +10,7 @@ test_1() {
 foo
 shelduck transform replace a b
 baz'
-	shelduck_transform "$x" http://url
+	shelduck_do_prepare "$x" http://url
 	bobshell_result_assert res
 	assert_equals '
 foo
@@ -33,7 +33,7 @@ test_3() {
 	x='foo
 shelduck blabla replace a b
 baz'
-	shelduck_transform "$x"
+	shelduck_do_prepare "$x"
 	bobshell_result_assert res
 	assert_equals "$x" "$res"
 }
@@ -41,7 +41,7 @@ baz'
 
 test_4() {
 
-	shelduck_transform 'foo
+	shelduck_do_prepare 'foo
 shelduck transform replace a b
 baz'
 	bobshell_result_assert res
@@ -53,7 +53,7 @@ bbz' "$res"
 
 
 test_sed() {
-	shelduck_transform 'foo
+	shelduck_do_prepare 'foo
 shelduck transform sed "s/a/b/g"
 baz'
 	bobshell_result_assert res

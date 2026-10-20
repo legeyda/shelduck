@@ -30,8 +30,9 @@ run_init() {
 }
 
 run_debug() {
+	#set +x +v
 	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
-	go_test_via_bobshell
+	shelduck build ./test/test_via_bobshell.sh > ./target/debug.txt
 }
 
 run_die() {
@@ -98,7 +99,8 @@ run_build_shelduck() {
 
 #src_files=$(ls ./src)
 src_files='./src/util.sh ./src/url.sh ./src/cache.sh
-./src/import.sh ./src/transform.sh ./src/compile.sh  ./src/parse.sh
+./src/prepare.sh
+./src/import.sh ./src/compile.sh ./src/parse.sh
 ./src/deprecated.sh
 ./src/shelduck.sh'
 
@@ -121,7 +123,6 @@ cat_src_files() {
 }
 
 go_build_installer() {
-	set -x
 	mkdir -p "$SHELDUCK_BUILD_ROOT"
 	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	{
@@ -242,6 +243,7 @@ hello
 
 go_test_via_bobshell() {
     x=$(shelduck build ./test/test_via_bobshell.sh)
+    printf %s "$x" > target/debug.txt
     x=$(go_sh_c "$x")
     expected=$(cat<<\EOF
 1 str '1 2' ''"'"'' '"'

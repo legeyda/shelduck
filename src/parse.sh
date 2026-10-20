@@ -23,19 +23,45 @@ shelduck_quick_check() {
 	bobshell_result_set_1 false
 }
 
-# fun: shelduck_apply_imports CODESCRIPT FILTER LISTENER
+
+shelduck_parse_cli() {
+	bobshell_result_set_2 0 false
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+			(--)
+				shift;
+				bobshell_result_1=$(( bobshell_result_1 + 1 ))
+				break ;;
+			(--zero-indent) bobshell_result_2=true ;;
+			(-*) bobshell_die "shelduck_parse_cli: unexpected parameter $1" ;;
+			(*) break ;;
+		esac
+		shift
+		bobshell_result_1=$(( bobshell_result_1 + 1 ))
+	done
+}
+
+# fun: shelduck_apply_imports CODESCRIPT FILTER LISTENER [ARGS]
 # listener: fun: listener SHELDUCKCOMMAND INPUTSCRIPT
 #           res: true NEWINPUT
 # res: true  REWRITTENSCRIPT
 # res: false error message
 shelduck_parse_commands() {
+	shelduck_parse_cli "$@"
+	shift "$bobshell_result_1"
+	_shelduck_parse_commands__zero_indent="$bobshell_result_2"
+
 	_shelduck_parse_commands__input="$1"
 	_shelduck_parse_commands__filter="$2"
 	shift 2
 
 	_shelduck_parse_commands__result=
 	while [ -n "$_shelduck_parse_commands__input" ]; do
-		shelduck_next_command "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__filter"
+		if [ true = "$_shelduck_parse_commands__zero_indent" ]; then
+			shelduck_next_command --zero-indent -- "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__filter"
+		else
+			shelduck_next_command -- "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__filter"
+		fi
 		if ! bobshell_result_check; then
 			break
 		fi
@@ -101,6 +127,10 @@ shelduck_next_command() {
 		return
 	fi
 
+	shelduck_parse_cli "$@"
+	shift "$bobshell_result_1"
+	_shelduck_parse_command__zero_indent="$bobshell_result_2"
+
 	_shelduck_next_command__rest="$1"
 	_shelduck_next_command__filter="$2"
 	shift 2
@@ -117,7 +147,9 @@ shelduck_next_command() {
 		_shelduck_next_command__rest="$bobshell_result_2"
 
 		# check for indentation
-		if [ -n "$bobshell_result_1" ] && ! bobshell_ends_with "$bobshell_result_1" "$bobshell_newline"; then
+		if [ -n "$bobshell_result_1" ] \
+				&& [ true = "$_shelduck_parse_command__zero_indent" ] \
+				&& ! bobshell_ends_with "$bobshell_result_1" "$bobshell_newline"; then
 			# command is indentated, skip
 			bobshell_var_append _shelduck_next_command__skip "$bobshell_result_1"'shelduck '
 			continue
@@ -132,7 +164,7 @@ shelduck_next_command() {
 
 		break
 	done
-	unset _shelduck_next_command__filter
+	unset _shelduck_parse_command__zero_indent _shelduck_next_command__filter
 
 
 	# trace command to multiple lines

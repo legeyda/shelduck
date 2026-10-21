@@ -55,7 +55,7 @@ shelduck_prepare_listener() {
 	shift
 
 	if [ "$1" != shelduck ]; then
-		bobshell_result_set false unsupported command "$1"
+		bobshell_result_set false shelduck_prepare_listener: unsupported command "$1"
 		return
 	fi
 	shift

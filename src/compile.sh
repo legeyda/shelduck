@@ -98,7 +98,7 @@ shelduck_compile_command() {
 	shift
 
 	if [ "$1" != shelduck ]; then
-		bobshell_result_set false unsupported command "$1"
+		bobshell_result_set false shelduck_compile_command: unsupported command "$1"
 		return
 	fi
 	shift

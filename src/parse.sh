@@ -42,7 +42,7 @@ shelduck_parse_cli() {
 }
 
 # fun: shelduck_apply_imports CODESCRIPT FILTER LISTENER [ARGS]
-# listener: fun: listener SHELDUCKCOMMAND INPUTSCRIPT
+# listener: fun: listener INPUTSCRIPT CMD [ ARGS... ]
 #           res: true NEWINPUT
 # res: true  REWRITTENSCRIPT
 # res: false error message
@@ -71,17 +71,17 @@ shelduck_parse_commands() {
 		bobshell_var_append _shelduck_parse_commands__result "$bobshell_result_2"
 
 		# save state before recursive call
-		set -- "$_shelduck_parse_commands__result" "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__filter" \
-				shelduck_parse_command_listener "$@"
+		set -- "$_shelduck_parse_commands__result" "$_shelduck_parse_commands__filter" \
+				shelduck_parse_command_listener "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__command" "$@"
 
 		# recursive call
-		bobshell_shift_exec 3 "$@" "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__command"
+		bobshell_shift_exec 2 "$@"
 
 		# restore state
 		_shelduck_parse_commands__result="$1"
-		_shelduck_parse_commands__input="$2"
-		_shelduck_parse_commands__filter="$3"
-		shift 4
+		_shelduck_parse_commands__filter="$2"
+		_shelduck_parse_commands__input="$4"
+		shift 5
 
 		bobshell_result_assert
 		_shelduck_parse_commands__input="$bobshell_result_3"
@@ -99,24 +99,26 @@ shelduck_parse_commands() {
 	unset _shelduck_parse_commands__result
 }
 
-# fun: shelduck_parse_command_listener HANDLER INPUT COMMAND
-shelduck_parse_command_listener() {
-	_shelduck_parse_command_listener__handler="$1"
-	_shelduck_parse_command_listener__input="$2"
-	shift 2
 
-	if ! eval 'set -- '"$1"; then
+
+# fun: shelduck_parse_command_listener INPUT COMMAND CMD [ARGS ...]
+shelduck_parse_command_listener() {
+	# input
+	set -- "$@" "$1"
+	shift
+
+	# command
+	if ! eval 'set -- "$@" '"$1"; then # todo fix injection
 		bobshell_result_set_2 false "error parsing command line: $1"
 		return
 	fi
+	shift
 
-
-
-	set -- "$_shelduck_parse_command_listener__handler" "$_shelduck_parse_command_listener__input" "$@"
-	unset _shelduck_parse_command_listener__handler _shelduck_parse_command_listener__input
-
+	# invoke callback
 	"$@"
 }
+
+
 
 # fun: shelduck_next_command INPUT [ SUBCMDFILTER=* ]
 # res: true BEFORE COMMAND AFTER

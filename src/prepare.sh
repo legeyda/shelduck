@@ -44,7 +44,7 @@ shelduck_prepare() {
 # res: true RESULT
 #      false
 shelduck_do_prepare() {
-	shelduck_parse_commands --zero-indent -- "$1" "'transform '*" shelduck_prepare_listener
+	shelduck_parse_commands --zero-indent -- "$1" transform shelduck_prepare_listener
 }
 
 # fun: shelduck_compile_command INPUT 'shelduck' ARGS

@@ -87,7 +87,7 @@ $_shelduck_compile_add_script"
 
 shelduck_do_compile() {
 	# todo assert no shelduck transform commands
-	shelduck_parse_commands --zero-indent -- "$1" "'import '*|'fetch '*|'then '*" shelduck_compile_command
+	shelduck_parse_commands --zero-indent -- "$1" "import|fetch|then" shelduck_compile_command
 }
 
 # fun: shelduck_compile_command INPUT "schelduck" ARGS

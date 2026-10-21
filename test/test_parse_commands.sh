@@ -12,7 +12,7 @@ test_1() {
 x
 shelduck wrong 2
 y
-shelduck bye 3' "'hello '*|'bye '*" listner
+shelduck bye 3' "hello|bye" listner
 
 	assert_equals 'shelduck hello 1
 shelduck bye 3' "$x"

@@ -157,10 +157,25 @@ shelduck_next_command() {
 
 		bobshell_var_append _shelduck_next_command__skip "$bobshell_result_1"
 
-		bobshell_str_match "$_shelduck_next_command__rest" "$_shelduck_next_command__filter"
+
+		bobshell_str_split_v2 "$_shelduck_next_command__rest" "$bobshell_newline" 2
+		if [ "$bobshell_result_size" -lt 2 ]; then
+			_shelduck_next_command__subcommand="$_shelduck_next_command__rest"
+		else
+			_shelduck_next_command__subcommand="$bobshell_result_1"
+		fi
+
+		bobshell_str_split_v2 "$_shelduck_next_command__subcommand" ' ' 2
+		if [ "$bobshell_result_size" -ge 2 ]; then
+			_shelduck_next_command__subcommand="$bobshell_result_1"
+		fi
+
+		bobshell_str_match "$_shelduck_next_command__subcommand" "$_shelduck_next_command__filter"
 		if ! bobshell_result_check; then
+			unset _shelduck_next_command__subcommand
 			continue
 		fi
+		unset _shelduck_next_command__subcommand
 
 		break
 	done

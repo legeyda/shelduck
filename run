@@ -30,9 +30,9 @@ run_init() {
 }
 
 run_debug() {
-	#set +x +v
-	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
-	shelduck build ./test/test_via_bobshell.sh > ./target/debug.txt
+	reset
+	go_test_get
+	echo 'shelduck tests passed'
 }
 
 run_die() {
@@ -100,7 +100,7 @@ run_build_shelduck() {
 #src_files=$(ls ./src)
 src_files='./src/util.sh ./src/url.sh ./src/cache.sh
 ./src/prepare.sh
-./src/import.sh ./src/compile.sh ./src/parse.sh
+./src/import.sh ./src/compile.sh ./src/parse.sh ./src/runtime.sh
 ./src/deprecated.sh
 ./src/shelduck.sh'
 
@@ -224,14 +224,14 @@ printf %s "$bobshell_result_1"
 ')
 	assert_equals "$x" "'1 2 3'"
 
-	go_test_fetch
+	go_test_get
 
 	echo 'shelduck tests passed'
 }
 
-go_test_fetch() {
+go_test_get() {
 	x='. "'"$SHELDUCK_BUILD_ROOT"'"/shelduck.sh
-shelduck import ./test/test_fetch/test.sh'
+shelduck import ./test/test_get/test.sh'
 	x="$(sh -euc "$x")"
 
 	assert_equals "'hello

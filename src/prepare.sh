@@ -5,6 +5,7 @@ shelduck import ./parse.sh
 
 
 # fun: shelduck_prepare ABSURL
+# res: true SCRIPT
 shelduck_prepare() {
 	if bobshell_locator_is_remote "$1"; then
 		shelduck_cache_get prepare "$1"

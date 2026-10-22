@@ -1,4 +1,7 @@
 
+
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/append.sh
+
 # fun: shelduck_compile URL
 # api: private
 # env: shelduck_base_url
@@ -87,7 +90,7 @@ $_shelduck_compile_add_script"
 
 shelduck_do_compile() {
 	# todo assert no shelduck transform commands
-	shelduck_parse_commands --zero-indent -- "$1" "import|fetch|then" shelduck_compile_command
+	shelduck_parse_commands --zero-indent -- "$1" "import|get|include" shelduck_compile_command
 }
 
 # fun: shelduck_compile_command BEFORE COMMAND INPUT
@@ -108,7 +111,7 @@ shelduck_compile_command() {
 	shift
 
 	case "$1" in
-		(import|fetch)
+		(import|get|include)
 			_shelduck_prepare_listener__subcmd="$1"
 			shift
 			set -- shelduck_compile_"$_shelduck_prepare_listener__subcmd" "$_shelduck_compile_command__input" "$@"
@@ -142,42 +145,40 @@ shelduck_compile_import() {
 
 }
 
-# fun: shelduck_compile_fetch INPUT FETCHARGS ...
-shelduck_compile_fetch() {
-	_shelduck_compile_fetch__input="$1"
+
+# fun: shelduck_compile_include URL
+shelduck_compile_include() {
+	_shelduck_compile_include__input="$1"
 	shift
 
-	bobshell_log_trace "shelduck_compile_fetch: $*"
-	if [ $# != 1 ]; then
-		bobshell_log_error          'shelduck_compile_fetch: exactly one argument expected'
-		bobshell_result_set_2 false 'shelduck_compile_fetch: exactly one argument expected'
-		return
-	fi
+	shelduck_get "$@"
+	bobshell_result_assert -- shelduck_compile_include: shelduck_get
+	bobshell_result_append "$_shelduck_compile_include__input"
+}
 
-	shelduck_fix_url "$1" # todo shelduck_fix_url does not return boolean as first result
-	shelduck_do_fetch "$bobshell_result_1"
-	if ! bobshell_result_check _shelduck_compile_fetch__result; then
-		bobshell_log_error "shelduck_compile_fetch: fetch failed"
-		return
-	fi
+# fun: shelduck_compile_get URL
+shelduck_compile_get() {
+	shelduck_compile_include "$@"
+	bobshell_result_assert _shelduck_compile_get__result_1 _shelduck_compile_get__result_2 \
+			-- shelduck_compile_get: shelduck_get
 
-	# todo? bobshell_str_quote "$_shelduck_compile_fetch__result"
-	bobshell_str_match "$_shelduck_compile_fetch__result" "*'${bobshell_newline}EOF_shelduck_compile_fetch'*"
+	bobshell_str_match "$_shelduck_compile_get__result_1" "*'${bobshell_newline}EOF_shelduck_compile_get'*"
 	if bobshell_result_check; then
-		bobshell_log_error          "shelduck_compile_fetch: fetch result contains eof-string EOF_shelduck_compile_fetch"
-		bobshell_result_set_2 false "shelduck_compile_fetch: fetch result contains eof-string EOF_shelduck_compile_fetch"
+		bobshell_log_error          "shelduck_compile_get: fetch result contains eof-string EOF_shelduck_compile_get"
+		bobshell_result_set_2 false "shelduck_compile_get: fetch result contains eof-string EOF_shelduck_compile_get"
 		return
 	fi
 
-	_shelduck_compile_fetch__result='
+	_shelduck_compile_get__result_1='
 bobshell_result_size=2
 bobshell_result_1=true
-bobshell_result_2=$(cat <<\EOF_shelduck_compile_fetch
-'"$_shelduck_compile_fetch__result"'
-EOF_shelduck_compile_fetch
+bobshell_result_2=$(cat <<\EOF_shelduck_compile_get
+'"$_shelduck_compile_get__result_1"'
+EOF_shelduck_compile_get
 )
 '
 
-	bobshell_result_set_3 true "$_shelduck_compile_fetch__result" "$_shelduck_compile_fetch__input"
-	unset _shelduck_compile_fetch__result _shelduck_compile_fetch__input
+	bobshell_result_set_3 true "$_shelduck_compile_get__result_1" "$_shelduck_compile_get__result_2"
+
+	unset _shelduck_compile_get__result_1 _shelduck_compile_get__result_2
 }

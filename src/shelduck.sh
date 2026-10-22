@@ -34,6 +34,7 @@ shelduck import ./prepare.sh
 shelduck import ./import.sh
 shelduck import ./compile.sh
 shelduck import ./parse.sh
+shelduck import ./runtime.sh
 
 shelduck import ./deprecated.sh
 
@@ -59,7 +60,7 @@ shelduck() {
 	bobshell_require_not_empty "${1:-}" 'shelduck: subcommad expected, see shelduck usage'
 	case "$1" in
 
-		(import|fetch) # only at runtime within scripts
+		(import|get|include) # only at runtime within scripts
 			shelduck_subcommand "$@"
 			;;
 

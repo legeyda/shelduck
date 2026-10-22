@@ -41,9 +41,9 @@ shelduck_parse_cli() {
 	done
 }
 
-# fun: shelduck_apply_imports CODESCRIPT FILTER LISTENER [ARGS]
-# listener: fun: listener INPUTSCRIPT CMD [ ARGS... ]
-#           res: true NEWINPUT
+# fun: shelduck_apply_imports [OPTIONS] CODESCRIPT FILTER LISTENER [ARGS]
+# listener: fun: listener BEFORE CMDLINE AFTER
+#           res: true ADDTORESULT NEWINPUT
 # res: true  REWRITTENSCRIPT
 # res: false error message
 shelduck_parse_commands() {
@@ -66,27 +66,27 @@ shelduck_parse_commands() {
 			break
 		fi
 
-		_shelduck_parse_commands__input="$bobshell_result_4"
+		_shelduck_parse_commands__before="$bobshell_result_2"
 		_shelduck_parse_commands__command="$bobshell_result_3"
-		bobshell_var_append _shelduck_parse_commands__result "$bobshell_result_2"
+		_shelduck_parse_commands__input="$bobshell_result_4"
+		bobshell_var_append _shelduck_parse_commands__result "$_shelduck_parse_commands__before"
 
 		# save state before recursive call
-		set -- "$_shelduck_parse_commands__result" "$_shelduck_parse_commands__filter" \
-				shelduck_parse_command_listener "$_shelduck_parse_commands__input" "$_shelduck_parse_commands__command" "$@"
+		set -- "$_shelduck_parse_commands__result" "$_shelduck_parse_commands__filter" "$@"
 
 		# recursive call
-		bobshell_shift_exec 2 "$@"
+		bobshell_shift_exec 2 "$@" "$_shelduck_parse_commands__before" "$_shelduck_parse_commands__command" "$_shelduck_parse_commands__input"
+		unset _shelduck_parse_commands__before _shelduck_parse_commands__command _shelduck_parse_commands__input
 
 		# restore state
 		_shelduck_parse_commands__result="$1"
 		_shelduck_parse_commands__filter="$2"
-		_shelduck_parse_commands__input="$4"
-		shift 5
+		shift 2
 
+		# get result
 		bobshell_result_assert
 		_shelduck_parse_commands__input="$bobshell_result_3"
 		bobshell_var_append _shelduck_parse_commands__result "$bobshell_result_2"
-
 	done
 	unset _shelduck_parse_commands__filter
 
@@ -98,26 +98,6 @@ shelduck_parse_commands() {
 	bobshell_result_set true "$_shelduck_parse_commands__result"
 	unset _shelduck_parse_commands__result
 }
-
-
-
-# fun: shelduck_parse_command_listener INPUT COMMAND CMD [ARGS ...]
-shelduck_parse_command_listener() {
-	# input
-	set -- "$@" "$1"
-	shift
-
-	# command
-	if ! eval 'set -- "$@" '"$1"; then # todo fix injection
-		bobshell_result_set_2 false "error parsing command line: $1"
-		return
-	fi
-	shift
-
-	# invoke callback
-	"$@"
-}
-
 
 
 # fun: shelduck_next_command INPUT [ SUBCMDFILTER=* ]
@@ -134,7 +114,7 @@ shelduck_next_command() {
 	_shelduck_parse_command__zero_indent="$bobshell_result_2"
 
 	_shelduck_next_command__rest="$1"
-	_shelduck_next_command__filter="$2"
+	_shelduck_next_command__filter="${2:-*}"
 	shift 2
 
 	# search for next unindented shelduck command
@@ -160,6 +140,10 @@ shelduck_next_command() {
 		bobshell_var_append _shelduck_next_command__skip "$bobshell_result_1"
 
 
+		if [ "$_shelduck_next_command__filter" = '*' ]; then
+			break
+		fi
+
 		bobshell_str_split_v2 "$_shelduck_next_command__rest" "$bobshell_newline" 2
 		if [ "$bobshell_result_size" -lt 2 ]; then
 			_shelduck_next_command__subcommand="$_shelduck_next_command__rest"
@@ -173,13 +157,10 @@ shelduck_next_command() {
 		fi
 
 		bobshell_str_match "$_shelduck_next_command__subcommand" "$_shelduck_next_command__filter"
-		if ! bobshell_result_check; then
-			unset _shelduck_next_command__subcommand
-			continue
-		fi
 		unset _shelduck_next_command__subcommand
-
-		break
+		if bobshell_result_check; then
+			break
+		fi
 	done
 	unset _shelduck_parse_command__zero_indent _shelduck_next_command__filter
 

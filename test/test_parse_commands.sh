@@ -28,14 +28,12 @@ shelduck bye 3
 }
 
 listner() {
-	bobshell_result_set true "$*" "$1"
-
-
-	y="${y:-}${y:+
-}$1"
-	shift
 	x="${x:-}${x:+
-}$*"
+}$1"
+	y="${y:-}${y:+
+}$3"
+	bobshell_result_set true "$2" "$3"
+
 
 
 

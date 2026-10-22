@@ -90,12 +90,16 @@ shelduck_do_compile() {
 	shelduck_parse_commands --zero-indent -- "$1" "import|fetch|then" shelduck_compile_command
 }
 
-# fun: shelduck_compile_command INPUT "schelduck" ARGS
+# fun: shelduck_compile_command BEFORE COMMAND INPUT
 # implements: shelduck_parse_commands listener
 # res:
 shelduck_compile_command() {
-	_shelduck_compile_command__input="$1"
-	shift
+	shift # before ignored
+	_shelduck_compile_command__input="$2"
+
+	shelduck_split_args "$1"
+	bobshell_result_assert
+	eval 'set -- '"$bobshell_result_2"
 
 	if [ "$1" != shelduck ]; then
 		bobshell_result_set false shelduck_compile_command: unsupported command "$1"
@@ -119,7 +123,8 @@ shelduck_compile_command() {
 		;;
 	esac
 }
-# fun: shelduck_compile_import INPUT [IMPORTARGS ...]
+
+# fun: shelduck_compile_import INPUT IMPORTARGS ...
 shelduck_compile_import() {
 	_shelduck_compile_import__input="$1"
 	shift
@@ -137,7 +142,7 @@ shelduck_compile_import() {
 
 }
 
-# fun: shelduck_compile_fetch INPUT ABSURL
+# fun: shelduck_compile_fetch INPUT FETCHARGS ...
 shelduck_compile_fetch() {
 	_shelduck_compile_fetch__input="$1"
 	shift

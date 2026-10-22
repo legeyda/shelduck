@@ -47,12 +47,16 @@ shelduck_do_prepare() {
 	shelduck_parse_commands --zero-indent -- "$1" transform shelduck_prepare_listener
 }
 
-# fun: shelduck_compile_command INPUT 'shelduck' ARGS
+# fun: shelduck_compile_command BEFORE COMMAND INPUT
 # implements: shelduck_parse_commands listener
 # res:
 shelduck_prepare_listener() {
-	_shelduck_prepare_listener__input="$1"
-	shift
+	shift # before ignored
+	_shelduck_prepare_listener__input="$2"
+
+	shelduck_split_args "$1"
+	bobshell_result_assert
+	eval 'set -- '"$bobshell_result_2"
 
 	if [ "$1" != shelduck ]; then
 		bobshell_result_set false shelduck_prepare_listener: unsupported command "$1"
@@ -87,7 +91,7 @@ shelduck_prepare_transform() {
 			return
 		fi
 		bobshell_str_replace "$1" "$3" "$4"
-		bobshell_result_set true '' "$bobshell_result_2"
+		bobshell_result_set_3 true '' "$bobshell_result_2"
 	elif [ sed = "$2" ]; then
 		if ! _shelduck_transform_item__result=$(printf %s "$1" | bobshell_shift_exec 1 "$@"); then
 			unset _shelduck_transform_item__result

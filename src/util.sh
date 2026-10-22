@@ -12,3 +12,10 @@ shelduck_shift_exec() {
 	shift
 	"$@"
 }
+
+# fun: shelduck_split_args [ARGS ... ]
+# res: ARG1 ARG2
+shelduck_split_args() {
+	eval 'bobshell_str_quote '"$1" # todo fix injection
+	bobshell_result_set true "$bobshell_result_1"
+}

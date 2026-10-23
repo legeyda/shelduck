@@ -55,7 +55,7 @@ shelduck_get_cli() {
 shelduck_get() {
 
 	shelduck_get_cli "$@"
-	bobshell_result_assert - _shelduck_get__raw _shelduck_get__transform
+	bobshell_result_assert - _shelduck_get__raw _shelduck_get__transform -- parse cli failed
 	shift "$bobshell_result_2"
 
 

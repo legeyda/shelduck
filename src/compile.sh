@@ -145,15 +145,83 @@ shelduck_compile_import() {
 
 }
 
+# fun: shelduck_localize_state ARGNAME ARGNAME ... -- cmd
+shelduck_localize_state() {
 
-# fun: shelduck_compile_include URL
+	_shelduck_localize_state__i=1
+	_shelduck_localize_state__save=
+	_shelduck_localize_state__restore=
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			(--)
+		 		shift
+				_shelduck_localize_state__i=$(( _shelduck_localize_state__i + 1 ))
+				break
+				;;
+
+			(*)
+
+				_shelduck_localize_state__save="$_shelduck_localize_state__save${_shelduck_localize_state__save:+ }$1"'="$'"$1"'"'
+
+				_shelduck_localize_state__restore="$_shelduck_localize_state__restore${_shelduck_localize_state__restore:+
+}$1"'="$'"$_shelduck_localize_state__i"'"'
+
+				shift
+				_shelduck_localize_state__i=$(( _shelduck_localize_state__i + 1 ))
+		esac
+	done
+	shift "$_shelduck_localize_state__i"
+	eval 'set -- '"$_shelduck_localize_state__save"' "$@"'
+	bobshell_shift_exec "$_shelduck_localize_state__shift" "$@"
+}
+
+# fun: shelduck_exec --shift 1 --prepend x -- 1 2 3
+shelduck_exec() {
+	_shelduck_exec__prepend_flag=false
+	_shelduck_exec__shift=0
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			(--)
+				shift
+				break
+				;;
+			(--shift)
+				_shelduck_exec__shift=$(( _shelduck_exec__shift + $2 ))
+				shift 2
+				;;
+			(--shift=*)
+				_shelduck_exec__shift=$(( _shelduck_exec__shift + ${1#*=} ))
+				shift
+				;;
+			(--prepend)
+				_shelduck_exec__prepend_flag=true
+				_shelduck_exec__prepend="$2"
+				shift 2
+				;;
+			(--prepend=*)
+				_shelduck_exec__prepend_flag=true
+				_shelduck_exec__prepend="${1#*=}"
+				shift
+				;;
+		esac
+	done
+
+	shift "$_shelduck_exec__shift"
+	unset _shelduck_exec__shift
+
+	if [ true = "$_shelduck_exec__prepend_flag" ]; then
+		"$_shelduck_exec__prepend" "$@"
+	else
+		"$@"
+	fi
+
+}
+
+# fun: shelduck_compile_include INPUT [INCLUDE ARGS ...]
 shelduck_compile_include() {
-	_shelduck_compile_include__input="$1"
-	shift
-
-	shelduck_get "$@"
+	shelduck_exec --shift 1 --prepend shelduck_get -- "$@"
 	bobshell_result_assert -- shelduck_compile_include: shelduck_get
-	bobshell_result_append "$_shelduck_compile_include__input"
+	bobshell_result_set true "$bobshell_result_2" "$1"
 }
 
 # fun: shelduck_compile_get URL

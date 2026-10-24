@@ -31,7 +31,7 @@ shelduck_get_cli() {
 				;;
 
 			(-t=*|--transform=*)
-				_shelduck_get_cli__transform="${_shelduck_get_cli__transform:+$bobshell_newline}${1#$1}"
+				_shelduck_get_cli__transform="${_shelduck_get_cli__transform:+$bobshell_newline}${1#*=}"
 				shift
 				_shelduck_get_cli__shift=$(( _shelduck_get_cli__shift + 1 ))
 				;;

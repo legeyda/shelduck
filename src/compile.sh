@@ -219,7 +219,7 @@ shelduck_exec() {
 
 # fun: shelduck_compile_include INPUT [INCLUDE ARGS ...]
 shelduck_compile_include() {
-	shelduck_exec --shift 1 --prepend shelduck_get -- "$@"
+	shelduck_exec --shift=1 --prepend=shelduck_get -- "$@"
 	bobshell_result_assert -- shelduck_compile_include: shelduck_get
 	bobshell_result_set true "$bobshell_result_2" "$1"
 }

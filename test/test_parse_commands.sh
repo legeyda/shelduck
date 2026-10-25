@@ -17,24 +17,16 @@ shelduck bye 3' "hello|bye" listner
 	assert_equals 'shelduck hello 1
 shelduck bye 3' "$x"
 
-	assert_equals '
-x
+	assert_equals 'x
 shelduck wrong 2
 y
-shelduck bye 3
-' "$y"
+shelduck bye 3' "$y"
 
 
 }
 
 listner() {
-	x="${x:-}${x:+
-}$2"
-	y="${y:-}${y:+
-}$3"
+	x="${x:-}$2"
+	y="${y:-}$3"
 	bobshell_result_set true "$2" "$3"
-
-
-
-
 }

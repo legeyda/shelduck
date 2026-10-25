@@ -30,9 +30,9 @@ run_init() {
 }
 
 run_debug() {
+	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	reset
-	go_test_get
-	echo 'shelduck tests passed'
+	shelduck build ./test/test_via_bobshell.sh
 }
 
 run_die() {
@@ -202,27 +202,27 @@ go_test_shelduck() {
 	echo 'all tests passed'
 
 
-	x="$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
+	x1="$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
 shelduck import ./test/test.sh
 fun 1 2 3")"
-	test 'hello from baz 1 2 3' = "$x"
+	test 'hello from baz 1 2 3' = "$x1"
 
 
 	sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
 shelduck build ./test/test.sh" > target/test.sh
-	x=$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/test.sh'; fun 1 2 3")
-	test 'hello from baz 1 2 3' = "$x"
+	x2=$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/test.sh'; fun 1 2 3")
+	test 'hello from baz 1 2 3' = "$x2"
 
 
 	##############
 	#
-	x=$(shelduck run 'val:
+	x3=$(shelduck run 'val:
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/quote.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/assert.sh
 bobshell_str_quote "1 2 3"
 printf %s "$bobshell_result_1"
 ')
-	assert_equals "$x" "'1 2 3'"
+	assert_equals "'1 2 3'" "$x3"
 
 	go_test_get
 
@@ -230,26 +230,26 @@ printf %s "$bobshell_result_1"
 }
 
 go_test_get() {
-	x='. "'"$SHELDUCK_BUILD_ROOT"'"/shelduck.sh
+	x4='. "'"$SHELDUCK_BUILD_ROOT"'"/shelduck.sh
 shelduck import ./test/test_get/test.sh'
-	x="$(sh -euc "$x")"
+	x4="$(sh -euc "$x4")"
 
 	assert_equals "'hello
 hi
 hello
-'" "$x"
+'" "$x4"
 
 }
 
 go_test_via_bobshell() {
-    x=$(shelduck build ./test/test_via_bobshell.sh)
-    printf %s "$x" > target/debug.txt
-    x=$(go_sh_c "$x")
+    x5=$(shelduck build ./test/test_via_bobshell.sh)
+    printf %s "$x5" > target/debug.txt
+    x5=$(go_sh_c "$x5")
     expected=$(cat<<\EOF
 1 str '1 2' ''"'"'' '"'
 EOF
 )
-    assert_equals "$expected" "$x"
+    assert_equals "$expected" "$x5"
 }
 
 go_sh_c() {

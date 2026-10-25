@@ -14,7 +14,6 @@ baz'
 	bobshell_result_assert res
 	assert_equals '
 foo
-
 bbz' "$res"
 
 }
@@ -46,7 +45,6 @@ shelduck transform replace a b
 baz'
 	bobshell_result_assert res
 	assert_equals 'foo
-
 bbz' "$res"
 
 }
@@ -58,7 +56,6 @@ shelduck transform sed "s/a/b/g"
 baz'
 	bobshell_result_assert res
 	assert_equals 'foo
-
 bbz' "$res"
 
 }

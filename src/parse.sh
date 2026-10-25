@@ -5,6 +5,7 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/set.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/check.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/split_v2.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/split_v3.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/var/append.sh
 
 # fun: shelduck_quick_check INPUT [SUBCOMMAND ... ]
@@ -164,31 +165,35 @@ shelduck_next_command() {
 	done
 	unset _shelduck_parse_command__zero_indent _shelduck_next_command__filter
 
+	shelduck_parse_command "$_shelduck_next_command__rest"
+	bobshell_result_assert _shelduck_next_command__command _shelduck_next_command__rest
+	_shelduck_next_command__command="shelduck $_shelduck_next_command__command"
+	bobshell_result_set_4 true "$_shelduck_next_command__skip" "$_shelduck_next_command__command" "$_shelduck_next_command__rest"
+	unset _shelduck_next_command__skip _shelduck_next_command__command _shelduck_next_command__rest
 
-	# trace command to multiple lines
-	_shelduck_next_command__command='shelduck '
-	while true; do
-		bobshell_str_split_v2 "$_shelduck_next_command__rest" "${bobshell_newline}" 2
-		if [ "$bobshell_result_size" -lt 2 ]; then
-			bobshell_var_append _shelduck_next_command__command "$bobshell_result_1"
-			bobshell_result_set_4 true "$_shelduck_next_command__skip" "$_shelduck_next_command__command" ''
-			break
-		fi
+}
 
-		_shelduck_next_command__candidate="$bobshell_result_1"
-		_shelduck_next_command__rest="$bobshell_result_2"
 
-		bobshell_str_suffix "$_shelduck_next_command__candidate" '\'
-		if bobshell_result_check; then
-			unset _shelduck_next_command__candidate
-			bobshell_var_append _shelduck_next_command__command "$bobshell_result_2"'\'"$bobshell_newline"
-			continue
+# fun: shelduck_parse_command INPUT
+# res: true COMMAND REST
+shelduck_parse_command() {
+	_shelduck_parse_command__found=
+	_shelduck_parse_command__input="$1"
+	while [ -n "$_shelduck_parse_command__input" ]; do
+		bobshell_str_split_v3 "$_shelduck_parse_command__input" "${bobshell_newline}"
+		if bobshell_result_check _shelduck_parse_command__line _shelduck_parse_command__input; then
+			bobshell_var_append _shelduck_parse_command__found "$_shelduck_parse_command__line$bobshell_newline"
+			bobshell_str_suffix "$_shelduck_parse_command__line" '\'
+			unset _shelduck_parse_command__line
+			if ! bobshell_result_check; then
+				break
+			fi
 		else
-			_shelduck_next_command__rest="$bobshell_newline$_shelduck_next_command__rest"
-			bobshell_var_append _shelduck_next_command__command "$_shelduck_next_command__candidate"
-			bobshell_result_set_4 true "$_shelduck_next_command__skip" "$_shelduck_next_command__command" "$_shelduck_next_command__rest"
+			bobshell_var_append _shelduck_parse_command__found "$_shelduck_parse_command__input"
+			_shelduck_parse_command__input=
 			break
 		fi
 	done
-	unset _shelduck_next_command__skip _shelduck_next_command__command _shelduck_next_command__rest
+	bobshell_result_set true "$_shelduck_parse_command__found" "$_shelduck_parse_command__input"
+	unset _shelduck_parse_command__found _shelduck_parse_command__input
 }

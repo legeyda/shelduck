@@ -105,6 +105,7 @@ shelduck_compile_command() {
 	eval 'set -- '"$bobshell_result_2"
 
 	if [ "$1" != shelduck ]; then
+		unset _shelduck_compile_command__input
 		bobshell_result_set false shelduck_compile_command: unsupported command "$1"
 		return
 	fi
@@ -115,16 +116,15 @@ shelduck_compile_command() {
 			_shelduck_prepare_listener__subcmd="$1"
 			shift
 			set -- shelduck_compile_"$_shelduck_prepare_listener__subcmd" "$_shelduck_compile_command__input" "$@"
-			unset _shelduck_compile_command__input _shelduck_prepare_listener__subcmd
+			unset _shelduck_prepare_listener__subcmd
 			"$@"
 		;;
 
 		(*)
 			bobshell_result_set_2 false "shelduck_compile_listener: unsupported subcommand $1"
-			unset _shelduck_compile_command__input
-
 		;;
 	esac
+	unset _shelduck_compile_command__input
 }
 
 # fun: shelduck_compile_import INPUT IMPORTARGS ...
@@ -145,35 +145,6 @@ shelduck_compile_import() {
 
 }
 
-# fun: shelduck_localize_state ARGNAME ARGNAME ... -- cmd
-shelduck_localize_state() {
-
-	_shelduck_localize_state__i=1
-	_shelduck_localize_state__save=
-	_shelduck_localize_state__restore=
-	while [ $# -gt 0 ]; do
-		case "$1" in
-			(--)
-		 		shift
-				_shelduck_localize_state__i=$(( _shelduck_localize_state__i + 1 ))
-				break
-				;;
-
-			(*)
-
-				_shelduck_localize_state__save="$_shelduck_localize_state__save${_shelduck_localize_state__save:+ }$1"'="$'"$1"'"'
-
-				_shelduck_localize_state__restore="$_shelduck_localize_state__restore${_shelduck_localize_state__restore:+
-}$1"'="$'"$_shelduck_localize_state__i"'"'
-
-				shift
-				_shelduck_localize_state__i=$(( _shelduck_localize_state__i + 1 ))
-		esac
-	done
-	shift "$_shelduck_localize_state__i"
-	eval 'set -- '"$_shelduck_localize_state__save"' "$@"'
-	bobshell_shift_exec "$_shelduck_localize_state__shift" "$@"
-}
 
 # fun: shelduck_exec --shift 1 --prepend x -- 1 2 3
 shelduck_exec() {
@@ -217,7 +188,7 @@ shelduck_exec() {
 
 }
 
-# fun: shelduck_compile_include INPUT [INCLUDE ARGS ...]
+# fun: shelduck_compile_include INPUT URL [ ARGS ]
 shelduck_compile_include() {
 	shelduck_exec --shift=1 --prepend=shelduck_get -- "$@"
 	bobshell_result_assert -- shelduck_compile_include: shelduck_get
@@ -238,12 +209,13 @@ shelduck_compile_get() {
 	fi
 
 	_shelduck_compile_get__result_1='
-bobshell_result_size=2
-bobshell_result_1=true
-bobshell_result_2=$(cat <<\EOF_shelduck_compile_get
+shelduck_result=$(cat <<\EOF_shelduck_compile_get
 '"$_shelduck_compile_get__result_1"'
 EOF_shelduck_compile_get
 )
+bobshell_result_size=2
+bobshell_result_1=true
+bobshell_result_2="$shelduck_result"
 '
 
 	bobshell_result_set_3 true "$_shelduck_compile_get__result_1" "$_shelduck_compile_get__result_2"

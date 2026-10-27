@@ -51,7 +51,7 @@ shelduck_get_cli() {
 	unset _shelduck_get_cli__shift _shelduck_get_cli__raw _shelduck_get_cli__transform
 }
 
-# fun: shelduck_get [ -t | --transform | -T | --no-transform] URL
+# fun: shelduck_get [ -r | --raw ] URL
 # env: base_url
 shelduck_get() {
 

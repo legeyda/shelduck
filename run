@@ -31,8 +31,7 @@ run_init() {
 
 run_debug() {
 	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
-	reset
-	shelduck build ./test/test_via_bobshell.sh
+	shelduck build /home/user/box/workspace/bobshell/experimental/test_clifford.sh
 }
 
 run_die() {
@@ -209,7 +208,7 @@ fun 1 2 3")"
 
 
 	sh -euxc ". '$SHELDUCK_BUILD_ROOT/shelduck.sh'
-shelduck build ./test/test.sh" > target/test.sh
+shelduck build ./test/test.sh" > "$SHELDUCK_BUILD_ROOT/test.sh"
 	x2=$(sh -euxc ". '$SHELDUCK_BUILD_ROOT/test.sh'; fun 1 2 3")
 	test 'hello from baz 1 2 3' = "$x2"
 

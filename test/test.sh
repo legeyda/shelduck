@@ -1,5 +1,8 @@
 
 shelduck import ./subfolder/sub2folder/sub2dep.sh
-fun() {
-	foo "$@"
+
+shelduck transform replace g f
+
+gun() {
+	goo "$@"
 }

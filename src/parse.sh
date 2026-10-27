@@ -162,6 +162,8 @@ shelduck_next_command() {
 		if bobshell_result_check; then
 			break
 		fi
+
+		bobshell_var_append _shelduck_next_command__skip 'shelduck '
 	done
 	unset _shelduck_parse_command__zero_indent _shelduck_next_command__filter
 

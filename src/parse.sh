@@ -37,7 +37,7 @@ shelduck_parse_commands() {
 		set -- "$_shelduck_parse_commands__result" "$_shelduck_parse_commands__filter" "$@"
 
 		# recursive call
-		bobshell_shift_exec 2 "$@" "$_shelduck_parse_commands__before" "$_shelduck_parse_commands__command" "$_shelduck_parse_commands__input"
+		bobshell_shift_exec 2 "$@" "$_shelduck_parse_commands__command" "$_shelduck_parse_commands__input"
 		unset _shelduck_parse_commands__before _shelduck_parse_commands__command _shelduck_parse_commands__input
 
 		# restore state

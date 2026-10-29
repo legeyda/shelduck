@@ -52,11 +52,10 @@ shelduck_do_prepare() {
 	fi
 }
 
-# fun: shelduck_compile_command BEFORE COMMAND INPUT
+# fun: shelduck_compile_command COMMAND INPUT
 # implements: shelduck_parse_commands listener
 # res:
 shelduck_prepare_listener() {
-	shift # before ignored
 	_shelduck_prepare_listener__input="$2"
 
 	shelduck_split_args "$1"

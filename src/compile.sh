@@ -93,11 +93,10 @@ shelduck_do_compile() {
 	shelduck_parse_commands "$1" "import|get|include" shelduck_compile_command
 }
 
-# fun: shelduck_compile_command BEFORE COMMAND INPUT
+# fun: shelduck_compile_command COMMAND INPUT
 # implements: shelduck_parse_commands listener
 # res:
 shelduck_compile_command() {
-	shift # before ignored
 	_shelduck_compile_command__input="$2"
 
 	shelduck_split_args "$1"

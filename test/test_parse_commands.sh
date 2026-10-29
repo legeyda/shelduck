@@ -26,7 +26,7 @@ shelduck bye 3' "$y"
 }
 
 listner() {
-	x="${x:-}$2"
-	y="${y:-}$3"
-	bobshell_result_set true "$2" "$3"
+	x="${x:-}$1"
+	y="${y:-}$2"
+	bobshell_result_set true "$1" "$2"
 }

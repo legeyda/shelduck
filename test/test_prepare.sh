@@ -8,7 +8,7 @@ shelduck import ../src/shelduck.sh
 test_1() {
 	x='
 foo
-shelduck transform replace a b
+''shelduck transform replace a b
 baz'
 	shelduck_do_prepare "$x" http://url
 	bobshell_result_assert res
@@ -41,7 +41,7 @@ baz'
 test_4() {
 
 	shelduck_do_prepare 'foo
-shelduck transform replace a b
+''shelduck transform replace a b
 baz'
 	bobshell_result_assert res
 	assert_equals 'foo
@@ -52,7 +52,7 @@ bbz' "$res"
 
 test_sed() {
 	shelduck_do_prepare 'foo
-shelduck transform sed "s/a/b/g"
+''shelduck transform sed "s/a/b/g"
 baz'
 	bobshell_result_assert res
 	assert_equals 'foo

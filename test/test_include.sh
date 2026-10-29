@@ -10,8 +10,8 @@ test_runtime() {
 greet() {
 	printf %s "$@"
 }
-shelduck include ./test/test_include/include1.txt
-shelduck include ./test/test_include/include1.txt
+''shelduck include ./test/test_include/include1.txt
+''shelduck include ./test/test_include/include1.txt
 ')
 	assert_equals 'hellohello' "$x"
 }

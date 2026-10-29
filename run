@@ -22,7 +22,6 @@ run_init() {
 		printf '{}' > "$file"
 	fi
 
-
 	tempfile=$(mktemp)
 	cp --no-target-directory "$file" "$tempfile"
 	jq "$jqscript" "$tempfile" > "$file"
@@ -30,8 +29,8 @@ run_init() {
 }
 
 run_debug() {
-	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
-	shelduck build /home/user/box/workspace/bobshell/experimental/test_clifford.sh
+	set -eux
+	spacing sed 's/visit/shelduck_parse_visit/g' ./src/parse/visit.sh
 }
 
 run_die() {
@@ -90,18 +89,11 @@ run_build_shelduck() {
 			fetch_dependency "$dependency"
 			printf '\n%s\n\n' "$fetch_dependency_result"
 		done
-		cat_src_files | sed "/^shelduck import /d"
+		cat_src_files | sed "/^shelduck /d"
 	} > "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 
 	unset dependency fetch_dependency_result
 }
-
-#src_files=$(ls ./src)
-src_files='./src/util.sh ./src/url.sh ./src/cache.sh
-./src/prepare.sh
-./src/import.sh ./src/compile.sh ./src/parse.sh ./src/runtime.sh
-./src/deprecated.sh
-./src/shelduck.sh'
 
 extract_direct_imports() {
 	result=$(cat_src_files)
@@ -113,12 +105,20 @@ EOF
 
 
 cat_src_files() {
-	for src_file in $src_files; do
-		cat "$src_file"
-		echo
-		echo
-		echo
+	for src_file in ./src/util.sh ./src/url.sh ./src/cache.sh \
+	                ./src/prepare.sh \
+	                ./src/import.sh ./src/compile.sh ./src/parse.sh ./src/runtime.sh \
+	                ./src/deprecated.sh \
+	                ./src/shelduck.sh ; do
+		spacing cat "$src_file"
 	done
+}
+
+spacing() {
+	"$@"
+	echo
+	echo
+	echo
 }
 
 go_build_installer() {
@@ -158,25 +158,9 @@ fetch_url() {
 
 
 run_bobtest() {
-	init_previous_shelduck_release
+	. "$SHELDUCK_BUILD_ROOT/shelduck.sh"
 	shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/bobtest.sh
 	bobtest "${@:-test}"
-}
-
-init_previous_shelduck_release() {
-	: "${BOBSHELL_BUILD_ROOT:=./target}"
-	mkdir -p "$BOBSHELL_BUILD_ROOT"
-	if ! [ -f "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh" ]; then
-		curl --fail --silent --show-error --location https://github.com/legeyda/shelduck/releases/latest/download/shelduck.sh \
-				> "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh"
-
-		sed_i '' "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh"
-		bobshell_die MAKE REPLACEMENTS IN "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh"
-		# bobshell_result_set "$_bobshell_replace__result"
-		# _bobshell_str_quote__result="$_bobshell_str_quote__result$_bobshell_str_quote__separator'$bobshell_result_1'"
-		# printf %s "$bobshell_result_1"
-	fi
-	. "$BOBSHELL_BUILD_ROOT/shelduck_previous_release.sh"
 }
 
 sed_i() {

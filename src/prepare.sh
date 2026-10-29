@@ -45,7 +45,11 @@ shelduck_prepare() {
 # res: true RESULT
 #      false
 shelduck_do_prepare() {
-	shelduck_parse_commands --zero-indent -- "$1" transform shelduck_prepare_listener
+	if bobshell_str_match "$1" '*"shelduck transform "*'; then
+		shelduck_parse_commands "$1" transform shelduck_prepare_listener
+	else
+		bobshell_result_set true "$1"
+	fi
 }
 
 # fun: shelduck_compile_command BEFORE COMMAND INPUT

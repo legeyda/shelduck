@@ -8,7 +8,7 @@ shelduck import ../src/shelduck.sh
 test_1() {
 	x=
 	y=
-	shelduck_parse_commands --zero-indent 'shelduck hello 1
+	shelduck_parse_commands 'shelduck hello 1
 x
 shelduck wrong 2
 y

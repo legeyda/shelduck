@@ -7,6 +7,8 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/split_v2.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/split_v3.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/var/append.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/lstrip.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/append.sh
 
 
 
@@ -154,4 +156,72 @@ shelduck_parse_command() {
 	done
 	bobshell_result_set true "$_shelduck_parse_command__found" "$_shelduck_parse_command__input"
 	unset _shelduck_parse_command__found _shelduck_parse_command__input
+}
+
+# fun: shelduck_parse_heredoc  INPUT
+# res: true VALUE NEXT
+shelduck_parse_heredoc() {
+	bobshell_str_lstrip "$1" ' '
+	_shelduck_parse_heredoc="$bobshell_result_1"
+
+	bobshell_str_prefix "$_shelduck_parse_heredoc" '<<'
+	if ! bobshell_result_check _shelduck_parse_heredoc; then
+		unset _shelduck_parse_heredoc _shelduck_parse_heredoc__input
+		bobshell_result_set_2 false '"<<" expected'
+		return
+	fi
+
+
+	bobshell_str_split_v3 "$_shelduck_parse_heredoc" "$bobshell_newline"
+	if ! bobshell_result_check _shelduck_parse_heredoc _shelduck_parse_heredoc__input; then
+		unset _shelduck_parse_heredoc _shelduck_parse_heredoc__input
+		bobshell_result_set_2 false 'newline expected'
+		return
+	fi
+
+	if ! [ -n "$_shelduck_parse_heredoc" ]; then
+		unset _shelduck_parse_heredoc _shelduck_parse_heredoc__input
+		bobshell_result_set_2 false 'empty heredoc-constant'
+		return
+	fi
+
+	bobshell_str_prefix "$_shelduck_parse_heredoc" '\'
+	if bobshell_result_check _shelduck_parse_heredoc; then
+		:
+	else
+		bobshell_str_prefix "$_shelduck_parse_heredoc" "'"
+		if ! bobshell_result_check _shelduck_parse_heredoc; then
+			unset _shelduck_parse_heredoc _shelduck_parse_heredoc__input
+			bobshell_result_set_2 false 'only escaped heredocs supported'
+			return
+		fi
+		bobshell_str_suffix "$_shelduck_parse_heredoc" "'"
+		if ! bobshell_result_check _shelduck_parse_heredoc; then
+			unset _shelduck_parse_heredoc _shelduck_parse_heredoc__input
+			bobshell_result_set_2 false 'only escaped heredocs supported'
+			return
+		fi
+	fi
+
+	bobshell_str_match "$_shelduck_parse_heredoc" '*[!A-Za-z0-9_]*'
+	if bobshell_result_check; then
+		unset _shelduck_parse_heredoc _shelduck_parse_heredoc__input
+		bobshell_result_set_2 false 'heredoc contstant invalid'
+		return
+	fi
+
+
+	bobshell_str_suffix "$_shelduck_parse_heredoc__input" "$bobshell_newline""$_shelduck_parse_heredoc"
+	if bobshell_result_check; then
+		bobshell_result_append ''
+	else
+		bobshell_str_split_v3 "$_shelduck_parse_heredoc__input" "$bobshell_newline""$_shelduck_parse_heredoc""$bobshell_newline"
+		if ! bobshell_result_check; then
+			unset _shelduck_parse_heredoc _shelduck_parse_heredoc__input
+			bobshell_result_set_2 false 'heredoc end marker not found'
+			return
+		fi
+	fi
+	bobshell_result_2="$bobshell_result_2$bobshell_newline"
+	unset _shelduck_parse_heredoc _shelduck_parse_heredoc__input
 }

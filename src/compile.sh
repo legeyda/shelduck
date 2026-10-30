@@ -90,7 +90,7 @@ $_shelduck_compile_add_script"
 
 shelduck_do_compile() {
 	# todo assert no shelduck transform commands
-	shelduck_parse_commands "$1" "import|get|include" shelduck_compile_command
+	shelduck_parse_commands "$1" "import get include" shelduck_compile_command
 }
 
 # fun: shelduck_compile_command COMMAND INPUT
@@ -200,7 +200,7 @@ shelduck_compile_get() {
 	bobshell_result_assert _shelduck_compile_get__result_1 _shelduck_compile_get__result_2 \
 			-- shelduck_compile_get: shelduck_get
 
-	bobshell_str_match "$_shelduck_compile_get__result_1" "*'${bobshell_newline}EOF_shelduck_compile_get'*"
+	bobshell_str_match "$_shelduck_compile_get__result_1" "*${bobshell_newline}EOF_shelduck_compile_get*"
 	if bobshell_result_check; then
 		bobshell_log_error          "shelduck_compile_get: fetch result contains eof-string EOF_shelduck_compile_get"
 		bobshell_result_set_2 false "shelduck_compile_get: fetch result contains eof-string EOF_shelduck_compile_get"

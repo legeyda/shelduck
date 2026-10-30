@@ -23,7 +23,7 @@ footer' '*'
 
 
 test_next_cmd_3() {
-	shelduck_next_command 'shelduck y' 'x|y|z'
+	shelduck_next_command 'shelduck y' 'x y z'
 	assert_result_equals true '' 'shelduck y' ''
 }
 

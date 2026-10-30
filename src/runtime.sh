@@ -93,7 +93,7 @@ shelduck_get() {
 				_shelduck_get__transform=
 			fi
 			bobshell_str_strip "$_shelduck_get__cmd"
-			_shelduck_get__cmd="$bobshell_result_1"
+			_shelduck_get__cmd="$bobshell_result_2"
 			if [ -z "$_shelduck_get__cmd" ]; then
 				continue
 			fi

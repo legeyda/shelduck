@@ -115,7 +115,7 @@ shelduck_next_command() {
 			_shelduck_next_command__subcommand="$bobshell_result_1"
 		fi
 
-		bobshell_str_match "$_shelduck_next_command__subcommand" "$_shelduck_next_command__filter"
+		bobshell_str_match "$_shelduck_next_command__subcommand" $_shelduck_next_command__filter
 		unset _shelduck_next_command__subcommand
 		if bobshell_result_check; then
 			break

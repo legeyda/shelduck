@@ -162,7 +162,7 @@ shelduck_parse_command() {
 # res: true VALUE NEXT
 shelduck_parse_heredoc() {
 	bobshell_str_lstrip "$1" ' '
-	_shelduck_parse_heredoc="$bobshell_result_1"
+	_shelduck_parse_heredoc="$bobshell_result_2"
 
 	bobshell_str_prefix "$_shelduck_parse_heredoc" '<<'
 	if ! bobshell_result_check _shelduck_parse_heredoc; then

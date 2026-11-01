@@ -15,7 +15,7 @@ shelduck transform replace bstr bobshell_str
 shelduck transform replace bres bobshell_result
 
 
-# fun: heredoc  INPUT
+# fun: heredoc INPUT
 # res: true VALUE NEXT
 heredoc() {
 	bstr_lstrip "$1" ' '

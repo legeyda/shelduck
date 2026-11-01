@@ -3,7 +3,7 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/assert.sh
 
 
-shelduck import ../../src/shelduck.sh
+shelduck import ../../src/parse/heredoc.sh
 
 test_01() {
 	shelduck_parse_heredoc hello

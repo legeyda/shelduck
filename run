@@ -110,12 +110,14 @@ cat_src_files() {
 	                ./src/import.sh ./src/compile.sh ./src/parse.sh ./src/runtime.sh \
 	                ./src/deprecated.sh \
 	                ./src/shelduck.sh ; do
-		spacing cat "$src_file"
+		cat "$src_file"
+		spacing
 	done
+
+	# todo sed 's/heredoc/shelduck_parse_heredoc/g; s/bstr/bobshell_str/g; s/bres/bobshell_result/g' ./src/parse/heredoc.sh
 }
 
 spacing() {
-	"$@"
 	echo
 	echo
 	echo

@@ -19,11 +19,10 @@ shelduck_parse_unstruct() {
 
 	bobshell_str_split_v3 "$1" "$bobshell_newline"'shelduck '
 	if bobshell_result_check; then
-		set -- "$@" unstruct
-		bobshell_result_set true "$bobshell_result_2$bobshell_newline" 'shelduck '"$bobshell_result_3"
+		set -- "$@" unstruct "$bobshell_result_2$bobshell_newline" 'shelduck '"$bobshell_result_3"
 	else
-		bobshell_result_set true "$1" ''
+		set -- "$@" unstruct "$1" ''
 	fi
 
-	shelduck_parse_done
+	shelduck_parse_done "$@"
 }

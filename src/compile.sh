@@ -2,6 +2,8 @@
 
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/append.sh
 
+shelduck import ./parse/script.sh
+
 # fun: shelduck_compile URL
 # api: private
 # env: shelduck_base_url
@@ -90,8 +92,25 @@ $_shelduck_compile_add_script"
 
 shelduck_do_compile() {
 	# todo assert no shelduck transform commands
-	shelduck_parse_commands "$1" "import get include" shelduck_compile_command
+	shelduck_parse_script "$1" shelduck_do_compile_listener
 }
+
+
+shelduck_do_compile_listener() {
+	if [ $# -eq 4 ] && [ "$1" = script ]&& [ "$2" = command ]; then
+		shift 2
+		case "$1" in
+			('shelduck import '*|'shelduck get '*|'shelduck include '*)
+				shelduck_compile_command "$@"
+				bobshell_result_assert
+				bobshell_result_set true rewrite "$bobshell_result_2" "$bobshell_result_3"
+				return
+			;;
+		esac
+	fi
+	bobshell_result_set true noop
+}
+
 
 # fun: shelduck_compile_command COMMAND INPUT
 # implements: shelduck_parse_commands listener

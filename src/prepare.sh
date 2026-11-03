@@ -56,13 +56,14 @@ shelduck_do_prepare() {
 shelduck_do_prepare_listener() {
 	if [ $# -eq 4 ] && [ "$1" = script ]&& [ "$2" = command ]; then
 		shift 2
-		bobshell_str_prefix "$1" 'shelduck transform '
-		if bobshell_result_check; then
-			shelduck_prepare_listener "$@"
-			bobshell_result_assert
-			bobshell_result_set true rewrite '' "$bobshell_result_3"
-			return
-		fi
+		case "$1" in
+			('shelduck transform '*)
+				shelduck_prepare_listener "$@"
+				bobshell_result_assert
+				bobshell_result_set true rewrite '' "$bobshell_result_3"
+				return
+				;;
+		esac
 	fi
 	bobshell_result_set true noop
 }

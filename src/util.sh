@@ -19,3 +19,25 @@ shelduck_split_args() {
 	eval 'bobshell_str_quote '"$1" # todo fix injection
 	bobshell_result_set true "$bobshell_result_1"
 }
+
+
+shelduck_preserve1() {
+	eval 'set -- "$'"$1"'" "$@"'
+	set -- "$2="'"$3"' "$@"
+	bobshell_shiftexec 3 "$@"
+	eval "$1"
+}
+
+shelduck_preserve2() {
+	eval 'set -- "$'"$1"'" "$'"$2"'" "$@"'
+	set -- "$3"'="$2"; '"$4"'="$3"' "$@"
+	bobshell_shiftexec 5 "$@"
+	eval "$1"
+}
+
+shelduck_preserve3() {
+	eval 'set -- "$'"$1"'" "$'"$2"'" "$'"$3"'" "$@"'
+	set -- "$4"'="$2"; '"$5"'="$3"; '"$6"'="$4"' "$@"
+	bobshell_shiftexec 7 "$@"
+	eval "$1"
+}

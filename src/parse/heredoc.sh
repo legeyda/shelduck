@@ -15,6 +15,7 @@ shelduck transform replace bstr bobshell_str
 shelduck transform replace bres bobshell_result
 
 shelduck import ./done.sh
+shelduck import ../util.sh
 
 # fun: heredoc INPUT [LISTENER ... ]
 # res: true VALUE NEXT
@@ -104,26 +105,4 @@ heredoc() {
 $bres_2$_heredoc__footer" "$_heredoc__input"
 	unset _heredoc__header _heredoc__marker _heredoc__input
 	shelduck_parse_done "$@"
-}
-
-
-shelduck_preserve1() {
-	eval 'set -- "$'"$1"' "$@"'
-	set -- "$2="'"$3"' "$@"
-	bobshell_shiftexec 3 "$@"
-	eval "$1"
-}
-
-shelduck_preserve2() {
-	eval 'set -- "$'"$1"'" "$'"$2"' "$@"'
-	set -- "$3"'="$2"; '"$4"'="$3"' "$@"
-	bobshell_shiftexec 5 "$@"
-	eval "$1"
-}
-
-shelduck_preserve3() {
-	eval 'set -- "$'"$1"'" "$'"$2"'" "$'"$3"'" "$@"'
-	set -- "$4"'="$2"; '"$5"'="$3"; '"$6"'="$4"' "$@"
-	bobshell_shiftexec 7 "$@"
-	eval "$1"
 }

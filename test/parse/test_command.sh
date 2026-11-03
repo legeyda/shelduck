@@ -25,3 +25,12 @@ bye'
 hi
 ' bye
 }
+
+test_4() {
+	shelduck_parse_command 'hello \
+hi <<EOF
+bye'
+	assert_result_equals true 'hello \
+hi ' '<<EOF
+bye'
+}

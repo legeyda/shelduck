@@ -28,6 +28,21 @@ shelduck_parse_command() {
 
 	while true; do
 
+		bobshell_str_split_v3 "$_shelduck_parse_command__result" '<<'
+		if bobshell_result_check _shelduck_parse_command__left _shelduck_parse_command__right; then
+
+			bobshell_str_match "$_shelduck_parse_command__right" '*[!_A-Za-z\\'"'"']*
+'
+			if ! bobshell_result_check; then
+				set -- "$@" command "$_shelduck_parse_command__left" '<<'"$_shelduck_parse_command__right$_shelduck_parse_command__input"
+				unset _shelduck_parse_command__result _shelduck_parse_command__input
+				unset _shelduck_parse_command__left _shelduck_parse_command__right
+				shelduck_parse_done "$@"
+				return
+			fi
+			unset _shelduck_parse_command__left _shelduck_parse_command__right
+		fi
+
 		# todo if ends with '\' then error newline expected
 		if ! bobshell_ends_with "$_shelduck_parse_command__result" '\'"$bobshell_newline"; then
 			set -- "$@" command "$_shelduck_parse_command__result" "$_shelduck_parse_command__input"

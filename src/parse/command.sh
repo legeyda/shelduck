@@ -22,7 +22,7 @@ shelduck_parse_command() {
 
 	shelduck_parse_line "$@"
 	if ! bobshell_result_check _shelduck_parse_command__result _shelduck_parse_command__input; then
-		bobshell_result_insert 1 'line expected'
+		bobshell_result_insert 2 'line expected'
 		return
 	fi
 
@@ -56,7 +56,7 @@ shelduck_parse_command() {
 				shelduck_parse_sub shelduck_parse_line "$_shelduck_parse_command__input" "$@" command
 
 		if ! bobshell_result_check; then
-			bobshell_result_insert 1 'line expected'
+			bobshell_result_insert 2 'line expected'
 			return
 		fi
 

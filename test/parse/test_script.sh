@@ -60,3 +60,10 @@ listner() {
 	fi
 	# x="$x"'<'"$(printf '<%s> ' "$@")"'> '
 }
+
+test_02() {
+	shelduck_parse_script 'shelduck four <<EOF
+
+EOF'
+	assert_result_equals false 'correct eof expected:' 'only escaped heredocs supported'
+}

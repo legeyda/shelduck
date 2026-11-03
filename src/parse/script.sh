@@ -50,12 +50,19 @@ scr() {
 				_scr__result="$_scr__result$bobshell_result_2"
 				_scr__input="$bobshell_result_3"
 
-				shelduck_preserve2 _scr__result _scr__input \
-						shelduck_parse_sub shelduck_parse_heredoc "$_scr__input" "$@" sc''ript
-				if bobshell_result_check; then
+				if bobshell_starts_with "$_scr__input" '<<'; then
+					shelduck_preserve2 _scr__result _scr__input \
+							shelduck_parse_sub shelduck_parse_heredoc "$_scr__input" "$@" sc''ript
+					if ! bobshell_result_check; then
+						unset _scr__result _scr__input
+						bobshell_result_insert 2 'correct eof expected:'
+						return
+					fi
 					_scr__result="$_scr__result$bobshell_result_2"
 					_scr__input="$bobshell_result_3"
 				fi
+
+
 
 
 				;;

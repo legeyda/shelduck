@@ -20,7 +20,7 @@ shelduck_parse_command() {
 		set -- "$@" :
 	fi
 
-	shelduck_parse_line "$@"
+	shelduck_parse_line "$@" command
 	if ! bobshell_result_check _shelduck_parse_command__result _shelduck_parse_command__input; then
 		bobshell_result_insert 2 'line expected'
 		return

@@ -1,7 +1,8 @@
 
 
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/misc/shiftexec.sh
 
-shelduck import ./parse.sh
+shelduck import ./parse/script.sh
 
 
 # fun: shelduck_prepare ABSURL
@@ -46,10 +47,24 @@ shelduck_prepare() {
 #      false
 shelduck_do_prepare() {
 	if bobshell_str_match "$1" '*shelduck transform *'; then
-		shelduck_parse_commands "$1" transform shelduck_prepare_listener
+		shelduck_parse_script "$1" shelduck_do_prepare_listener
 	else
 		bobshell_result_set true "$1"
 	fi
+}
+
+shelduck_do_prepare_listener() {
+	if [ $# -eq 4 ] && [ "$1" = script ]&& [ "$2" = command ]; then
+		shift 2
+		bobshell_str_prefix "$1" 'shelduck transform '
+		if bobshell_result_check; then
+			shelduck_prepare_listener "$@"
+			bobshell_result_assert
+			bobshell_result_set true rewrite '' "$bobshell_result_3"
+			return
+		fi
+	fi
+	bobshell_result_set true noop
 }
 
 # fun: shelduck_compile_command COMMAND INPUT
@@ -97,7 +112,7 @@ shelduck_prepare_transform() {
 		bobshell_str_replace "$1" "$3" "$4"
 		bobshell_result_set_3 true '' "$bobshell_result_2"
 	elif [ sed = "$2" ]; then
-		if ! _shelduck_transform_item__result=$(printf %s "$1" | bobshell_shift_exec 1 "$@"); then
+		if ! _shelduck_transform_item__result=$(printf %s "$1" | bobshell_shiftexec 1 "$@"); then
 			unset _shelduck_transform_item__result
 			_shelduck_prepare_transform__msg='error getting error message'
 			_shelduck_prepare_transform__msg=$(printf %s "$_shelduck_prepare_transform__input" | "$@" 1>/dev/null 2>&1) || true

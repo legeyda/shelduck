@@ -114,8 +114,17 @@ cat_src_files() {
 		spacing
 	done
 
+	cat ./src/parse/sub.sh
+	spacing
+
+	cat ./src/parse/done.sh
+	spacing
+
 	cat ./src/parse/command.sh
-	cat ./src/parse/unstruct.sh
+	spacing
+	#cat ./src/parse/unstruct.sh
+	cat ./src/parse/line.sh
+	spacing
 
 	# todo sed 's/heredoc/shelduck_parse_heredoc/g; s/bstr/bobshell_str/g; s/bres/bobshell_result/g' ./src/parse/heredoc.sh
 }

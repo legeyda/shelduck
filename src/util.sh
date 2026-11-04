@@ -1,4 +1,10 @@
 
+
+
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/quote.sh
+
+
+
 shelduck_str_equals() {
 	case "$1" in
 		("$2") return ;;

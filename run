@@ -107,7 +107,7 @@ EOF
 cat_src_files() {
 	for src_file in ./src/util.sh ./src/url.sh ./src/cache.sh \
 	                ./src/prepare.sh \
-	                ./src/import.sh ./src/compile.sh ./src/parse.sh ./src/runtime.sh \
+	                ./src/import.sh ./src/compile.sh ./src/runtime.sh \
 	                ./src/deprecated.sh \
 	                ./src/shelduck.sh ; do
 		cat "$src_file"

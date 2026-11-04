@@ -23,6 +23,7 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/util.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/prefix.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/suffix.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/quote.sh
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/cache/get.sh
 
 shelduck import ./util.sh
@@ -33,7 +34,6 @@ shelduck import ./prepare.sh
 
 shelduck import ./import.sh
 shelduck import ./compile.sh
-shelduck import ./parse.sh
 shelduck import ./runtime.sh
 
 shelduck import ./deprecated.sh

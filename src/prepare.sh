@@ -1,6 +1,13 @@
 
 
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/misc/shiftexec.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/check.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/insert.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/isset.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/set.sh
+
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/match.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/replace.sh
 
 shelduck import ./parse/script.sh
 
@@ -54,25 +61,45 @@ shelduck_do_prepare() {
 }
 
 shelduck_do_prepare_listener() {
-	if [ $# -eq 4 ] && [ "$1" = script ] && [ "$2" = command ]; then
+	if [ $# -lt 4 ] || [ "$1" != script ] || [ "$2" != command ]; then
+		bobshell_result_set true noop
+		return
+	fi
+
+	if   [ $# -eq 5 ] && [ "$3" = argv ]; then
+		_shelduck_do_prepare_listener__argv="$4"
+	elif [ $# -eq 6 ] && [ "$3" = heredoc ] && [ "$4" = content ]; then
+		_shelduck_do_prepare_listener__stdin="$5"
+	elif [ $# -eq 4 ]; then
 		shift 2
 		case "$1" in
 			('shelduck transform '*)
-				shelduck_prepare_listener "$@"
+				if bobshell_isset _shelduck_do_prepare_listener__stdin; then
+					bobshell_die 'shelduck transform: heredoc not supported'
+					unset _shelduck_do_prepare_listener__stdin
+				else
+					shelduck_prepare_listener "$_shelduck_do_prepare_listener__argv" "$2"
+				fi
+				unset _shelduck_do_prepare_listener__argv
 				bobshell_result_assert
 				bobshell_result_set true rewrite '' "$bobshell_result_3"
 				return
 				;;
 		esac
+		unset _shelduck_do_prepare_listener__stdin _shelduck_do_prepare_listener__argv
 	fi
-	bobshell_result_set true noop
 }
 
-# fun: shelduck_compile_command COMMAND INPUT
+
+# fun: shelduck_compile_command COMMAND AFTER [ STDIN ]
 # implements: shelduck_parse_commands listener
-# res:
+# res: true AFTER
 shelduck_prepare_listener() {
-	_shelduck_prepare_listener__input="$2"
+	_shelduck_prepare_listener__after="$2"
+	unset _shelduck_prepare_listener__stdin
+	if [ $# -ge 3 ]; then
+		_shelduck_prepare_listener__stdin="$3"
+	fi
 
 	shelduck_split_args "$1"
 	bobshell_result_assert
@@ -88,14 +115,14 @@ shelduck_prepare_listener() {
 		(transform)
 			_shelduck_prepare_listener__subcmd="$1"
 			shift
-			set -- shelduck_prepare_"$_shelduck_prepare_listener__subcmd" "$_shelduck_prepare_listener__input" "$@"
-			unset _shelduck_prepare_listener__input _shelduck_prepare_listener__subcmd
+			set -- shelduck_prepare_"$_shelduck_prepare_listener__subcmd" "$_shelduck_prepare_listener__after" "$@"
+			unset _shelduck_prepare_listener__after _shelduck_prepare_listener__subcmd
 			"$@"
 		;;
 
 		(*)
 			bobshell_result_set_2 false "shelduck_prepare_listener: unsupported subcommand $1"
-			unset _shelduck_prepare_listener__input
+			unset _shelduck_prepare_listener__after
 
 		;;
 	esac

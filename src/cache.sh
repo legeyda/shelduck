@@ -1,6 +1,10 @@
 
 
 
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/check.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/set.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/quote.sh
+
 ################ CACHING ####################
 
 # fun: shelduck_cache_get CACHENAME FILEPATH

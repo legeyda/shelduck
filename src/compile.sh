@@ -97,24 +97,46 @@ shelduck_do_compile() {
 
 
 shelduck_do_compile_listener() {
-	if [ $# -eq 4 ] && [ "$1" = script ]&& [ "$2" = command ]; then
+	if [ $# -lt 4 ] || [ "$1" != script ] || [ "$2" != command ]; then
+		bobshell_result_set true noop
+		return
+	fi
+
+	if   [ $# -eq 5 ] && [ "$3" = argv ]; then
+		_shelduck_do_compile_listener__argv="$4"
+	elif [ $# -eq 6 ] && [ "$3" = heredoc ] && [ "$4" = content ]; then
+		_shelduck_do_compile_listener__stdin="$5"
+	elif [ $# -eq 4 ]; then
 		shift 2
 		case "$1" in
 			('shelduck import '*|'shelduck get '*|'shelduck include '*)
-				shelduck_compile_command "$@"
+				if bobshell_isset _shelduck_do_compile_listener__stdin; then
+					bobshell_die 'shelduck transform: heredoc not implemented (yet)'
+					shelduck_compile_command "$_shelduck_do_compile_listener__argv" "$2" "$_shelduck_do_compile_listener__stdin"
+					unset _shelduck_do_compile_listener__stdin
+				else
+					shelduck_compile_command "$_shelduck_do_compile_listener__argv" "$2"
+				fi
+				unset _shelduck_do_compile_listener__argv
 				bobshell_result_assert
-				bobshell_result_set true rewrite "$bobshell_result_2" "$bobshell_result_3"
+				bobshell_result_set true rewrite "$bobshell_result_2" "$2"
 				return
 			;;
+			('shelduck transform '*)
+				bobshell_die "assertion failed: transforms not supported in this phase"
+				;;
 		esac
+		unset _shelduck_do_compile_listener__stdin _shelduck_do_compile_listener__argv
 	fi
 	bobshell_result_set true noop
+
+
 }
 
 
-# fun: shelduck_compile_command COMMAND INPUT
+# fun: shelduck_compile_command COMMAND INPUT [ StDIN]
 # implements: shelduck_parse_commands listener
-# res:
+# res: true INSERT
 shelduck_compile_command() {
 	_shelduck_compile_command__input="$2"
 

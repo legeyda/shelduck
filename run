@@ -114,6 +114,12 @@ cat_src_files() {
 		spacing
 	done
 
+	cat ./src/parse/command/argv.sh
+	spacing
+
+	cat ./src/parse/command/line.sh
+	spacing
+
 	cat ./src/parse/command.sh
 	spacing
 

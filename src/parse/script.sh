@@ -43,28 +43,15 @@ scr() {
 			('shelduck '*)
 				shelduck_preserve2 _scr__result _scr__input \
 						shelduck_parse_sub shelduck_parse_command "$_scr__input" "$@" sc''ript
-				if ! bobshell_result_check; then
-					break
-				fi
-
-				_scr__result="$_scr__result$bobshell_result_2"
-				_scr__input="$bobshell_result_3"
-
-				if bobshell_starts_with "$_scr__input" '<<'; then
-					shelduck_preserve2 _scr__result _scr__input \
-							shelduck_parse_sub shelduck_parse_heredoc "$_scr__input" "$@" sc''ript
-					if ! bobshell_result_check; then
-						unset _scr__result _scr__input
-						bobshell_result_insert 2 'correct eof expected:'
-						return
-					fi
+				if bobshell_result_check; then
 					_scr__result="$_scr__result$bobshell_result_2"
 					_scr__input="$bobshell_result_3"
+				else
+					_scr__result="$_scr__result"'shelduck '
+					bobshell_str_prefix "$_scr__input" 'shelduck '
+					bobshell_result_assert _scr__input
+					continue
 				fi
-
-
-
-
 				;;
 
 			(*)
@@ -76,9 +63,6 @@ scr() {
 
 				_scr__result="$_scr__result$bobshell_result_2"
 				_scr__input="$bobshell_result_3"
-
-
-
 				;;
 
 

@@ -54,7 +54,7 @@ shelduck_do_prepare() {
 }
 
 shelduck_do_prepare_listener() {
-	if [ $# -eq 4 ] && [ "$1" = script ]&& [ "$2" = command ]; then
+	if [ $# -eq 4 ] && [ "$1" = script ] && [ "$2" = command ]; then
 		shift 2
 		case "$1" in
 			('shelduck transform '*)

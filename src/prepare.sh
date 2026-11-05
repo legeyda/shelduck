@@ -54,39 +54,37 @@ shelduck_prepare() {
 #      false
 shelduck_do_prepare() {
 	if bobshell_str_match "$1" '*shelduck transform *'; then
-		shelduck_parse_script "$1" shelduck_do_prepare_listener
+		shelduck_parse_script "$1" shelduck_prepare_listener
 	else
 		bobshell_result_set true "$1"
 	fi
 }
 
-shelduck_do_prepare_listener() {
-	if [ $# -lt 4 ] || [ "$1" != script ] || [ "$2" != command ]; then
+shelduck_prepare_listener() {
+	if [ $# -ge 4 ] && [ "$1" = script ] && [ "$2" = command ]; then
+		if   [ $# -eq 5 ] && [ "$3" = argv ]; then
+			_shelduck_prepare_listener__argv="$4"
+		elif [ $# -eq 6 ] && [ "$3" = heredoc ] && [ "$4" = content ]; then
+			_shelduck_prepare_listener__stdin="$5"
+		elif [ $# -eq 4 ]; then
+			shift 2
+			case "$1" in
+				('shelduck transform '*)
+					if bobshell_isset _shelduck_prepare_listener__stdin; then
+						bobshell_die 'shelduck transform: heredoc not supported in prepare phase'
+					fi
+					shelduck_prepare_command "$_shelduck_prepare_listener__argv" "$2"
+					unset _shelduck_prepare_listener__argv
+					bobshell_result_assert
+					bobshell_result_set true rewrite '' "$bobshell_result_3"
+					return
+					;;
+			esac
+			unset _shelduck_prepare_listener__stdin _shelduck_prepare_listener__argv
+		fi
+	else
+		unset _shelduck_prepare_listener__argv _shelduck_prepare_listener__stdin
 		bobshell_result_set true noop
-		return
-	fi
-
-	if   [ $# -eq 5 ] && [ "$3" = argv ]; then
-		_shelduck_do_prepare_listener__argv="$4"
-	elif [ $# -eq 6 ] && [ "$3" = heredoc ] && [ "$4" = content ]; then
-		_shelduck_do_prepare_listener__stdin="$5"
-	elif [ $# -eq 4 ]; then
-		shift 2
-		case "$1" in
-			('shelduck transform '*)
-				if bobshell_isset _shelduck_do_prepare_listener__stdin; then
-					bobshell_die 'shelduck transform: heredoc not supported'
-					unset _shelduck_do_prepare_listener__stdin
-				else
-					shelduck_prepare_listener "$_shelduck_do_prepare_listener__argv" "$2"
-				fi
-				unset _shelduck_do_prepare_listener__argv
-				bobshell_result_assert
-				bobshell_result_set true rewrite '' "$bobshell_result_3"
-				return
-				;;
-		esac
-		unset _shelduck_do_prepare_listener__stdin _shelduck_do_prepare_listener__argv
 	fi
 }
 
@@ -94,11 +92,11 @@ shelduck_do_prepare_listener() {
 # fun: shelduck_compile_command COMMAND AFTER [ STDIN ]
 # implements: shelduck_parse_commands listener
 # res: true AFTER
-shelduck_prepare_listener() {
-	_shelduck_prepare_listener__after="$2"
-	unset _shelduck_prepare_listener__stdin
+shelduck_prepare_command() {
+	_shelduck_prepare_command__after="$2"
+	unset _shelduck_prepare_command__stdin
 	if [ $# -ge 3 ]; then
-		_shelduck_prepare_listener__stdin="$3"
+		_shelduck_prepare_command__stdin="$3"
 	fi
 
 	shelduck_split_args "$1"
@@ -106,23 +104,23 @@ shelduck_prepare_listener() {
 	eval 'set -- '"$bobshell_result_2"
 
 	if [ "$1" != shelduck ]; then
-		bobshell_result_set false shelduck_prepare_listener: unsupported command "$1"
+		bobshell_result_set false shelduck_prepare_command: unsupported command "$1"
 		return
 	fi
 	shift
 
 	case "$1" in
 		(transform)
-			_shelduck_prepare_listener__subcmd="$1"
+			_shelduck_prepare_command__subcmd="$1"
 			shift
-			set -- shelduck_prepare_"$_shelduck_prepare_listener__subcmd" "$_shelduck_prepare_listener__after" "$@"
-			unset _shelduck_prepare_listener__after _shelduck_prepare_listener__subcmd
+			set -- shelduck_prepare_"$_shelduck_prepare_command__subcmd" "$_shelduck_prepare_command__after" "$@"
+			unset _shelduck_prepare_command__after _shelduck_prepare_command__subcmd
 			"$@"
 		;;
 
 		(*)
-			bobshell_result_set_2 false "shelduck_prepare_listener: unsupported subcommand $1"
-			unset _shelduck_prepare_listener__after
+			bobshell_result_set_2 false "shelduck_prepare_command: unsupported subcommand $1"
+			unset _shelduck_prepare_command__after
 
 		;;
 	esac

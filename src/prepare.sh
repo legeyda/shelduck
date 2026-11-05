@@ -76,7 +76,7 @@ shelduck_prepare_listener() {
 					shelduck_prepare_command "$_shelduck_prepare_listener__argv" "$2"
 					unset _shelduck_prepare_listener__argv
 					bobshell_result_assert
-					bobshell_result_set true rewrite '' "$bobshell_result_3"
+					bobshell_result_set true rewrite '' "$bobshell_result_2"
 					return
 					;;
 			esac
@@ -89,7 +89,7 @@ shelduck_prepare_listener() {
 }
 
 
-# fun: shelduck_compile_command COMMAND AFTER [ STDIN ]
+# fun: shelduck_compile_command COMMAND INPUT
 # implements: shelduck_parse_commands listener
 # res: true AFTER
 shelduck_prepare_command() {
@@ -136,7 +136,7 @@ shelduck_prepare_transform() {
 			return
 		fi
 		bobshell_str_replace "$1" "$3" "$4"
-		bobshell_result_set_3 true '' "$bobshell_result_2"
+		bobshell_result_set_2 true "$bobshell_result_2"
 	elif [ sed = "$2" ]; then
 		if ! _shelduck_transform_item__result=$(printf %s "$1" | bobshell_shiftexec 1 "$@"); then
 			unset _shelduck_transform_item__result
@@ -146,7 +146,7 @@ shelduck_prepare_transform() {
 			unset _shelduck_prepare_transform__msg
 			return
 		fi
-		bobshell_result_set_3 true '' "$_shelduck_transform_item__result"
+		bobshell_result_set_2 true "$_shelduck_transform_item__result"
 		unset _shelduck_transform_item__result
 	else
 		bobshell_result_set false shelduck transform: command "$1" not supported

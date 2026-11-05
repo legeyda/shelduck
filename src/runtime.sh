@@ -101,7 +101,7 @@ shelduck_get() {
 			bobshell_result_assert
 			eval "$bobshell_result_2"
 			bobshell_result_assert
-			_shelduck_get__result="$bobshell_result_2$bobshell_result_3"
+			_shelduck_get__result="$bobshell_result_2"
 		done
 	fi
 	unset _shelduck_get__transform

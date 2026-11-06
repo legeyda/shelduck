@@ -92,47 +92,62 @@ $_shelduck_compile_add_script"
 
 shelduck_do_compile() {
 	# todo assert no shelduck transform commands
-	shelduck_parse_script "$1" shelduck_do_compile_listener
+	shelduck_parse_script "$1" shelduck_compile_listener
 }
 
 
-shelduck_do_compile_listener() {
-	if [ $# -lt 4 ] || [ "$1" != script ] || [ "$2" != command ]; then
+# fun: shelduck_compile_listener TYPE [ MORE TYPES ... ] FOUND AFTER
+shelduck_compile_listener() {
+	if [ $# -ge 4 ] && [ "$1" = script ] && [ "$2" = command ]; then
+		# clean global state when command exit
+		if   [ $# -eq 5 ] && [ "$3" = argv ]; then
+			_shelduck_compile_listener__argv="$4"
+		elif [ $# -eq 6 ] && [ "$3" = heredoc ] && [ "$4" = content ]; then
+			_shelduck_compile_listener__stdin="$5"
+		elif [ $# -eq 4 ]; then
+			shift 2
+			case "$1" in
+				('shelduck import '*|'shelduck get '*|'shelduck include '*)
+					case "$1" in
+						('shelduck import '*|'shelduck get '*)
+							if bobshell_isset _shelduck_compile_listener__stdin; then
+								bobshell_die 'shelduck transform: heredoc not implemented (yet)'
+							fi
+							;;
+						('shelduck include '*)
+							bobshell_str_rstrip "$1" ' '
+							bobshell_str_suffix "$bobshell_result_2" '"$@"'
+							if ! bobshell_result_set _shelduck_compile_listener__cmd; then
+								bobshell_die 'include should receive "$@" as last argument'
+							fi
+							;;
+						(*)
+							bobshell_die 'assertion failed' ;;
+					esac
+
+					if bobshell_isset _shelduck_compile_listener__stdin; then
+						bobshell_die 'shelduck transform: heredoc not implemented (yet)'
+						shelduck_compile_command "$_shelduck_compile_listener__argv" "$2" "$_shelduck_compile_listener__stdin"
+						unset _shelduck_compile_listener__stdin
+					else
+						shelduck_compile_command "$_shelduck_compile_listener__argv" "$2"
+					fi
+					unset _shelduck_compile_listener__argv
+					bobshell_result_assert
+					bobshell_result_set true rewrite "$bobshell_result_2" "$2"
+					return
+					;;
+				('shelduck transform '*)
+					bobshell_die "assertion failed: transforms not supported in this phase"
+					;;
+			esac
+			unset _shelduck_compile_listener__stdin _shelduck_compile_listener__argv
+		fi
+	else
+		unset _shelduck_compile_listener__argv _shelduck_compile_listener__stdin
 		bobshell_result_set true noop
-		return
 	fi
-
-	if   [ $# -eq 5 ] && [ "$3" = argv ]; then
-		_shelduck_do_compile_listener__argv="$4"
-	elif [ $# -eq 6 ] && [ "$3" = heredoc ] && [ "$4" = content ]; then
-		_shelduck_do_compile_listener__stdin="$5"
-	elif [ $# -eq 4 ]; then
-		shift 2
-		case "$1" in
-			('shelduck import '*|'shelduck get '*|'shelduck include '*)
-				if bobshell_isset _shelduck_do_compile_listener__stdin; then
-					bobshell_die 'shelduck transform: heredoc not implemented (yet)'
-					shelduck_compile_command "$_shelduck_do_compile_listener__argv" "$2" "$_shelduck_do_compile_listener__stdin"
-					unset _shelduck_do_compile_listener__stdin
-				else
-					shelduck_compile_command "$_shelduck_do_compile_listener__argv" "$2"
-				fi
-				unset _shelduck_do_compile_listener__argv
-				bobshell_result_assert
-				bobshell_result_set true rewrite "$bobshell_result_2" "$2"
-				return
-			;;
-			('shelduck transform '*)
-				bobshell_die "assertion failed: transforms not supported in this phase"
-				;;
-		esac
-		unset _shelduck_do_compile_listener__stdin _shelduck_do_compile_listener__argv
-	fi
-	bobshell_result_set true noop
-
-
 }
-
 
 # fun: shelduck_compile_command COMMAND INPUT [ StDIN]
 # implements: shelduck_parse_commands listener
@@ -153,15 +168,15 @@ shelduck_compile_command() {
 
 	case "$1" in
 		(import|get|include)
-			_shelduck_prepare_listener__subcmd="$1"
+			_shelduck_compile_command__subcmd="$1"
 			shift
-			set -- shelduck_compile_"$_shelduck_prepare_listener__subcmd" "$_shelduck_compile_command__input" "$@"
-			unset _shelduck_prepare_listener__subcmd
+			set -- shelduck_compile_"$_shelduck_compile_command__subcmd" "$_shelduck_compile_command__input" "$@"
+			unset _shelduck_compile_command__subcmd
 			"$@"
 		;;
 
 		(*)
-			bobshell_result_set_2 false "shelduck_compile_listener: unsupported subcommand $1"
+			bobshell_result_set_2 false "shelduck_compile_command: unsupported subcommand $1"
 		;;
 	esac
 	unset _shelduck_compile_command__input

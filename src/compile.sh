@@ -109,12 +109,12 @@ shelduck_compile_listener() {
 			case "$1" in
 				('shelduck import '*|'shelduck get '*|'shelduck include '*)
 					case "$1" in
-						('shelduck import '*|'shelduck get '*)
+						('shelduck import '*)
 							if bobshell_isset _shelduck_compile_listener__stdin; then
-								bobshell_die 'shelduck transform: heredoc not implemented (yet)'
+								bobshell_die 'shelduck transform: heredoc not supported for imports'
 							fi
 							;;
-						('shelduck include '*)
+						('shelduck get '*|'shelduck include '*)
 							bobshell_str_rstrip "$1" ' '
 							bobshell_str_suffix "$bobshell_result_2" '"$@"'
 							if ! bobshell_result_set _shelduck_compile_listener__cmd; then
@@ -127,10 +127,10 @@ shelduck_compile_listener() {
 
 					if bobshell_isset _shelduck_compile_listener__stdin; then
 						bobshell_die 'shelduck transform: heredoc not implemented (yet)'
-						shelduck_compile_command "$_shelduck_compile_listener__argv" "$2" "$_shelduck_compile_listener__stdin"
+						shelduck_compile_command "$_shelduck_compile_listener__argv" "$_shelduck_compile_listener__stdin"
 						unset _shelduck_compile_listener__stdin
 					else
-						shelduck_compile_command "$_shelduck_compile_listener__argv" "$2"
+						shelduck_compile_command "$_shelduck_compile_listener__argv"
 					fi
 					unset _shelduck_compile_listener__argv
 					bobshell_result_assert
@@ -149,18 +149,14 @@ shelduck_compile_listener() {
 	fi
 }
 
-# fun: shelduck_compile_command COMMAND INPUT [ StDIN]
-# implements: shelduck_parse_commands listener
+# fun: shelduck_compile_command COMMAND
 # res: true INSERT
 shelduck_compile_command() {
-	_shelduck_compile_command__input="$2"
-
 	shelduck_split_args "$1"
 	bobshell_result_assert
 	eval 'set -- '"$bobshell_result_2"
 
 	if [ "$1" != shelduck ]; then
-		unset _shelduck_compile_command__input
 		bobshell_result_set false shelduck_compile_command: unsupported command "$1"
 		return
 	fi
@@ -170,7 +166,7 @@ shelduck_compile_command() {
 		(import|get|include)
 			_shelduck_compile_command__subcmd="$1"
 			shift
-			set -- shelduck_compile_"$_shelduck_compile_command__subcmd" "$_shelduck_compile_command__input" "$@"
+			set -- shelduck_compile_"$_shelduck_compile_command__subcmd" "$@"
 			unset _shelduck_compile_command__subcmd
 			"$@"
 		;;
@@ -179,93 +175,37 @@ shelduck_compile_command() {
 			bobshell_result_set_2 false "shelduck_compile_command: unsupported subcommand $1"
 		;;
 	esac
-	unset _shelduck_compile_command__input
 }
 
-# fun: shelduck_compile_import INPUT IMPORTARGS ...
+# fun: shelduck_compile_import IMPORTARGS ...
 shelduck_compile_import() {
-	_shelduck_compile_import__input="$1"
-	shift
-
 	bobshell_log_debug shelduck_compile_import: url is "$@"
-
-	set -- "$_shelduck_compile_import__input" shelduck_compile "$@"
-	unset _shelduck_compile_import__input
-
-	bobshell_shift_exec 1 "$@"
-	bobshell_result_assert _shelduck_compile_import__compile_result
-
-	bobshell_result_set_3 true "$_shelduck_compile_import__compile_result" "$1"
-	unset _shelduck_compile_import__compile_result
-
+	shelduck_compile "$@"
+	bobshell_result_assert
 }
 
-
-# fun: shelduck_exec --shift 1 --prepend x -- 1 2 3
-shelduck_exec() {
-	_shelduck_exec__prepend_flag=false
-	_shelduck_exec__shift=0
-	while [ $# -gt 0 ]; do
-		case "$1" in
-			(--)
-				shift
-				break
-				;;
-			(--shift)
-				_shelduck_exec__shift=$(( _shelduck_exec__shift + $2 ))
-				shift 2
-				;;
-			(--shift=*)
-				_shelduck_exec__shift=$(( _shelduck_exec__shift + ${1#*=} ))
-				shift
-				;;
-			(--prepend)
-				_shelduck_exec__prepend_flag=true
-				_shelduck_exec__prepend="$2"
-				shift 2
-				;;
-			(--prepend=*)
-				_shelduck_exec__prepend_flag=true
-				_shelduck_exec__prepend="${1#*=}"
-				shift
-				;;
-		esac
-	done
-
-	shift "$_shelduck_exec__shift"
-	unset _shelduck_exec__shift
-
-	if [ true = "$_shelduck_exec__prepend_flag" ]; then
-		"$_shelduck_exec__prepend" "$@"
-	else
-		"$@"
-	fi
-
-}
 
 # fun: shelduck_compile_include INPUT URL [ ARGS ]
 shelduck_compile_include() {
-	shelduck_exec --shift=1 --prepend=shelduck_get -- "$@"
+	shelduck_get "$@"
 	bobshell_result_assert -- shelduck_compile_include: shelduck_get
-	bobshell_result_set true "$bobshell_result_2" "$1"
 }
 
 # fun: shelduck_compile_get URL
 shelduck_compile_get() {
 	shelduck_compile_include "$@"
-	bobshell_result_assert _shelduck_compile_get__result_1 _shelduck_compile_get__result_2 \
-			-- shelduck_compile_get: shelduck_get
+	bobshell_result_assert _shelduck_compile_get__result -- shelduck_compile_get: shelduck_get
 
-	bobshell_str_match "$_shelduck_compile_get__result_1" "*${bobshell_newline}EOF_shelduck_compile_get*"
+	bobshell_str_match "$_shelduck_compile_get__result" "*${bobshell_newline}EOF_shelduck_compile_get*"
 	if bobshell_result_check; then
 		bobshell_log_error          "shelduck_compile_get: fetch result contains eof-string EOF_shelduck_compile_get"
 		bobshell_result_set_2 false "shelduck_compile_get: fetch result contains eof-string EOF_shelduck_compile_get"
 		return
 	fi
 
-	_shelduck_compile_get__result_1='
+	_shelduck_compile_get__result='
 shelduck_result=$(cat <<\EOF_shelduck_compile_get
-'"$_shelduck_compile_get__result_1"'
+'"$_shelduck_compile_get__result"'
 EOF_shelduck_compile_get
 )
 bobshell_result_size=2
@@ -273,7 +213,6 @@ bobshell_result_1=true
 bobshell_result_2="$shelduck_result"
 '
 
-	bobshell_result_set_3 true "$_shelduck_compile_get__result_1" "$_shelduck_compile_get__result_2"
-
-	unset _shelduck_compile_get__result_1 _shelduck_compile_get__result_2
+	bobshell_result_set_2 true "$_shelduck_compile_get__result"
+	unset _shelduck_compile_get__result
 }

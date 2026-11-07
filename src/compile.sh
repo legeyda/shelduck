@@ -126,8 +126,9 @@ shelduck_compile_listener() {
 					esac
 
 					if bobshell_isset _shelduck_compile_listener__stdin; then
-						bobshell_die 'shelduck (compile): heredoc not implemented (yet)'
-						shelduck_compile_command "$_shelduck_compile_listener__argv" "$_shelduck_compile_listener__stdin"
+						shelduck_compile_command "$_shelduck_compile_listener__argv" <<EOF
+$_shelduck_compile_listener__stdin
+EOF
 						unset _shelduck_compile_listener__stdin
 					else
 						shelduck_compile_command "$_shelduck_compile_listener__argv"

@@ -14,12 +14,11 @@ EOF'
 	assert_equals 'true' "$test_flag"
 }
 
-# test_compile() {
-# 	x=$(shelduck build 'val:shelduck include --raw - <<\EOF
-# hello
-# EOF
-# ')
-#
-# 	assert_equals 'hello
-# ' "$x"
-# }
+test_compile() {
+	x=$(shelduck build 'val:shelduck include --raw - <<\EOF
+hello
+EOF
+')
+
+	assert_equals 'hello' "$x"
+}

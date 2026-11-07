@@ -22,3 +22,12 @@ EOF
 
 	assert_equals 'hello' "$x"
 }
+
+test_compile_2() {
+	x=$(shelduck build 'val:shelduck include --transform="replace l I" --raw - <<\EOF
+heIIo
+EOF
+')
+
+	assert_equals 'heIIo' "$x"
+}

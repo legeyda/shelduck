@@ -79,7 +79,9 @@ shelduck_prepare_listener() {
 					bobshell_result_set true rewrite '' "$bobshell_result_2"
 					return
 					;;
-				# (*) bobshell_result_set false 'only transform supported in this phase'
+				(*)
+					bobshell_result_set_2 true cancel # false 'only transform supported in this phase'
+					;;
 			esac
 			unset _shelduck_prepare_listener__stdin _shelduck_prepare_listener__argv
 		fi

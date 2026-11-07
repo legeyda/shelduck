@@ -23,13 +23,13 @@ shelduck_parse_done() {
 				while [ $# -gt 2 ]; do
 					shift
 				done
-				bobshell_result_set true "$@"
+				bobshell_result_set_3 true "$@"
 				;;
 			(cancel) #
-				bobshell_result_set false 'cancelled by listener'
+				bobshell_result_set_2 false 'cancelled by listener'
 				;;
 			(rewrite)
-				bobshell_result_set true "$bobshell_result_3" "$bobshell_result_4"
+				bobshell_result_set_3 true "$bobshell_result_3" "$bobshell_result_4"
 				;;
 			(*)
 				bobshell_die unsupported listener command "$bobshell_result_2"

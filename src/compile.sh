@@ -138,7 +138,11 @@ shelduck_compile_listener() {
 					return
 					;;
 				('shelduck transform '*)
-					bobshell_die "assertion failed: transforms not supported in this phase"
+					bobshell_die "assertion failed: transforms not supported in compile phase"
+					;;
+				(*)
+					#bobshell_die "assertion failed: command not supported in compile phase: $1"
+					bobshell_result_set true cancel
 					;;
 			esac
 			unset _shelduck_compile_listener__stdin _shelduck_compile_listener__argv

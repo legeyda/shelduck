@@ -68,15 +68,30 @@ shelduck_get_cli_clear() {
 }
 
 
-
-# fun: shelduck_get [ -r | --raw ] URL
-# env: base_url
-shelduck_get() {
-
+shelduck_include() {
 	shelduck_get_cli "$@"
 	shift "$_shelduck_get_cli__shift"
 	unset _shelduck_get_cli__shift
 
+	shelduck_do_get "$1"
+	shift
+	bobshell_result_assert -- shelduck_include: shelduck_get
+	eval "$bobshell_result_2"
+}
+
+
+# fun: shelduck_get [ -r | --raw ] [ -t|--transform txformation ] URL
+shelduck_get() {
+	shelduck_get_cli "$@"
+	shift "$_shelduck_get_cli__shift"
+	unset _shelduck_get_cli__shift
+
+	shelduck_do_get "$@"
+}
+
+
+# env: shelduck_get_cli cli
+shelduck_do_get() {
 
 	bobshell_log_trace "shelduck_get: $*"
 	if ! [ $# = 1 ]; then
@@ -93,9 +108,9 @@ shelduck_get() {
 			shelduck_get_cli_clear
 			bobshell_die 'stdin alreay consumed'
 		fi
-		_shelduck_get__result=$(cat)
+		_shelduck_do_get__result=$(cat)
 		if [ false = "$_shelduck_get_cli__raw" ]; then
-			shelduck_do_prepare "$_shelduck_get__result"
+			shelduck_do_prepare "$_shelduck_do_get__result"
 			if ! bobshell_result_check; then
 				bobshell_log_error "shelduck_get: do_prepare failed"
 				shelduck_get_cli_clear
@@ -111,7 +126,7 @@ shelduck_get() {
 			shelduck_get_cli_clear
 			bobshell_result_set_2 false 'shelduck_get: fetch failed'
 		fi
-		_shelduck_get__result="$bobshell_result_2"
+		_shelduck_do_get__result="$bobshell_result_2"
 	else
 		shelduck_fix_url "$1" # todo shelduck_fix_url does not return boolean as first result
 		shelduck_do_fetch "$bobshell_result_1"
@@ -120,39 +135,32 @@ shelduck_get() {
 			shelduck_get_cli_clear
 			bobshell_result_set_2 false 'shelduck_get: prepare failed'
 		fi
-		_shelduck_get__result="$bobshell_result_2"
+		_shelduck_do_get__result="$bobshell_result_2"
 	fi
 	unset _shelduck_get_cli__raw
 
 	if [ -n "$_shelduck_get_cli__transform" ]; then
 		while [ -n "$_shelduck_get_cli__transform" ]; do
 			bobshell_str_split_v3 "$_shelduck_get_cli__transform" "$bobshell_newline"
-			if ! bobshell_result_check _shelduck_get__cmd _shelduck_get_cli__transform; then
-				_shelduck_get__cmd="$_shelduck_get_cli__transform"
+			if ! bobshell_result_check _shelduck_do_get__cmd _shelduck_get_cli__transform; then
+				_shelduck_do_get__cmd="$_shelduck_get_cli__transform"
 				_shelduck_get_cli__transform=
 			fi
-			bobshell_str_strip "$_shelduck_get__cmd"
-			_shelduck_get__cmd="$bobshell_result_2"
-			if [ -z "$_shelduck_get__cmd" ]; then
+			bobshell_str_strip "$_shelduck_do_get__cmd"
+			_shelduck_do_get__cmd="$bobshell_result_2"
+			if [ -z "$_shelduck_do_get__cmd" ]; then
 				continue
 			fi
-			shelduck_split_args 'shelduck_prepare_transform "$_shelduck_get__result" '"$_shelduck_get__cmd"
+			shelduck_split_args 'shelduck_prepare_transform "$_shelduck_do_get__result" '"$_shelduck_do_get__cmd"
 			bobshell_result_assert
 			eval "$bobshell_result_2"
 			bobshell_result_assert
-			_shelduck_get__result="$bobshell_result_2"
+			_shelduck_do_get__result="$bobshell_result_2"
 		done
 	fi
 	unset _shelduck_get_cli__transform
 
 	shelduck_get_cli_clear
-	bobshell_result_set_2 true "$_shelduck_get__result"
-	unset  _shelduck_get__result
-}
-
-
-shelduck_include() {
-	shelduck_get "$@"
-	bobshell_result_assert -- shelduck_include: shelduck_get
-	eval "$bobshell_result_2"
+	bobshell_result_set_2 true "$_shelduck_do_get__result"
+	unset  _shelduck_do_get__result
 }

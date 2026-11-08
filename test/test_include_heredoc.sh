@@ -31,3 +31,11 @@ EOF
 
 	assert_equals 'heIIo' "$x"
 }
+
+test_compile_4() {
+	_test_compile_4__flag=none
+shelduck include --transform='replace false true' --raw - "$@" <<\EOF
+_test_compile_4__flag=false
+EOF
+	assert_equals true "$_test_compile_4__flag"
+}

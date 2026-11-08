@@ -1,6 +1,7 @@
 
 
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/append.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/rstrip.sh
 
 shelduck import ./parse/script.sh
 
@@ -106,19 +107,19 @@ shelduck_compile_listener() {
 			_shelduck_compile_listener__stdin="$5"
 		elif [ $# -eq 4 ]; then
 			shift 2
-			case "$1" in
+			case "$_shelduck_compile_listener__argv" in
 				('shelduck import '*|'shelduck get '*|'shelduck include '*)
-					case "$1" in
+					case "$_shelduck_compile_listener__argv" in
 						('shelduck import '*)
 							if bobshell_isset _shelduck_compile_listener__stdin; then
 								bobshell_die 'shelduck transform: heredoc not supported for imports'
 							fi
 							;;
-						('shelduck get '*|'shelduck include '*)
-							bobshell_str_rstrip "$1" ' '
-							bobshell_str_suffix "$bobshell_result_2" '"$@"'
-							if ! bobshell_result_set _shelduck_compile_listener__cmd; then
-								bobshell_die 'include should receive "$@" as last argument'
+						('shelduck include '*)
+							bobshell_str_rstrip "$_shelduck_compile_listener__argv" ' '
+							bobshell_str_suffix "$bobshell_result_1" ' "$@"'
+							if ! bobshell_result_check _shelduck_compile_listener__argv; then
+								bobshell_die 'include should receive "$@" as last argument (to ensure consistent behaviour in runtime)'
 							fi
 							;;
 						(*)
@@ -190,9 +191,14 @@ shelduck_compile_import() {
 }
 
 
-# fun: shelduck_compile_include INPUT URL [ ARGS ]
+# fun: shelduck_compile_include URL [ ARGS ]
 shelduck_compile_include() {
-	shelduck_get "$@"
+	shelduck_get_cli "$@"
+	shift "$_shelduck_get_cli__shift"
+	unset _shelduck_get_cli__shift
+
+	shelduck_do_get "$1"
+	# args ignored
 	bobshell_result_assert -- shelduck_compile_include: shelduck_get
 }
 

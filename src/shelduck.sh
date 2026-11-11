@@ -80,7 +80,6 @@ shelduck() {
 
 shelduck_init() {
 	shelduck_cache_ttl="${SHELDUCK_FILE_CACHE_TTL:-3600}"
-
 	shelduck_cache_dir="${SHELDUCK_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/shelduck}"
 	mkdir -p "$shelduck_cache_dir/remote" "$shelduck_cache_dir/transform"
 }

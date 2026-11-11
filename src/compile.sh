@@ -116,17 +116,17 @@ shelduck_compile_listener() {
 							fi
 							;;
 						('shelduck include '*)
-							bobshell_str_rstrip "$_shelduck_compile_listener__argv" ' '
+							bobshell_str_rstrip "$_shelduck_compile_listener__argv"
 							bobshell_str_suffix "$bobshell_result_1" ' "$@"'
 							if ! bobshell_result_check _shelduck_compile_listener__argv; then
 								bobshell_die 'include should receive "$@" as last argument (to ensure consistent behaviour in runtime)'
 							fi
 							;;
-						(*)
-							bobshell_die 'assertion failed' ;;
 					esac
 
 					if bobshell_isset _shelduck_compile_listener__stdin; then
+						bobshell_str_suffix "$_shelduck_compile_listener__stdin" "$bobshell_newline"
+						bobshell_result_check _shelduck_compile_listener__stdin || true
 						shelduck_compile_command "$_shelduck_compile_listener__argv" <<EOF
 $_shelduck_compile_listener__stdin
 EOF
@@ -143,7 +143,6 @@ EOF
 					bobshell_die "assertion failed: transforms not supported in compile phase"
 					;;
 				(*)
-					#bobshell_die "assertion failed: command not supported in compile phase: $1"
 					bobshell_result_set true cancel
 					;;
 			esac

@@ -141,6 +141,9 @@ cat_src_files() {
 	cat ./src/parse/unstruct.sh
 	spacing
 
+	cat ./src/prepare/transform.sh
+	spacing
+
 
 }
 

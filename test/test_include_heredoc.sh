@@ -15,7 +15,7 @@ EOF'
 }
 
 test_compile() {
-	x=$(shelduck build 'val:shelduck include --raw - <<\EOF
+	x=$(shelduck build 'val:shelduck include --raw - "$@" <<\EOF
 hello
 EOF
 ')
@@ -24,7 +24,7 @@ EOF
 }
 
 test_compile_2() {
-	x=$(shelduck build 'val:shelduck include --transform="replace l I" --raw - <<\EOF
+	x=$(shelduck build 'val:shelduck include --transform="replace l I" --raw - "$@" <<\EOF
 heIIo
 EOF
 ')

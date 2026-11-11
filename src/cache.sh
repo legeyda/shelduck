@@ -212,8 +212,8 @@ shelduck_fcache_get() {
 		fi
 		unset _shelduck_fcache_get__fts _shelduck_fcache_get__deadline
 
-		_shelduck_fcache_get__result=$(cat)
-		bobshell_result_set_2 true "$_shelduck_fcache_get__result"
+		bobshell_result_set_2 true ''
+		bobshell_resource_copy_stdin_to_var '' bobshell_result_2
 
 	} < "$_shelduck_fcache_get__file"
 }

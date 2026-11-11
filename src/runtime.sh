@@ -56,7 +56,7 @@ shelduck_get_cli_transform() {
 			bobshell_die stdin already consumed
 		fi
 		_shelduck_get_cli__stdin_flag=true
-		_shelduck_get_cli_transform__stdin=$(cat)
+		bobshell_resource_copy_stdin_to_var '' _shelduck_get_cli_transform__stdin
 		set -- "$_shelduck_get_cli_transform__stdin"
 		unset _shelduck_get_cli_transform__stdin
 	fi
@@ -108,7 +108,7 @@ shelduck_do_get() {
 			shelduck_get_cli_clear
 			bobshell_die 'stdin alreay consumed'
 		fi
-		_shelduck_do_get__result=$(cat)
+		bobshell_resource_copy_stdin_to_var '' _shelduck_do_get__result
 		if [ false = "$_shelduck_get_cli__raw" ]; then
 			shelduck_do_prepare "$_shelduck_do_get__result"
 			if ! bobshell_result_check; then

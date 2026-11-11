@@ -10,7 +10,7 @@ shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/ma
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/str/replace.sh
 
 shelduck import ./parse/script.sh
-
+shelduck import ./prepare/transform.sh
 
 # fun: shelduck_prepare ABSURL
 # res: true SCRIPT
@@ -128,31 +128,4 @@ shelduck_prepare_command() {
 		;;
 	esac
 
-}
-
-
-# fun: shelduck_prepare_transform INPUT [ TRANSFORMARGS ]
-shelduck_prepare_transform() {
-	if [ replace = "$2" ]; then
-		if [ $# -lt 4 ]; then
-			bobshell_result_set_2 false '2 arguments expected'
-			return
-		fi
-		bobshell_str_replace "$1" "$3" "$4"
-		bobshell_result_set_2 true "$bobshell_result_2"
-	elif [ sed = "$2" ]; then
-		if ! _shelduck_transform_item__result=$(printf %s "$1" | bobshell_shiftexec 1 "$@"); then
-			unset _shelduck_transform_item__result
-			_shelduck_prepare_transform__msg='error getting error message'
-			_shelduck_prepare_transform__msg=$(printf %s "$_shelduck_prepare_transform__input" | "$@" 1>/dev/null 2>&1) || true
-			bobshell_result_set_2 false "sed invocation error: $_shelduck_prepare_transform__msg"
-			unset _shelduck_prepare_transform__msg
-			return
-		fi
-		bobshell_result_set_2 true "$_shelduck_transform_item__result"
-		unset _shelduck_transform_item__result
-	else
-		bobshell_result_set false shelduck transform: command "$1" not supported
-		return
-	fi
 }

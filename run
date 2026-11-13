@@ -61,7 +61,8 @@ var/set.sh var/append.sh var/increment.sh var/default.sh var/get.sh var/print.sh
 misc/equals_any.sh
 regex/match.sh
 str/match.sh
-cli/setup.sh cli/parse.sh cli/help.sh'
+cli/setup.sh cli/parse.sh cli/help.sh
+misc/subcommand.sh'
 
 
 transitive_imports_after='str/replace.sh str/split_v2.sh
@@ -175,6 +176,9 @@ run_build_installer() {
 fetch_dependency() {
 	fetch_url "$1"
 	fetch_dependency_result=$(printf '%s' "$fetch_url_result" | sed -E 's/^(shelduck .*)$/# disable recursive dependency resolution when building shelduck itself\n# \1/g')
+	if [ experimental/clifford.sh = "$1" ]; then
+		fetch_dependency_result=$(printf %s "$fetch_dependency_result" | sed 's/clf/bobshell_clifford/g')
+	fi
 	unset fetch_url_result
 	fetch_dependency_result="$fetch_dependency_result
 

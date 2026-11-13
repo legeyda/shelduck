@@ -1,9 +1,12 @@
 
 shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/event/stop.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/result/assert.sh
+shelduck import https://raw.githubusercontent.com/legeyda/bobshell/refs/heads/main/experimental/clifford.sh
 
 
 bobshell_event_listen shelduck_transform_event 'shelduck_transform_replace_listener "$@"'
 bobshell_event_listen shelduck_transform_event 'shelduck_transform_sed_listener "$@"'
+bobshell_event_listen shelduck_transform_event 'shelduck_transform_clifford_listener "$@"'
 
 
 # fun: shelduck_prepare_transform INPUT [ TRANSFORMARGS ]
@@ -37,6 +40,13 @@ shelduck_transform_sed_listener() {
 		fi
 		bobshell_result_set_2 true "$_shelduck_transform_item__result"
 		unset _shelduck_transform_item__result
+		bobshell_event_stop
+	fi
+}
+
+shelduck_transform_clifford_listener() {
+	if [ clifford = "$2" ]; then
+		bobshell_clifford_compile "$1"
 		bobshell_event_stop
 	fi
 }

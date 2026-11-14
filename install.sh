@@ -24,16 +24,8 @@ install_shelduck() {
 	bobshell_install_put_executable stdin: "$SHELDUCK_INSTALL_NAME" <<eof
 #!/bin/sh
 set -eu
-if [ import = "\${1:-}" ] || [ fetch = "\${1:-}" ]; then
-	printf "\$1"' subcommand not available when run from installed script %s\n' "\$0"
-	printf "Instead source library:\n"
-	printf '. "%s"\n' '$SHELDUCK_LIBRARY_PATH'
-	printf 'shelduck '
-	printf ' %s' "\$@"
-	exit 1
-fi
 . '$SHELDUCK_LIBRARY_PATH'
-shelduck "\$@"
+shelduck_exe "\$@"
 eof
 
 	bobshell_install_put_executable stdin: "${SHELDUCK_INSTALL_NAME}_run" <<eof

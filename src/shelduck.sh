@@ -87,20 +87,52 @@ shelduck_init() {
 shelduck_init
 
 shelduck_exe() {
+	shelduck_exe_check "$@"
+	shelduck "$@"
+}
+
+shelduck_exe_check() {
+	unset _shelduck_exe__error
 	case "$1" in
 		(import|include)
-			bobshell_die "$1"' not available when run from installed script. Source shelduck.sh instead.' ;;
+			# completely unsupported commands
+			_shelduck_exe__error="$1"' not available when run from installed script. Source shelduck.sh instead.'
+			;;
 		(build|resolve|get)
+			# commands with cli api: [OPTIONS] INPUT [OUTPUT], which do not support var-output
+			if [ get = "$1" ]; then
+				shift
+				shelduck_get_cli "$@"
+				shift "$_shelduck_get_cli__shift"
+				shelduck_get_cli_clear
+			else
+				shift
+			fi
+			if [ $# -le 1 ]; then
+				return
+			fi
 			for _shelduck_exe__arg; do
 				:
 			done
-			bobshell_str_prefix "$1" var:
-			if bobshell_result_check; then
-				bobshell_die "$1"' to variable not supported when run from insalled script. Source shelduck.sh instead.'
+			bobshell_str_prefix "$_shelduck_exe__arg" var:
+			unset _shelduck_exe__arg
+			if ! bobshell_result_check; then
+				return
 			fi
-		;;
+			_shelduck_exe__error="$1"' to variable not available when run from installed script. Source shelduck.sh instead.'
+			;;
+		(*)
+			return
+			;;
 	esac
-	shelduck "$@"
+
+	bobshell_str_quote "$@"
+	bobshell_die "$_shelduck_exe__error"'
+Instead source library:
+. '"${SHELDUCK_LIBRARY_PATH:-${XDG_DATA_HOME:-$HOME/.local/share}/shelduck/shelduck.sh}"'
+''shelduck '"$bobshell_result_1"
+
+	unset _shelduck_exe__error
 }
 
 

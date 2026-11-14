@@ -86,6 +86,24 @@ shelduck_init() {
 
 shelduck_init
 
+shelduck_exe() {
+	case "$1" in
+		(import|include)
+			bobshell_die "$1"' not available when run from installed script. Source shelduck.sh instead.' ;;
+		(build|resolve|get)
+			for _shelduck_exe__arg; do
+				:
+			done
+			bobshell_str_prefix "$1" var:
+			if bobshell_result_check; then
+				bobshell_die "$1"' to variable not supported when run from insalled script. Source shelduck.sh instead.'
+			fi
+		;;
+	esac
+	shelduck "$@"
+}
+
+
 shelduck_subcommand() {
 	_shelduck_subcommand="$1"
 	shift
@@ -161,21 +179,34 @@ shelduck_run() {
 
 
 
-# shelduck_build URL
+# shelduck_build URL [ OUTPUTLOCATOR ]
 # api: public
 # build -> compile -> process_imports -> compile ...
 shelduck_build() {
 	bobshell_log_debug shelduck_build: "$@"
 
+	if [ $# = 1 ]; then
+		set -- "$1" stdout:
+	elif [ $# = 2 ]; then
+		if [ - = "$2" ];  then
+			set -- "$1" stdout:
+		fi
+	else
+		bobshell_die 'shelduck build receives one or two positional arguments'
+	fi
+
+
 	shelduck_ensure_base_url
 
 
 	# save state
-	set -- "${shelduck_compile_history:-}" "${shelduck_base_url:-}" shelduck_compile "$@"
+	set -- "${shelduck_compile_history:-}" "${shelduck_base_url:-}" "$@"
+	unset shelduck_compile_history shelduck_base_url
+
 
 	# recursive call
 	_shelduck_compile_history=
-	shelduck_shift_exec 2 "$@"
+	shelduck_compile "$3"
 
 	# restore state
 	unset shelduck_compile_history
@@ -186,6 +217,7 @@ shelduck_build() {
 	if [ -n "$2" ]; then
 		shelduck_base_url="$2"
 	fi
+	shift 2
 
 	bobshell_result_assert _shelduck_build__result -- 'shelduck build failed'
 
@@ -196,7 +228,7 @@ shelduck_build() {
 
 	bobshell_log_debug shelduck_build: result for "$1": "$_shelduck_build__result"
 
-	printf %s "$_shelduck_build__result"
+	bobshell_resource_copy var:_shelduck_build__result "$2"
 	unset _shelduck_build__result
 }
 
